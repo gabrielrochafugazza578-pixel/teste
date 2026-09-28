@@ -148,6 +148,7 @@ export class Game {
 
   // ------------------------------------------------------------ carregamento de nivel
   loadLevel(dg, silent) {
+    if (this.cine && !this.cine.done) this.cine.finish();
     this.disposeLevel();
     const theme = this.theme = dg.theme;
     this.dg = dg;
@@ -168,7 +169,7 @@ export class Game {
     this.staticProps = sp; scene.add(sp.group);
     for (const f of sp.flames) scene.add(f);
     this.flames = sp.flames;
-    this.lights = [];
+    this.lights = []; this.slotL = []; this._lt = undefined;
     for (const l of sp.lights) this.addLight(l.x, l.y, l.z, l.color, l.intensity, l.dist, l.flicker);
     for (const l of dg.lightsExtra) this.addLight(l.x, l.y, l.z, l.color, l.intensity, l.dist, 0.2);
     if (dg.cell.some(c => c === C.LAVA)) this.addLavaLights();
@@ -275,36 +276,65 @@ export class Game {
     return l;
   }
   removeLight(l) { const i = this.lights.indexOf(l); if (i >= 0) this.lights.splice(i, 1); }
+  // distribui as luzes da cena pelas poucas luzes reais do renderizador. Cada luz acende e apaga
+  // suavemente (peso l.w) e ha folga na escolha, para nada piscar quando duas tochas disputam a vaga.
   updateLights() {
-    this.frameN = (this.frameN || 0) + 1;
+    const dt = Math.min(0.1, Math.max(0, this.time - (this._lt ?? this.time))); this._lt = this.time;
     const t = this.time, cx = this.camTarget.x, cz = this.camTarget.z;
-    const list = [];
+    const n = this.poolSize, S = Math.min(this.shadowLights, n), R = Math.min(3, Math.max(1, n >> 2));
+    const slots = this.slotL || (this.slotL = []);
+    const cand = [];
     for (const l of this.lights) {
-      if (l.intensity <= 0.01) continue;
-      const d = Math.hypot(l.x - cx, l.z - cz);
-      if (d > 32 || d - l.dist > 20) continue;
-      list.push([d - (l.priority ? 8 : 0), l]);
+      l.d = Math.hypot(l.x - cx, l.z - cz);
+      if (l.intensity <= 0.01 || l.d > 34 || l.d - l.dist > 20) { l.sel = false; continue; }
+      l.score = l.d - (l.priority ? 8 : 0) - (l.sel ? 2.5 : 0);
+      cand.push(l);
     }
-    list.sort((a, b) => a[0] - b[0]);
-    // as luzes que projetam sombra ficam com as fontes fixas mais proximas (tochas, braseiros)
-    const n = this.poolSize, S = this.shadowLights;
-    const shadowable = list.filter(e => e[1].flicker >= 0.5 && !e[1].priority).slice(0, S);
-    const rest = list.filter(e => !shadowable.includes(e));
-    const order = shadowable.concat(rest);
+    cand.sort((a, b) => a.score - b.score);
+    const selN = Math.max(1, n - R);
+    for (let i = 0; i < cand.length; i++) cand[i].sel = i < selN;
+    const k = 1 - Math.exp(-7 * dt);
+    const active = [];
+    for (const l of this.lights) {
+      const w = l.w || 0;
+      if (!l.sel && w <= 0.004) { l.w = 0; continue; }
+      l.w = w + ((l.sel ? 1 : 0) - w) * k;
+      active.push(l);
+    }
+    active.sort((a, b) => (b.sel - a.sel) || (b.w - a.w));
+    for (let i = n; i < active.length; i++) active[i].w = 0;
+    active.length = Math.min(active.length, n);
+    const act = new Set(active);
+    for (let i = 0; i < POOL_MAX; i++) if (slots[i] && (i >= n || !act.has(slots[i]))) slots[i] = null;
+    // vagas com sombra: tochas proximas; quem ja tem a sombra so a perde se sair do grupo das S+1 melhores
+    if (S > 0) {
+      const torches = active.filter(l => l.sel && l.flicker >= 0.5 && !l.priority).sort((a, b) => a.d - b.d);
+      const keep = new Set(torches.slice(0, S + 1));
+      for (let i = 0; i < S; i++) if (slots[i] && !keep.has(slots[i])) slots[i] = null;
+      for (const l of torches.slice(0, S)) {
+        if (slots.indexOf(l) >= 0 && slots.indexOf(l) < S) continue;
+        const free = slots.findIndex((x, i) => i < S && !x);
+        if (free < 0) break;
+        const old = slots.indexOf(l); if (old >= 0) slots[old] = null;
+        slots[free] = l;
+      }
+    }
+    for (const l of active) {
+      if (slots.indexOf(l) >= 0) continue;
+      let free = -1;
+      for (let i = S; i < n; i++) if (!slots[i]) { free = i; break; }
+      if (free < 0) for (let i = 0; i < S; i++) if (!slots[i]) { free = i; break; }
+      if (free >= 0) slots[free] = l; else l.w = 0;
+    }
     for (let i = 0; i < POOL_MAX; i++) {
-      const pl = this.pool[i];
-      const e = i < S ? shadowable[i] : order[i - S + shadowable.length];
-      if (i < n && e) {
-        const l = e[1];
+      const pl = this.pool[i], l = i < n ? slots[i] : null;
+      if (l) {
         const f = 1 + l.flicker * (Math.sin(t * 9 + l.phase) * 0.07 + Math.sin(t * 23 + l.phase * 3) * 0.05 + Math.sin(t * 3.1 + l.phase) * 0.04);
         pl.position.set(l.x, l.y, l.z);
         pl.color.copy(l.color);
-        const fade = clamp((32 - e[0]) / 6, 0, 1);
-        pl.intensity = l.intensity * f * fade;
+        pl.intensity = l.intensity * f * l.w * clamp((34 - l.d) / 6, 0, 1);
         pl.distance = l.dist;
-        // sombras das tochas: metade atualiza em cada quadro (alternando), o que corta o custo pela metade
-        // o mapa de sombra precisa existir antes de pausar a atualizacao: sem ele o WebGL recusa desenhar a cena
-        if (pl.castShadow) { const moved = pl.userData.lx !== l.x || pl.userData.lz !== l.z; pl.shadow.autoUpdate = !pl.shadow.map || moved || ((i + this.frameN) % 2 === 0); pl.userData.lx = l.x; pl.userData.lz = l.z; }
+        if (pl.castShadow) pl.shadow.autoUpdate = true;
       } else { pl.intensity = 0; if (pl.castShadow) pl.shadow.autoUpdate = !pl.shadow.map; }
     }
     const p = this.player;
@@ -442,15 +472,15 @@ export class Game {
     this.shakeAmt = Math.min(1, Math.max(this.shakeAmt, a));
   }
   slashFx(p, range, arc, final) {
-    const col = p.has('melee', 'chamas') ? 0xff8a3a : p.has('melee', 'trovao') ? 0x9ad8ff : 0xfff2dc;
+    const col = p.has('melee', 'chamas') ? 0xff8a3a : p.has('melee', 'trovao') ? 0x9ad8ff : 0xe8dcc4;
     const geo = new THREE.RingGeometry(range * 0.3, range, 24, 1, -Math.PI / 2 - arc / 2, arc);
-    const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: final ? 0.6 : 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: final ? 0.34 : 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const m = new THREE.Mesh(geo, mat);
     m.rotation.order = 'YXZ'; m.rotation.x = -Math.PI / 2; m.rotation.y = p.rot;
     m.position.set(p.x, p.y + 0.95, p.z);
     this.scene.add(m);
     let t = 0;
-    this.effects.push({ update: (dt) => { t += dt; mat.opacity = (final ? 0.6 : 0.4) * (1 - t / 0.18); m.scale.setScalar(1 + t * 1.2); if (t > 0.18) { this.scene.remove(m); geo.dispose(); mat.dispose(); return false; } return true; } });
+    this.effects.push({ update: (dt) => { t += dt; mat.opacity = (final ? 0.34 : 0.22) * (1 - t / 0.18); m.scale.setScalar(1 + t * 1.2); if (t > 0.18) { this.scene.remove(m); geo.dispose(); mat.dispose(); return false; } return true; } });
   }
   explosion(x, y, z, R, col, small = false, vol = 1) {
     this.particles.burst(x, y, z, small ? 24 : 50, col, R * 2.2, 0.7, small ? 0.28 : 0.4, 2);
@@ -988,12 +1018,20 @@ export class Game {
     const sx = (Math.random() - 0.5) * s * 0.6, sy = (Math.random() - 0.5) * s * 0.6;
     this.camera.position.set(this.camTarget.x + CAM_OFF.x * this.zoom + sx, this.camTarget.y + CAM_OFF.y * this.zoom + sy, this.camTarget.z + CAM_OFF.z * this.zoom - sx);
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.8, this.camTarget.z);
-    const half = Math.round(20 * Math.max(1, this.zoom)), sc = this.moon.shadow.camera;
+    const half = 24, sc = this.moon.shadow.camera;
     if (sc.right !== half) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); }
+    // a sombra acompanha a camera alinhada aos texels NO ESPACO DA LUZ (alinhar nos eixos do mundo faz as bordas tremerem)
     const snap = (half * 2) / this.moon.shadow.mapSize.x;
-    const mx = Math.round(this.camTarget.x / snap) * snap, mz = Math.round(this.camTarget.z / snap) * snap;
-    this.moon.position.set(mx - 12, 26, mz + 4);
-    this.moon.target.position.set(mx, 0, mz);
+    if (!this._lr) {
+      this._moff = new THREE.Vector3(-12, 26, 4);
+      this._lr = new THREE.Matrix4().lookAt(this._moff, new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
+      this._lri = this._lr.clone().invert(); this._lv = new THREE.Vector3();
+    }
+    const v = this._lv.set(this.camTarget.x, 0, this.camTarget.z).applyMatrix4(this._lri);
+    v.x = Math.round(v.x / snap) * snap; v.y = Math.round(v.y / snap) * snap;
+    v.applyMatrix4(this._lr);
+    this.moon.target.position.copy(v);
+    this.moon.position.copy(v).add(this._moff);
   }
   // ------------------------------------------------------------ cutscenes
   gameCamPose() {

@@ -24,11 +24,18 @@ export class Input {
     });
     addEventListener('keyup', (e) => up(e.code));
     addEventListener('blur', () => { this.keys.clear(); this.touchActions.clear(); });
-    canvas.addEventListener('mousedown', (e) => { this.mouseActive = true; down('M' + e.button); });
+    // no celular o navegador gera eventos de mouse "falsos" depois de cada toque: eles nao podem virar mira
+    this.lastTouch = -1e9;
+    const fromTouch = (e) => performance.now() - this.lastTouch < 1200 || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents);
+    try { if (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) this.isTouch = true; } catch (e) { /* ignora */ }
+    addEventListener('touchstart', () => { this.isTouch = true; this.mouseActive = false; this.lastTouch = performance.now(); }, { capture: true, passive: true });
+    addEventListener('touchend', () => { this.lastTouch = performance.now(); }, { capture: true, passive: true });
+    canvas.addEventListener('mousedown', (e) => { if (fromTouch(e)) return; this.isTouch = false; this.mouseActive = true; down('M' + e.button); });
     addEventListener('mouseup', (e) => up('M' + e.button));
     addEventListener('mousemove', (e) => {
+      if (fromTouch(e)) return;
       this.mouseNdc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-      if (!this.isTouch) this.mouseActive = true;
+      if (!this.isTouch || Math.abs(e.movementX) + Math.abs(e.movementY) > 2) { this.isTouch = false; this.mouseActive = true; }
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('wheel', (e) => { this.zoom = Math.min(1.35, Math.max(0.7, this.zoom + Math.sign(e.deltaY) * 0.06)); }, { passive: true });

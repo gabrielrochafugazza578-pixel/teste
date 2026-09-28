@@ -37,7 +37,9 @@ ${NOISE}`)
 float mTop = smoothstep(0.8, 0.95, vWNor.y) * (1.0 - smoothstep(0.03, 0.14, abs(vWPos.y - uPlaneY)));
 float mWet = ${water ? '1.0' : 'mTop * smoothstep(1.0 - uWet, 1.0 - uWet + 0.07, puddle(vWPos.xz))'};
 float mGloss = ${water ? '1.0' : 'mTop * uGloss'};
-roughnessFactor = mix(roughnessFactor, ${water ? '0.04' : '0.05'}, max(mWet, mGloss * 0.85));`)
+roughnessFactor = mix(roughnessFactor, ${water ? '0.1' : '0.16'}, max(mWet, mGloss * 0.85));`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{ vec3 dn = fwidth(normal); roughnessFactor = max(roughnessFactor, min(0.6, pow(dot(dn, dn), 0.3) * 1.2)); }`)
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
 {
   float mStr = max(mWet, mGloss) * uMirrorOn;
@@ -45,7 +47,7 @@ roughnessFactor = mix(roughnessFactor, ${water ? '0.04' : '0.05'}, max(mWet, mGl
     vec4 mp = uMirrorMat * vec4(vWPos, 1.0);
     vec2 ripple = ${water ? 'vec2(mn(vWPos.xz * 3.0 + uTime * 0.8) - 0.5, mn(vWPos.zx * 3.0 - uTime * 0.7) - 0.5) * 0.035' : 'vec2(mn(vWPos.xz * 6.0 + uTime * 0.3) - 0.5, mn(vWPos.zx * 6.0) - 0.5) * 0.006 * mWet'};
     vec2 muv = mp.xy / mp.w + normal.xy * ${water ? '0.02' : '0.012'} + ripple;
-    float lod = mix(4.5, 0.0, max(mWet, mGloss * (1.0 - roughnessFactor)));
+    float lod = mix(4.5, 0.8, max(mWet, mGloss * (1.0 - roughnessFactor)));
     vec4 rs = textureLod(tMirror, clamp(muv, 0.001, 0.999), lod);
     vec3 refl = rs.rgb / max(rs.a, 0.001);
     vec3 vd = normalize(vViewPosition);

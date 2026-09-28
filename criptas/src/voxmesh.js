@@ -143,9 +143,12 @@ export function buildWorld(dg) {
     const pos = [], uvs = [], ind = [];
     for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
       if (cell[x + z * W] !== type) continue;
+      // quadrados alargados cobrem as bordas deformadas; o UV vem da posicao no mundo, entao a parte
+      // sobreposta e identica nos dois lados (sem cintilar)
       const b = pos.length / 3, e = 0.22;
-      pos.push(x - e, y, z + 1 + e, x + 1 + e, y, z + 1 + e, x - e, y, z - e, x + 1 + e, y, z - e);
-      uvs.push(x * 0.25, (z + 1) * 0.25, (x + 1) * 0.25, (z + 1) * 0.25, x * 0.25, z * 0.25, (x + 1) * 0.25, z * 0.25);
+      const x0 = x - e, x1 = x + 1 + e, z0 = z - e, z1 = z + 1 + e;
+      pos.push(x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z0);
+      uvs.push(x0 * 0.25, z1 * 0.25, x1 * 0.25, z1 * 0.25, x0 * 0.25, z0 * 0.25, x1 * 0.25, z0 * 0.25);
       ind.push(b, b + 1, b + 2, b + 2, b + 1, b + 3);
     }
     if (!pos.length) return null;

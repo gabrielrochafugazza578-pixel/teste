@@ -330,7 +330,7 @@ function tryGenerate(seed, level, themeKey) {
   }
   if (theme.props.includes('lily')) for (let z = 1; z < D - 1; z++) for (let x = 1; x < W - 1; x++) {
     const i = idx(x, z);
-    if (cell[i] === C.WATER && hash2(x, z, seed + 41) < 0.12) props.push({ type: 'lily', x: x + 0.3 + hash2(z, x, 3) * 0.4, z: z + 0.3 + hash2(x, z, 4) * 0.4, y: -0.3, rot: hash2(x, z, 5) * 6.28, s: 0.8 + hash2(x, z, 6) * 0.5 });
+    if (cell[i] === C.WATER && hash2(x, z, seed + 41) < 0.12) props.push({ type: 'lily', x: x + 0.3 + hash2(z, x, 3) * 0.4, z: z + 0.3 + hash2(x, z, 4) * 0.4, y: theme.shallow ? -0.11 : -0.31, rot: hash2(x, z, 5) * 6.28, s: 0.8 + hash2(x, z, 6) * 0.5 });
     else if (cell[i] === C.FLOOR && !solid[i] && !corr[i] && hash2(x, z, seed + 43) < 0.25 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => cell[idx(x + a, z + b)] === C.WATER)) { props.push({ type: 'reeds', x: x + 0.5, z: z + 0.5, y: h[i], rot: hash2(x, z, 7) * 6.28, s: 0.8 + hash2(x, z, 8) * 0.4 }); solid[i] = 2; }
   }
   for (const p of props) if (p.type === 'crystal' || p.type === 'floatcrystal') lightsExtra.push({ x: p.x, y: p.y + 0.9, z: p.z, color: theme.dimension ? 0xb070ff : 0x5fd8ff, intensity: 3, dist: 6 });

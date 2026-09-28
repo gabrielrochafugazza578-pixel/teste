@@ -14,7 +14,7 @@ export function M(kind, o = {}) {
   let m;
   if (kind === 'glow') m = new THREE.MeshStandardMaterial({ color: o.color ?? 0xff3020, emissive: o.color ?? 0xff3020, emissiveIntensity: o.intensity ?? 4, roughness: 0.4 });
   else if (kind === 'dark') m = new THREE.MeshStandardMaterial({ color: o.color ?? 0x060505, roughness: 1 });
-  else if (kind === 'eye') m = new THREE.MeshPhysicalMaterial({ color: o.color ?? 0x0a0806, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.05 });
+  else if (kind === 'eye') m = new THREE.MeshPhysicalMaterial({ color: o.color ?? 0x0a0806, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.2 });
   else if (kind === 'plain') m = new THREE.MeshStandardMaterial({ color: o.color ?? 0xffffff, roughness: o.rough ?? 0.6, metalness: o.metal ?? 0 });
   else {
     const t = charTex(kind);
@@ -26,12 +26,12 @@ export function M(kind, o = {}) {
     };
     m = phys ? new THREE.MeshPhysicalMaterial(P) : new THREE.MeshStandardMaterial(P);
     if (o.rough !== undefined) m.roughness = o.rough;
-    if (kind === 'porcelain') { m.clearcoat = 1; m.clearcoatRoughness = 0.08; m.roughness = 0.35; }
-    if (kind === 'carapace' || kind === 'carapace_ice') { m.clearcoat = 1; m.clearcoatRoughness = 0.15; m.iridescence = 0.9; m.iridescenceIOR = 1.6; m.iridescenceThicknessRange = [200, 600]; }
+    if (kind === 'porcelain') { m.clearcoat = 1; m.clearcoatRoughness = 0.18; m.roughness = 0.35; }
+    if (kind === 'carapace' || kind === 'carapace_ice') { m.clearcoat = 1; m.clearcoatRoughness = 0.22; m.iridescence = 0.9; m.iridescenceIOR = 1.6; m.iridescenceThicknessRange = [200, 600]; }
     if (kind === 'scales' || kind === 'scales_red') { m.clearcoat = 0.6; m.clearcoatRoughness = 0.3; }
-    if (kind === 'obsidian') { m.clearcoat = 0.8; m.clearcoatRoughness = 0.1; }
-    if (kind === 'jelly') { m.transparent = true; m.opacity = o.opacity ?? 0.55; m.roughness = 0.1; m.clearcoat = 1; m.emissive = new THREE.Color(o.emi ?? 0x6aff40); m.emissiveIntensity = 0.35; m.side = THREE.DoubleSide; m.depthWrite = false; }
-    if (kind === 'ice') { m.transparent = true; m.opacity = 0.88; m.roughness = 0.08; m.clearcoat = 1; m.clearcoatRoughness = 0.02; m.metalness = 0.05; }
+    if (kind === 'obsidian') { m.clearcoat = 0.8; m.clearcoatRoughness = 0.2; }
+    if (kind === 'jelly') { m.transparent = true; m.opacity = o.opacity ?? 0.55; m.roughness = 0.18; m.clearcoat = 1; m.clearcoatRoughness = 0.2; m.emissive = new THREE.Color(o.emi ?? 0x6aff40); m.emissiveIntensity = 0.35; m.side = THREE.DoubleSide; m.depthWrite = false; }
+    if (kind === 'ice') { m.transparent = true; m.opacity = 0.88; m.roughness = 0.15; m.clearcoat = 1; m.clearcoatRoughness = 0.15; m.metalness = 0.05; }
     if (t.emissiveMap) { m.emissiveMap = t.emissiveMap; m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = o.emi ?? 2; }
     if (o.side) m.side = o.side;
   }

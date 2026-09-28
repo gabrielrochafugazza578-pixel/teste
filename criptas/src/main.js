@@ -18,7 +18,7 @@ const GradeShader = {
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
     uniform sampler2D tDiffuse; uniform float uTime; varying vec2 vUv;
-    float rnd(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uTime) * 43758.5453); }
+    float rnd(vec2 p){ return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); } // pontilhado fixo (sem ruido que pisca)
     void main(){
       vec3 c = texture2D(tDiffuse, vUv).rgb;
       float l = dot(c, vec3(0.299,0.587,0.114));
@@ -26,7 +26,7 @@ const GradeShader = {
       c = mix(c * vec3(0.92,0.98,1.06), c * vec3(1.05,1.0,0.94), smoothstep(0.1,0.6,l)); // sombras frias, luzes quentes
       float v = smoothstep(0.95, 0.3, length((vUv - 0.5) * vec2(1.25, 1.0)));
       c *= mix(0.42, 1.0, v);
-      c += (rnd(vUv * 731.0) - 0.5) * 0.018;
+      c += (rnd(gl_FragCoord.xy) - 0.5) * (1.5 / 255.0);
       gl_FragColor = vec4(c, 1.0);
     }`,
 };
@@ -75,7 +75,7 @@ function setupComposer() {
   composer = new EffectComposer(renderer, rt);
   renderPass = new RenderPass(game.scene, game.camera);
   composer.addPass(renderPass);
-  if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.55, 0.5, 0.82); composer.addPass(bloom); }
+  if (q.bloom) { bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.45, 0.9); composer.addPass(bloom); }
   composer.addPass(new OutputPass());
   grade = new ShaderPass(GradeShader);
   composer.addPass(grade);

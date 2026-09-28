@@ -103,7 +103,7 @@ export class Player {
 
   update(dt, input, time) {
     const g = this.game, rig = this.rig;
-    this.flashT -= dt; rig.flash(this.flashT > 0 ? 1.5 : 0);
+    this.flashT -= dt; rig.flash(this.flashT > 0 ? 0.45 : 0);
     if (this.dead) {
       this.deadT += dt;
       const k = ease(this.deadT * 2);
@@ -139,17 +139,16 @@ export class Player {
       this.rot = Math.atan2(this.rollDir[0], this.rollDir[1]);
       if (Math.random() < 0.5) g.particles.dust(this.x, this.y + 0.1, this.z, 1, [0.4, 0.38, 0.35], 0.3, 0.3);
     } else {
-      if (input.pressed('roll') && this.rollCd <= 0 && !g.inHub) {
+      if (input.pressed('roll') && this.rollCd <= 0) {
         this.rollT = 0.34; this.rollCd = this.rollMax; this.swingT = -1;
         this.rollDir = ml > 0.1 ? [mx / Math.max(ml, 1e-3), mz / Math.max(ml, 1e-3)] : [Math.sin(this.rot), Math.cos(this.rot)];
         g.audio.play('roll');
       }
-      if (!g.inHub) {
-        if (input.down('attack') && this.atkCd <= 0 && this.swingT < 0) this.melee();
-        else if (input.down('shoot') && this.shootCd <= 0 && this.swingT < 0) this.shoot();
-        if (input.pressed('potion')) this.usePotion();
-        for (let i = 0; i < 3; i++) if (input.pressed('art' + (i + 1))) g.useArtifact(i);
-      }
+      // down OU pressed: um toque rapido (mais curto que um quadro) tambem conta
+      if ((input.down('attack') || input.pressed('attack')) && this.atkCd <= 0 && this.swingT < 0) this.melee();
+      else if ((input.down('shoot') || input.pressed('shoot')) && this.shootCd <= 0 && this.swingT < 0) this.shoot();
+      if (input.pressed('potion')) this.usePotion();
+      for (let i = 0; i < 3; i++) if (input.pressed('art' + (i + 1))) g.useArtifact(i);
       const busy = this.swingT >= 0 || this.shootT > 0;
       const k = busy ? 0.35 : 1;
       let vx = mx * speed * k, vz = mz * speed * k;
@@ -204,7 +203,6 @@ export class Player {
       r.torso.rotation.x = 0.5;
       return;
     }
-    if (this.game.inHub) { r.elbowR.rotation.x -= 0.2; return; }
     r.armR.rotation.x = Math.min(r.armR.rotation.x, -0.3);
     r.elbowR.rotation.x = -0.75;
     if (this.swingT >= 0) {
@@ -280,7 +278,7 @@ export class Player {
   shoot() {
     const g = this.game, b = this.equip.bow, base = BOWS[b.kind];
     if (this.arrows <= 0) { g.audio.play('deny'); g.ui.toast('Sem flechas!'); this.shootCd = 0.5; return; }
-    this.arrows--;
+    if (!g.inHub) this.arrows--;
     this.shootCd = cdOf(b); this.shootT = 0.32;
     this.lastAimT = g.time;
     const t = this.aimAssist(16, 0.35);
@@ -460,7 +458,7 @@ export class Enemy {
       return;
     }
     this.flashT -= dt;
-    rig.flash(this.flashT > 0 ? 2 : this.state === 'attack' && S.ai === 'fuse' ? (Math.sin(this.atkT * 30) > 0 ? 1.2 : 0) : 0);
+    rig.flash(this.flashT > 0 ? 0.55 : this.state === 'attack' && S.ai === 'fuse' ? (Math.sin(this.atkT * 18) > 0 ? 0.6 : 0) : 0);
     if (this.burnT > 0) {
       this.burnT -= dt;
       this.burnAcc = (this.burnAcc || 0) + dt;
@@ -688,7 +686,7 @@ export class Boss extends Enemy {
     if (!this.awake) { animateWalk(rig, this.phase, 0, time); this.place(dt); return; }
     this.light.intensity = Math.min(22, this.light.intensity + dt * 20);
     this.light.x = this.x + 1.5; this.light.y = this.y + 5.5; this.light.z = this.z + 1.5;
-    this.flashT -= dt; rig.flash(this.flashT > 0 ? 1.2 : 0);
+    this.flashT -= dt; rig.flash(this.flashT > 0 ? 0.45 : 0);
     if (this.burnT > 0) { this.burnT -= dt; this.burnAcc = (this.burnAcc || 0) + dt; if (this.burnAcc > 0.5) { this.burnAcc = 0; this.hurt(this.burnDps * 0.5, { dot: true, fire: true }); if (this.dead) return; } if (Math.random() < dt * 25) g.particles.fire(this.x, this.y + Math.random() * 3, this.z, 1, 1.2); }
     if (!this.B.stationary) this.applyKnock(dt); else { this.kx = this.kz = 0; }
     const dx = p.x - this.x, dz = p.z - this.z, d = Math.hypot(dx, dz), toP = Math.atan2(dx, dz);

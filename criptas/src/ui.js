@@ -74,7 +74,7 @@ export class UI {
       const on = (e) => { e.preventDefault(); input.setTouch(a, true); el.classList.add('down'); };
       const off = (e) => { e.preventDefault(); input.setTouch(a, false); el.classList.remove('down'); };
       el.addEventListener('touchstart', on, { passive: false }); el.addEventListener('touchend', off); el.addEventListener('touchcancel', off);
-      el.addEventListener('mousedown', (e) => { if (el.classList.contains('slot') || el.classList.contains('hb') || el.classList.contains('cskip')) { input.setTouch(a, true); setTimeout(() => input.setTouch(a, false), 60); e.stopPropagation(); } });
+      el.addEventListener('mousedown', (e) => { if (performance.now() - (input.lastTouch || -1e9) < 1200) return; if (el.classList.contains('slot') || el.classList.contains('hb') || el.classList.contains('cskip')) { input.setTouch(a, true); setTimeout(() => input.setTouch(a, false), 60); e.stopPropagation(); } });
     }
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) $('#touch').classList.remove('hidden');
   }
@@ -310,7 +310,7 @@ export class UI {
     while (box.children.length > 4) box.firstChild.remove();
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 600); }, big ? 3200 : 2600);
   }
-  hurtFlash() { const e = $('#hurt'); e.classList.remove('on'); void e.offsetWidth; e.classList.add('on'); }
+  hurtFlash() { const now = performance.now(); if (now - (this._hurtT || 0) < 450) return; this._hurtT = now; const e = $('#hurt'); e.classList.remove('on'); void e.offsetWidth; e.classList.add('on'); }
   makeFloat(text, color, big) { const el = h('div', 'float' + (big ? ' big' : ''), text); el.style.color = color; this.floats.appendChild(el); return el; }
   setBoss(b) { this.boss = b; $('#bossbar').classList.toggle('hidden', !b); if (b) { $('#bossname').textContent = b.B.name; this.bossGhost = 1; } }
 
