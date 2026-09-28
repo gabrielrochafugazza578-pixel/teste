@@ -247,6 +247,8 @@ static func _tunnel(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 		out.add_box_collider(Vector3(-(16.0 + hw) * 0.5, y + 12.0, zc), Vector3(16.0 - hw, 26.0, t))
 		out.add_box_collider(Vector3((16.0 + hw) * 0.5, y + 12.0, zc), Vector3(16.0 - hw, 26.0, t))
 		out.add_box_collider(Vector3(0, y + WorldLayout.TUNNEL_HEIGHT + (25.0 - WorldLayout.TUNNEL_HEIGHT) * 0.5, zc), Vector3(hw * 2.0, 25.0 - WorldLayout.TUNNEL_HEIGHT, t))
+		# piso sob o portal: o buraco do terreno não pode deixar ninguém cair
+		out.add_box_collider(Vector3(0, y - 0.3, z), Vector3(32.0, 0.6, 7.0))
 
 
 # ---------------------------------------------------------------------------

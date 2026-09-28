@@ -62,10 +62,12 @@ func set_traffic(on: bool, at: Vector3, panic: bool = false) -> void:
 		mi.set_surface_override_material(0, _paint(col))
 		add_child(mi)
 		var z := anchor.z + _rng.randf_range(-SPAN, SPAN)
-		var spd := _rng.randf_range(8.0, 13.0) if not panic else _rng.randf_range(12.0, 18.0)
+		# no pânico a avenida vira um engarrafamento: carros quase parados, tortos, buzinando
+		var spd := _rng.randf_range(8.0, 13.0) if not panic else _rng.randf_range(0.0, 1.2)
 		if type == "bus":
-			spd = 7.5
-		cars.append({"node": mi, "lane_x": anchor.x + lane, "dir": dir, "speed": spd, "z": z, "type": type, "len": float(VehicleMeshBuilder.dims(type)["L"])})
+			spd = 7.5 if not panic else 0.4
+		cars.append({"node": mi, "lane_x": anchor.x + lane, "dir": dir, "speed": spd, "z": z, "type": type, "len": float(VehicleMeshBuilder.dims(type)["L"]),
+			"skew": _rng.randf_range(-0.35, 0.35) if panic else 0.0})
 
 
 func _paint(c: Color) -> StandardMaterial3D:
@@ -170,7 +172,7 @@ func _process(delta: float) -> void:
 		var x: float = c["lane_x"]
 		var y := world.ground_y(x, z) if world else 0.0
 		mi.global_position = Vector3(x, y, z)
-		mi.rotation.y = 0.0 if float(c["dir"]) < 0.0 else PI
+		mi.rotation.y = (0.0 if float(c["dir"]) < 0.0 else PI) + float(c["skew"])
 		mi.visible = cp.distance_to(mi.global_position) < 240.0
 	_horn_t -= delta
 	if _horn_t <= 0.0 and not cars.is_empty():

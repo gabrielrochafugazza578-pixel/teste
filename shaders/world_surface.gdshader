@@ -151,7 +151,8 @@ void fragment() {
 			vec3 glass_col = mix(interior, refl, 0.25 + fres * 0.55);
 			float broken = step(1.0 - world_decay * 0.2, rnd2) * (exterior ? 1.0 : 0.0);
 			alb = mix(glass_col, vec3(0.008), broken);
-			rough = mix(0.06, 0.95, broken);
+			// rugosidade moderada: reflexo do céu desfocado evita cintilação (aliasing) nas janelas
+			rough = mix(0.24, 0.95, broken);
 			metal = 0.0;
 			ao = 1.0;
 			nmap = vec3(0.0, 0.0, 1.0);
@@ -203,7 +204,7 @@ void fragment() {
 	ALBEDO = alb;
 	ROUGHNESS = clamp(rough, 0.02, 1.0);
 	METALLIC = metal;
-	SPECULAR = 0.5 + is_window * 0.3;
+	SPECULAR = 0.5 + is_window * 0.15;
 	NORMAL_MAP = nmap * 0.5 + 0.5;
 	AO = ao;
 	AO_LIGHT_AFFECT = 0.35;

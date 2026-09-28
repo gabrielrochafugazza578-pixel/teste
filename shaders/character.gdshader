@@ -64,7 +64,7 @@ void fragment() {
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	EMISSION = rim_color * rim * fresnel_rim;
 	// olhos: cor quase branca com mat_id 0 e rgb > 0.95 => realce
-	if (emissive_eyes > 0.0 && base.r > 0.97 && base.g > 0.97) {
+	if (emissive_eyes > 0.0 && q < 0.5 && base.r > 0.8 && base.g > 0.78 && base.b > 0.74) {
 		EMISSION += vec3(0.8, 0.85, 0.7) * emissive_eyes;
 	}
 }

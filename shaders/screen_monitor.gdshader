@@ -51,6 +51,7 @@ void fragment() {
 		col += red * bandy * step(0.2, uv.x) * step(uv.x, 0.8) * step(0.4, fract(uv.x * 30.0)) * 0.7 * blink;
 	} else if (style == 4) {
 		// telejornal: fundo azul, apresentador em silhueta, tarja "URGENTE" e letreiro correndo
+		uv.y = 1.0 - uv.y;   // UV.y cresce para baixo; aqui y = altura na tela
 		col = mix(vec3(0.02, 0.06, 0.16), vec3(0.08, 0.2, 0.42), uv.y);
 		col += vec3(0.1, 0.18, 0.3) * step(0.5, fract(uv.x * 8.0 + uv.y * 3.0)) * 0.12;
 		vec2 hc = vec2(0.5, 0.62);

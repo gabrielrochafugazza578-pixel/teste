@@ -143,6 +143,9 @@ func _v(p: Vector3, n: Vector3, t: Vector3, bdir: Vector3, uv: Vector2, col: Col
 	c.a = mat
 	cols.append(c)
 	uvs.append(uv)
+	w0 = maxf(w0, 0.0)
+	w1 = maxf(w1, 0.0)
+	w2 = maxf(w2, 0.0)
 	var sum := w0 + w1 + w2
 	if sum <= 0.0:
 		w0 = 1.0
@@ -276,9 +279,9 @@ func _torso() -> void:
 		[1.26, 0.168 - (0.01 if fem else 0.0), 0.112 + (0.018 if fem else 0.0), -(0.012 if fem else 0.0)],
 		[1.35, 0.182 - (0.012 if fem else 0.0), 0.112 + (0.01 if fem else 0.0), 0.0],
 		[1.42, 0.185 - (0.015 if fem else 0.0), 0.1, 0.005],
-		[1.47, 0.15 - (0.01 if fem else 0.0), 0.085, 0.01],
-		[1.51, 0.085, 0.07, 0.01],
-		[1.53, 0.058, 0.055, 0.005],
+		[1.47, 0.158 - (0.012 if fem else 0.0), 0.09, 0.01],
+		[1.51, 0.098 - (0.01 if fem else 0.0), 0.078, 0.01],
+		[1.535, 0.07 - (0.008 if fem else 0.0), 0.064, 0.005],
 	]
 	var waist_y := 1.0
 	var hem_y := waist_y
@@ -313,9 +316,12 @@ func _torso() -> void:
 			var ct := cos(th)
 			var st := sin(th)
 			var p := Vector3(ct * rx, y, -st * rz + zoff)
+			# trapézio: a linha dos ombros desce do pescoço até o acrômio
+			var drop := smoothstep(1.36, 1.515, yy) * pow(absf(ct), 1.5) * 0.052 * sc * (0.85 if fem else 1.0)
+			p.y -= drop
 			var n := Vector3(ct / maxf(rx, 0.001), 0.0, -st / maxf(rz, 0.001))
 			if yy > 1.44:
-				n.y += 0.6
+				n.y += 0.6 + drop * 8.0
 			if yy < 0.86:
 				n.y -= 0.6
 			var tg := Vector3(-st * rx, 0.0, -ct * rz)
@@ -325,7 +331,7 @@ func _torso() -> void:
 			if top == "jacket" and is_top and st > 0.82 and yy < 1.44:
 				col = tc2
 				mat = M_CLOTH
-			if top == "labcoat" and is_top and st > 0.86 and yy < 1.46 and yy > 1.0:
+			if top == "labcoat" and is_top and st > 0.94 and yy < 1.46 and yy > 1.24:
 				col = tc2
 			# cinto
 			if bottom == "jeans" and absf(yy - 0.98) < 0.001 and not (top in ["jacket", "hoodie", "labcoat", "gown"]):
@@ -437,14 +443,14 @@ func _vest(col: Color) -> void:
 func _neck() -> void:
 	var gi := float(a.get("girth", 1.0))
 	var fem: bool = a.get("female", false)
-	var r := (0.05 if fem else 0.058) * lerpf(1.0, gi, 0.5)
+	var r := (0.057 if fem else 0.067) * lerpf(1.0, gi, 0.5)
 	var col := skin_col
 	var top: String = a.get("top", "tshirt")
 	var rings := [[0.0, r * 1.1, r, col, M_SKIN], [0.6, r, r * 0.95, col, M_SKIN], [1.0, r * 0.92, r * 0.9, col, M_SKIN]]
 	if top in ["jacket", "hoodie"]:
 		var tc: Color = a.get("top_color", Color.GRAY)
 		rings = [[0.0, r * 1.5, r * 1.4, tc, M_CLOTH], [0.35, r * 1.35, r * 1.3, tc, M_CLOTH], [0.36, r, r * 0.95, col, M_SKIN], [1.0, r * 0.92, r * 0.9, col, M_SKIN]]
-	_tube(Vector3(0, j[NECK].y - 0.02 * s, j[NECK].z), j[HEAD] + Vector3(0, 0.03 * s, 0), rings, 12 if lod == 0 else 8, NECK, HEAD, CHEST, false, false, 0.3, 0.35)
+	_tube(Vector3(0, j[NECK].y - 0.045 * s, j[NECK].z + 0.004 * s), j[HEAD] + Vector3(0, 0.035 * s, -0.004 * s), rings, 12 if lod == 0 else 8, NECK, HEAD, CHEST, false, false, 0.3, 0.35)
 
 
 # ---------------------------------------------------------------------------
@@ -454,7 +460,7 @@ func _head() -> void:
 	var fem: bool = a.get("female", false)
 	var hs := 0.95 if fem else 1.0
 	var c: Vector3 = j[HEAD] + Vector3(0, 0.1 * s, -0.012 * s)
-	var R := Vector3(0.087, 0.112, 0.101) * s * hs
+	var R := Vector3(0.09, 0.115, 0.104) * s * hs
 	var LAT := 16 if lod == 0 else 9
 	var LON := 20 if lod == 0 else 12
 	var beard := float(a.get("beard", 0.0))
@@ -473,7 +479,9 @@ func _head() -> void:
 			var front := maxf(-uz, 0.0)
 			var p := Vector3(ux * R.x, uy * R.y, uz * R.z)
 			if uy < 0.0:
-				p.x *= 1.0 - 0.3 * (-uy) * (1.0 if fem else 0.85)
+				# estreita até o queixo, mas mantém o ângulo da mandíbula (rosto menos "V")
+				var jaw_keep := exp(-pow(uy + 0.55, 2.0) / 0.03) * 0.12 * (0.7 if fem else 1.0)
+				p.x *= 1.0 - (0.2 * (-uy) - jaw_keep) * (1.0 if fem else 0.9)
 				p.z *= 1.0 - 0.08 * (-uy)
 			if uz > 0.0 and uy > -0.3:
 				p.z *= 1.07
@@ -520,13 +528,14 @@ func _head() -> void:
 	_ellipsoid(c + Vector3(0, -0.045 * s, -0.06 * s), Vector3(0.028, 0.012, 0.03) * s, Color(0.12, 0.04, 0.04), M_SKIN, HEAD, 0.5, JAW, 0.5, 6, 4)
 	# olhos
 	if not blind:
-		var er := 0.0125 * s * hs
+		var er := 0.0112 * s * hs
 		var iris: Color = [Color(0.25, 0.15, 0.08), Color(0.12, 0.08, 0.05), Color(0.2, 0.3, 0.4), Color(0.25, 0.3, 0.18)][int(a.get("seed", 0)) % 4]
 		if inf > 0.5:
 			iris = Color(0.75, 0.72, 0.62)
 		for sgn: float in [-1.0, 1.0]:
-			var ec := c + Vector3(sgn * 0.033 * s * hs, 0.016 * s, -R.z * 0.83)
+			var ec := c + Vector3(sgn * 0.034 * s * hs, 0.016 * s, -R.z * 0.8)
 			_eye(ec, er, iris)
+			_eyelids(ec, er)
 	_hair(c, R)
 	if bool(a.get("glasses", false)):
 		_glasses(c, R)
@@ -561,6 +570,11 @@ func _emit_grid(grid: Array, center: Vector3, bone: int, jaw_bone: int, neck_bon
 			var bdir := pn - pp
 			var jw: float = e[3]
 			var nw: float = e[4]
+			# pesos de mandíbula + pescoço nunca passam de 1 (evita peso negativo na cabeça)
+			var extra := jw + nw
+			if extra > 0.95:
+				jw *= 0.95 / extra
+				nw *= 0.95 / extra
 			var vi := _v(p, n, tg, bdir, e[5], e[1], e[2], bone, 1.0 - jw - nw, jaw_bone, jw, neck_bone, nw)
 			row_idx.append(vi)
 		idx_grid.append(row_idx)
@@ -595,6 +609,33 @@ func _ellipsoid(c: Vector3, r: Vector3, col: Color, mat: float, b0: int, w0: flo
 			_tri(i01, i10, i11)
 
 
+## Pálpebras: casca de pele cobrindo o topo (e um pouco a base) do olho —
+## tira o "olhar de boneco" dos olhos esféricos expostos.
+func _eyelids(c: Vector3, r: float) -> void:
+	var lon := 8 if lod == 0 else 5
+	for lid in 2:
+		var upper := lid == 0
+		var rr := r * (1.16 if upper else 1.1)
+		var start := verts.size()
+		var lat := 3
+		for i in lat + 1:
+			# ângulo a partir do eixo vertical (cima ou baixo)
+			var a0 := lerpf(0.0, 1.05 if upper else 0.55, float(i) / float(lat))
+			for k in lon + 1:
+				# só a metade da frente (-Z), de lado a lado
+				var th := lerpf(-PI * 0.55, PI * 0.55, float(k) / float(lon))
+				var u := Vector3(sin(a0) * sin(th), cos(a0) * (1.0 if upper else -1.0), -sin(a0) * cos(th))
+				var col := skin_col * (0.92 if i == lat else 1.0)
+				if i == lat and upper:
+					col = skin_col * 0.55   # linha dos cílios
+				_v(c + u * rr, u, Vector3(cos(th), 0, sin(th)), Vector3.UP, Vector2(float(k) * 0.02, float(i) * 0.02), col, M_SKIN, HEAD, 1.0)
+		for i in lat:
+			for k in lon:
+				var i00 := start + i * (lon + 1) + k
+				_tri(i00, i00 + lon + 1, i00 + 1)
+				_tri(i00 + 1, i00 + lon + 1, i00 + lon + 2)
+
+
 func _eye(c: Vector3, r: float, iris: Color) -> void:
 	var lon := 10 if lod == 0 else 6
 	var lat := 7 if lod == 0 else 4
@@ -606,7 +647,7 @@ func _eye(c: Vector3, r: float, iris: Color) -> void:
 			# eixo do olho aponta para -Z
 			var u := Vector3(sin(phi) * cos(th), sin(phi) * sin(th), -cos(phi))
 			var p := c + u * r
-			var col := Color(0.98, 0.98, 0.96)
+			var col := Color(0.9, 0.88, 0.84)
 			if phi < 0.55:
 				col = iris
 			if phi < 0.22:
@@ -793,7 +834,19 @@ func _arms() -> void:
 				upper_rings = [[0.0, 0.06 * g + l, 0.057 * g + l, tc, M_CLOTH], [0.5, 0.052 * g + l, 0.05 * g + l, tc, M_CLOTH], [1.0, 0.044 * g + l, 0.043 * g + l, tc, M_CLOTH]]
 				fore_rings = [[0.0, 0.044 * g + l, 0.043 * g + l, tc, M_CLOTH], [0.3, 0.043 * g + l, 0.04 * g + l, tc, M_CLOTH],
 					[0.9, 0.032 * g + l, 0.028 * g + l, tc, M_CLOTH], [0.91, 0.026 * g, 0.022 * g, sk, M_SKIN], [1.0, 0.026 * g, 0.021 * g, sk, M_SKIN]]
-		_tube(sh + Vector3(0, 0.02 * s, 0), el, upper_rings, sides, ua, fa, CHEST, true, false, 0.3, 0.3)
+		# deltoide: o braço nasce dentro do ombro e engrossa logo abaixo dele
+		var inward := Vector3(0.018 * s if side == 0 else -0.018 * s, 0.0, 0.0)
+		var ur2: Array = []
+		for rg in upper_rings:
+			var rgd: Array = (rg as Array).duplicate()
+			var tt: float = rgd[0]
+			var bulge := 1.0 + 0.12 * exp(-pow((tt - 0.16) / 0.12, 2.0))
+			if tt < 0.001:
+				bulge = 0.72   # topo arredondado, escondido dentro do ombro
+			rgd[1] = float(rgd[1]) * bulge
+			rgd[2] = float(rgd[2]) * (1.0 + (bulge - 1.0) * 0.6)
+			ur2.append(rgd)
+		_tube(sh + inward + Vector3(0, -0.012 * s, 0), el, ur2, sides, ua, fa, CHEST, true, false, 0.3, 0.3)
 		_tube(el, wr, fore_rings, sides, fa, hd, ua, false, false, 0.25, 0.3)
 		_hand(wr, hd, side == 0)
 
@@ -807,8 +860,22 @@ func _hand(wr: Vector3, bone: int, left: bool) -> void:
 	var fem: bool = a.get("female", false)
 	var hs := 0.9 if fem else 1.0
 	var sides := 8 if lod == 0 else 5
-	_tube(wr, end, [[0.0, 0.021 * hs, 0.027 * hs, col, mat], [0.3, 0.019 * hs, 0.044 * hs, col, mat], [0.55, 0.017 * hs, 0.045 * hs, col, mat],
-		[0.85, 0.013 * hs, 0.038 * hs, col, mat], [1.0, 0.009 * hs, 0.028 * hs, col, mat]], sides, bone, -1, -1, false, true, 0.0, 0.0, false)
+	if lod == 0:
+		# palma + quatro dedos levemente curvados
+		var palm_end := wr + dir * 0.1 * s
+		_tube(wr, palm_end, [[0.0, 0.021 * hs, 0.027 * hs, col, mat], [0.4, 0.019 * hs, 0.043 * hs, col, mat], [1.0, 0.016 * hs, 0.044 * hs, col, mat]],
+			sides, bone, -1, -1, false, true, 0.0, 0.0, false)
+		for f in 4:
+			var zf := (-0.027 + float(f) * 0.018) * s * hs
+			var base := palm_end + Vector3(0, 0.004 * s, zf)
+			var flen: float = [0.07, 0.078, 0.074, 0.06][f] * s * hs
+			var mid := base + dir * flen * 0.55 + Vector3((0.004 if not left else -0.004), 0, 0)
+			var tip := mid + (dir + Vector3((0.25 if not left else -0.25), 0, 0)).normalized() * flen * 0.45
+			_tube(base, mid, [[0.0, 0.0085 * hs, 0.0085 * hs, col, mat], [1.0, 0.0075 * hs, 0.0075 * hs, col, mat]], 5, bone, -1, -1, false, false, 0.0, 0.0, false)
+			_tube(mid, tip, [[0.0, 0.0075 * hs, 0.0075 * hs, col, mat], [1.0, 0.006 * hs, 0.006 * hs, col, mat]], 5, bone, -1, -1, false, true, 0.0, 0.0, false)
+	else:
+		_tube(wr, end, [[0.0, 0.021 * hs, 0.027 * hs, col, mat], [0.3, 0.019 * hs, 0.044 * hs, col, mat], [0.55, 0.017 * hs, 0.045 * hs, col, mat],
+			[0.85, 0.013 * hs, 0.038 * hs, col, mat], [1.0, 0.009 * hs, 0.028 * hs, col, mat]], sides, bone, -1, -1, false, true, 0.0, 0.0, false)
 	# polegar
 	var tb := wr + dir * 0.05 * s + Vector3(0, 0, -0.025 * s)
 	var tt := tb + Vector3(0.01 if not left else -0.01, -0.04, -0.035).normalized() * 0.055 * s

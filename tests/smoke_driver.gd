@@ -16,6 +16,10 @@ func _ready() -> void:
 			mode = "opening"
 		elif a.begins_with("--shots="):
 			shots = a.substr(8)
+		elif a.begins_with("--cine-from="):
+			Engine.set_meta("cine_from", a.substr(12))
+		elif a == "--cine-log":
+			Engine.set_meta("cine_log", true)
 	if shots != "":
 		DirAccess.make_dir_recursive_absolute(shots)
 	t0 = Time.get_ticks_msec()
@@ -77,9 +81,27 @@ func _test_opening(g: Game) -> void:
 		_log("tomada " + id)
 		(func() -> void: await _wait(2.0); await _shot("cine_" + id)).call())
 	var t := 0.0
+	var lt := 0.0
 	while g.cinematic != null and t < 600.0:
 		await get_tree().process_frame
 		t += get_process_delta_time()
+		if Engine.has_meta("cine_log") and t - lt > 2.0:
+			lt = t
+			var pl := g.player
+			var q := PhysicsShapeQueryParameters3D.new()
+			var cap := CapsuleShape3D.new()
+			cap.radius = 0.34
+			cap.height = 1.78
+			q.shape = cap
+			q.transform = Transform3D(Basis(), pl.global_position + Vector3(0, 0.89, 0))
+			q.collision_mask = pl.collision_mask
+			q.exclude = [pl.get_rid()]
+			var hits := pl.get_world_3d().direct_space_state.intersect_shape(q, 8)
+			var names: Array = []
+			for h in hits:
+				names.append(str(h.get("collider")) + "#" + str(h.get("shape")))
+			_log("  sobreposições: %s · camada=%d máscara=%d · last_motion=%s" % [str(names), pl.collision_layer, pl.collision_mask, str(pl.get_last_motion())])
+			_log("caio: fis=%s cine=%s alvo=%s vel=%s pos=%s chão=%s" % [str(pl.is_physics_processing()), str(pl.cinematic), str(pl.cine_target), str(pl.velocity.snapped(Vector3.ONE * 0.01)), str(pl.global_position.snapped(Vector3.ONE * 0.01)), str(pl.is_on_floor())])
 	var p := g.player
 	_log("Cinemática terminou em %.1fs. última=%s controle=%s cam_gameplay=%s pos=%s" % [t, last_shot, str(p.control_enabled), str(p.cam_rig.cam.current), str(p.global_position)])
 	var ip := g.layout.poi_pos("inicio_gameplay")

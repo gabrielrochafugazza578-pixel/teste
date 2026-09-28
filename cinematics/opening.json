@@ -75,14 +75,14 @@
 			 "cam": [[0.0, [-10.5, 1.6, -30], [-4, 1.8, -5], 55], [8.0, [-10, 1.7, -24], [0, 1.8, 0], 55]],
 			 "events": [[0.0, "crowd", "normal", "poi:avenida_central"], [1.0, "anim_crowd", "cough"], [3.0, "sound", "cough", -8.0], [5.0, "sound", "siren", -10.0]]}
 		 ]},
-		{"id": "6_colapso", "phase": "PRE", "hour": 19.4, "weather": "CLOUDY", "music": "mus_opening_dark",
+		{"id": "6_colapso", "phase": "PRE", "hour": 19.4, "weather": "CLOUDY", "music": "mus_opening_dark", "exposure": 1.4, "fill": [0.7, 30.0],
 		 "setup": [["traffic", "panic", "poi:avenida_central"], ["crowd", "panic", "poi:avenida_central"], ["ambience", "panic"], ["barricade", "poi:avenida_central", [0, 0, -60]]],
 		 "shots": [
 			{"id": "6a_panico", "anchor": "poi:avenida_central", "dur": 7.0, "ground": true,
-			 "cam": [[0.0, [4, 1.3, -40], [0, 1.6, -10], 68], [7.0, [3, 1.2, -46], [0, 1.6, -20], 72]],
+			 "cam": [[0.0, [-9.0, 1.4, -40], [-2, 1.6, -8], 66], [7.0, [-8.6, 1.3, -46], [-1, 1.6, -18], 70]],
 			 "events": [[0.5, "sound", "distant_scream", -4.0], [2.5, "shake", 0.15], [4.0, "sound", "distant_shot", -6.0]]},
 			{"id": "6b_mercado", "anchor": "door:mercado", "dur": 6.0, "ground": true,
-			 "cam": [[0.0, [-7, 2.0, 10], [0, 1.4, 1], 55], [6.0, [-5.5, 1.8, 8.5], [1, 1.4, 0], 52]],
+			 "cam": [[0.0, [-7, 1.7, 10], [0, 1.1, 3], 55], [6.0, [-5.5, 1.6, 8.5], [1, 1.1, 2], 52]],
 			 "events": [[0.0, "crowd_at", "door:mercado", "carry", 6], [2.0, "sound", "glass_break", -6.0]]},
 			{"id": "6c_noticias", "anchor": "poi:avenida_central", "dur": 7.0, "ground": true,
 			 "cam": [[0.0, [7.4, 1.55, 23.2], [9.6, 1.45, 22], 42], [7.0, [8.2, 1.5, 22.6], [9.6, 1.45, 22], 30]],
@@ -95,7 +95,7 @@
 			 "cam": [[0.0, [-150, 120, 240], [0, 0, -80], 55], [9.0, [-135, 110, 215], [0, 0, -80], 55]],
 			 "events": [[1.5, "blackout", "poi:avenida_central", [300, 0, -300], 260.0], [2.0, "sound", "power_down", 0.0], [6.5, "music", "mus_silence"]]}
 		 ]},
-		{"id": "7_silencio", "phase": "SILENCE", "hour": 11.0, "weather": "RAIN", "music": "mus_silence", "fade_in": 1.5,
+		{"id": "7_silencio", "phase": "SILENCE", "hour": 11.0, "weather": "RAIN", "music": "mus_silence", "fade_in": 1.5, "exposure": 1.45,
 		 "setup": [["actors_clear"], ["traffic", false], ["crowd", "off"], ["ambience", "silence"], ["smoke_column", "poi:avenida_central", [-60, 0, -180]], ["smoke_column", "poi:avenida_central", [140, 0, 90]]],
 		 "shots": [
 			{"id": "7a_rua_vazia", "anchor": "poi:avenida_central", "dur": 9.0, "ground": true,
@@ -105,7 +105,7 @@
 			 "cam": [[0.0, [-3, 0.5, 8], [0, 0.4, -10], 62], [7.0, [-3.5, 0.9, 4], [0, 1.2, -16], 62]],
 			 "events": [[0.0, "papers", "poi:avenida_central", [0, 0.2, -6]]]}
 		 ]},
-		{"id": "8_semanas", "phase": "POST", "hour": 16.8, "weather": "CLOUDY", "music": "mus_opening_dark", "card": ["ALGUMAS SEMANAS DEPOIS", "", 3.5],
+		{"id": "8_semanas", "phase": "POST", "hour": 15.8, "weather": "CLOUDY", "music": "mus_opening_dark", "exposure": 1.2, "card": ["ALGUMAS SEMANAS DEPOIS", "", 3.5],
 		 "setup": [["actors_clear"], ["ambience", "post"],
 			["infected", "errante", "poi:avenida_central", [2, 0, 18], 190], ["infected", "errante", "poi:avenida_central", [-4, 0, 6], 20],
 			["infected", "febril", "poi:avenida_central", [5, 0, -12], 250], ["infected", "errante", "poi:avenida_central", [9.5, 0, 26], 100]],
@@ -117,7 +117,7 @@
 			 "cam": [[0.0, [50, 40, 100], [0, 8, -60], 55], [9.0, [95, 75, 160], [0, 5, -40], 55]],
 			 "events": [[1.0, "sound", "distant_scream", -10.0]]}
 		 ]},
-		{"id": "9_caio", "phase": "POST", "hour": 17.4, "weather": "CLOUDY", "music": "mus_opening_calm", "fade_in": 1.0,
+		{"id": "9_caio", "phase": "POST", "hour": 16.6, "weather": "CLOUDY", "music": "mus_opening_calm", "fade_in": 1.0,
 		 "setup": [["actors_clear"], ["ambience", "post"], ["caio", "poi:chegada_caio", [0, 0, 12], 180]],
 		 "shots": [
 			{"id": "9a_tunel", "anchor": "poi:chegada_caio", "dur": 7.0, "ground": true,

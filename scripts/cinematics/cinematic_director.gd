@@ -264,7 +264,13 @@ func play() -> void:
 	EventBus.hud_visibility.emit(false)
 	ambience.start()
 	var scenes: Array = data.get("scenes", [])
+	# depuração/testes: começar de uma cena específica (Engine meta "cine_from")
+	var first := 0
+	var from_id := str(Engine.get_meta("cine_from", "")) if Engine.has_meta("cine_from") else ""
 	for si in scenes.size():
+		if str((scenes[si] as Dictionary).get("id", "")) == from_id:
+			first = si
+	for si in range(first, scenes.size()):
 		if skipping:
 			return
 		await _enter_scene(si)
@@ -295,6 +301,24 @@ func _enter_scene(si: int) -> void:
 		if phase == GameState.Phase.POST and not was_post and _phase_now != -1:
 			world.rebuild_all()
 		_phase_now = phase
+	if game.env:
+		game.env.exposure = float(sc.get("exposure", 1.0))
+	# luz de preenchimento presa à câmera (cenas noturnas)
+	var fill := cam.get_node_or_null("Fill") as OmniLight3D
+	if sc.has("fill"):
+		if fill == null:
+			fill = OmniLight3D.new()
+			fill.name = "Fill"
+			fill.shadow_enabled = false
+			cam.add_child(fill)
+		var fa: Array = sc["fill"]
+		fill.light_energy = float(fa[0])
+		fill.omni_range = float(fa[1])
+		fill.light_color = Color(0.75, 0.8, 1.0)
+		fill.position = Vector3(0, 1.5, 2.0)
+		fill.visible = true
+	elif fill:
+		fill.visible = false
 	TimeManager.locked_hour = float(sc.get("hour", 12.0))
 	TimeManager.set_time(float(sc.get("hour", 12.0)))
 	var ws := {"CLEAR": WeatherManager.State.CLEAR, "CLOUDY": WeatherManager.State.CLOUDY, "OVERCAST": WeatherManager.State.OVERCAST,
@@ -507,6 +531,8 @@ func _ev(si: int, shi: int, ei: int) -> void:
 	if skipping or not running:
 		return
 	var ev: Array = data["scenes"][si]["shots"][shi]["events"][ei]
+	if Engine.has_meta("cine_log"):
+		print("[cine] evento ", ev)
 	_run_event(ev, 1)
 
 
@@ -649,8 +675,8 @@ func _run_event(ev: Array, start: int) -> void:
 					ambience.panic = 0.0
 					ambience.mode = "outdoor"
 		"caio":
-			var p := frame_point(str(a[0]), a[1])
-			player.global_position = p + Vector3(0, 0.05, 0)
+			var p := _floor_at(frame_point(str(a[0]), a[1]))
+			player.global_position = p + Vector3(0, 0.08, 0)
 			player.set_yaw(frame_dir(str(a[0]), float(a[2])))
 			player.velocity = Vector3.ZERO
 			player.visible = true
@@ -664,6 +690,16 @@ func _run_event(ev: Array, start: int) -> void:
 			pass
 		_:
 			push_warning("Cinemática: evento desconhecido '%s'" % act)
+
+
+## Chão real (colisão) sob um ponto — evita colocar o Caio dentro do piso.
+func _floor_at(p: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, 2.5, 0), p + Vector3(0, -6.0, 0), 1)
+	var hit := space.intersect_ray(q)
+	if not hit.is_empty():
+		return hit["position"]
+	return p
 
 
 func _appearance(spec: String) -> Dictionary:
@@ -774,6 +810,7 @@ func _complete_handoff() -> void:
 	world.view_boost = 1.0
 	if game.env:
 		game.env.fog_scale = 1.0
+		game.env.exposure = 1.0
 	player.cam_rig.align_to(Transform3D(Basis(Vector3.UP, player._yaw), Vector3.ZERO))
 	player.cam_rig.cam.current = true
 	SimScheduler.camera = player.cam_rig.cam
@@ -814,7 +851,10 @@ func skip() -> void:
 	WeatherManager.set_weather(WeatherManager.State.CLOUDY, true, false)
 	# o Caio fica no alto da descida, olhando para a cidade
 	var p := world.poi_pos("mirante").lerp(world.poi_pos("inicio_gameplay"), 0.35)
-	p.y = world.ground_y(p.x, p.z) + 0.05
+	p.y = world.ground_y(p.x, p.z)
+	world.clear_focus_points()
+	await world.wait_area(p, 40.0, 15.0)
+	p = _floor_at(p) + Vector3(0, 0.08, 0)
 	player.global_position = p
 	var d := world.poi_pos("inicio_gameplay") - world.poi_pos("mirante")
 	player.set_yaw(atan2(-d.x, -d.z))
