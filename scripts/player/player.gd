@@ -542,12 +542,15 @@ func _physics_process(delta: float) -> void:
 		_air_t += delta
 		velocity.y -= GRAVITY * delta
 	var was_air := _air_t > 0.35
+	# dano de queda pela velocidade de impacto (≈10 m de queda livre): tempo no
+	# ar não serve — teletransportes (elevador, carregar jogo) não são quedas
+	var impact_v := -velocity.y
 	move_and_slide()
 	if was_air and is_on_floor():
 		AudioManager.play_3d("jump_land", global_position, -6.0)
 		EventBus.make_noise(global_position, 9.0, self, &"land")
-		if _air_t > 1.1:
-			survival.damage((_air_t - 1.1) * 45.0, "heavy")
+		if impact_v > 19.0:
+			survival.damage((impact_v - 19.0) * 4.5, "heavy")
 	_step_up(desired, delta)
 	# orientação do corpo
 	var face_cam := blocking or aiming or _attack_active or (_busy_t > 0.0 and _pending_use.is_empty())
@@ -1364,6 +1367,15 @@ func _cinematic_wish() -> Vector3:
 		cine_target = Vector3.INF
 		return Vector3.ZERO
 	return to.normalized() * clampf(to.length() / 1.2, 0.35, 1.0)
+
+
+## Move o Caio instantaneamente (elevador, carregar jogo, testes) sem contar
+## como queda nem herdar velocidade.
+func teleport(pos: Vector3) -> void:
+	global_position = pos
+	velocity = Vector3.ZERO
+	_air_t = 0.0
+	_knockback = Vector3.ZERO
 
 
 func set_yaw(y: float) -> void:

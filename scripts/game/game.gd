@@ -413,9 +413,8 @@ func _enter_setor7(with_fade: bool) -> void:
 	setor7.populate_specimen(director)
 	env.underground = true
 	var arr: Transform3D = setor7.markers["arrival"]
-	player.global_position = setor7.to_global(arr.origin) + Vector3(0, 0.05, 0)
+	player.teleport(setor7.to_global(arr.origin) + Vector3(0, 0.05, 0))
 	player.set_yaw(0.0)
-	player.velocity = Vector3.ZERO
 	player.cam_rig.align_to(Transform3D(Basis.IDENTITY, Vector3.ZERO))
 	for i in 3:
 		await get_tree().physics_frame
@@ -441,8 +440,7 @@ func _exit_setor7() -> void:
 	if ev != null:
 		p = (ev as Transform3D).origin + (ev as Transform3D).basis * Vector3(0, 0, -1.4)
 	player.set_physics_process(false)
-	player.global_position = p + Vector3(0, 0.1, 0)
-	player.velocity = Vector3.ZERO
+	player.teleport(p + Vector3(0, 0.1, 0))
 	# companheiros sobem junto
 	for n in survivors.followers():
 		(n as Node3D).global_position = p + Vector3(1.0, 0.1, 0.8)
