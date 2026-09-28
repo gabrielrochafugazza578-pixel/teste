@@ -98,9 +98,28 @@ export function makeItem(rng, floor, opt = {}) {
   if (cat === 'bow') it.dmg = Math.round(base.dmg * pw * 10) / 10;
   if (cat === 'armor') { it.hp = Math.round(base.hp * pw); it.dr = Math.min(0.45, base.dr * (0.9 + 0.1 * pw) + (affixes.includes('guarda') ? 0.06 : 0)); }
   if (cat === 'artifact') it.power = pw * (affixes.includes('poder') ? 1.35 : 1);
-  it.name = nameOf(it, rng);
+  it.up = 0;
+  it.baseName = nameOf(it, rng);
+  it.name = it.baseName;
   return it;
 }
+
+// aprimoramento no ferreiro: +12% de atributos por nivel (ate +5)
+export const MAX_UP = 5;
+export function upgradeItem(it) {
+  if ((it.up || 0) >= MAX_UP) return false;
+  it.up = (it.up || 0) + 1;
+  const k = (1 + 0.12 * it.up) / (1 + 0.12 * (it.up - 1));
+  if (it.dmg) it.dmg = Math.round(it.dmg * k * 10) / 10;
+  if (it.hp) it.hp = Math.round(it.hp * k);
+  if (it.dr) it.dr = Math.min(0.5, it.dr + 0.01);
+  if (it.power) it.power *= k;
+  it.name = (it.baseName || it.name.replace(/ \+\d$/, '')) + ' +' + it.up;
+  return true;
+}
+export function upgradeCost(it) { return Math.round((45 + 30 * (it.floor || 1)) * (1 + (it.up || 0)) * RARITY[it.rarity].mult); }
+export function priceOf(it) { return Math.round({ comum: 45, raro: 120, unico: 280 }[it.rarity] * (1 + 0.35 * ((it.floor || 1) - 1)) * (1 + 0.2 * (it.up || 0))); }
+export function sellPrice(it) { return Math.max(3, Math.round(priceOf(it) * 0.35)); }
 
 function nameOf(it, rng) {
   const base = { melee: MELEE, bow: BOWS, armor: ARMORS, artifact: ARTIFACTS }[it.cat][it.kind].name;
@@ -130,6 +149,7 @@ export function affixText(it) {
 
 export function statLines(it) {
   const L = [];
+  if (it.up) L.push(['Aprimoramento', '+' + it.up]);
   if (it.cat === 'melee') {
     const b = MELEE[it.kind];
     L.push(['Dano', it.dmg.toFixed(1)], ['Velocidade', (1 / cdOf(it)).toFixed(1) + '/s'], ['Alcance', b.range.toFixed(1)]);

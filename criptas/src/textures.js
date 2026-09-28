@@ -215,6 +215,67 @@ def('bone_wall', (u, v, o) => { // parede de ossos das catacumbas
   }
 });
 
+// ---------- dimensoes ----------
+def('ice', (u, v, o) => {
+  const n = fbm(u, v, 161, 3, 5);
+  const [d1, d2] = voronoi(u, v, 163, 3, 1);
+  const c = smooth(0.025, 0.0, d2 - d1);
+  const deep = fbm(u, v, 165, 2, 3);
+  o.r = 0.42 + n * 0.12 + deep * 0.08; o.g = 0.6 + n * 0.12 + deep * 0.06; o.b = 0.74 + n * 0.1;
+  mixc(o, [0.92, 0.97, 1], c * 0.7);
+  const bub = hash2(Math.floor(u * 64), Math.floor(v * 64), 167) < 0.012 ? 1 : 0;
+  if (bub) mixc(o, [0.9, 0.96, 1], 0.6);
+  o.h = 0.55 - c * 0.35 + n * 0.08; o.ro = 0.05 + c * 0.25 + n * 0.05;
+});
+def('snow', (u, v, o) => {
+  const n = fbm(u, v, 171, 6, 5), n2 = fbm(u, v, 172, 24, 2);
+  const t = 0.86 + n * 0.1 + n2 * 0.05;
+  o.r = t * 0.94; o.g = t * 0.97; o.b = t; o.h = n * 0.6 + n2 * 0.2; o.ro = 0.92 - n2 * 0.2;
+  if (hash2(Math.floor(u * 64), Math.floor(v * 64), 173) < 0.03) { o.ro = 0.2; o.r = o.g = o.b = 1; }
+});
+def('icewall', slabGen({ seed: 181, n: 3, base: [0.46, 0.64, 0.78], grout: [0.24, 0.36, 0.48], var: 0.25, soft: 0.1, rough: 0.12, dome: 0.3 }));
+def('frost', (u, v, o) => {
+  stoneBase(u, v, o, 191);
+  o.r = o.r * 0.7 + 0.08; o.g = o.g * 0.8 + 0.12; o.b = o.b * 0.95 + 0.2;
+  const f = smooth(0.55, 0.7, fbm(u, v, 193, 4, 4));
+  mixc(o, [0.85, 0.92, 0.98], f); o.ro = lerp(o.ro, 0.3, f);
+});
+def('mud', (u, v, o) => {
+  const n = fbm(u, v, 201, 5, 5), n2 = fbm(u, v, 202, 20, 2);
+  const t = 0.6 + n * 0.7;
+  o.r = 0.2 * t; o.g = 0.15 * t; o.b = 0.1 * t;
+  const wet = smooth(0.5, 0.62, fbm(u, v, 203, 3, 3));
+  o.r *= 1 - wet * 0.35; o.g *= 1 - wet * 0.3; o.b *= 1 - wet * 0.25;
+  o.h = n * 0.5 + n2 * 0.2 - wet * 0.2; o.ro = lerp(0.9, 0.18, wet);
+  const [d1, , id] = voronoi(u, v, 205, 9, 1);
+  if (d1 < 0.16 && hash2(id, 3, 205) < 0.4) { const k = smooth(0.16, 0.08, d1); mixc(o, [0.32, 0.3, 0.26], k); o.h += k * 0.4; o.ro = lerp(o.ro, 0.8, k); }
+});
+def('mossstone', (u, v, o) => {
+  slabGen({ seed: 211, n: 5, base: [0.36, 0.38, 0.33], grout: [0.1, 0.12, 0.08], var: 0.4, dome: 0.35, soft: 0.2 })(u, v, o);
+  const mm = smooth(0.52, 0.62, fbm(u, v, 213, 4, 5));
+  if (mm > 0) { const g2 = fbm(u, v, 214, 16, 3); mixc(o, [0.14 + g2 * 0.1, 0.26 + g2 * 0.14, 0.06], mm); o.h += mm * 0.15; o.ro = lerp(o.ro, 1, mm); }
+});
+def('swampwall', brickGen({ seed: 221, base: [0.3, 0.34, 0.27], var: 0.35, mortar: [0.1, 0.12, 0.08], moss: 2, crack: 2 }));
+def('voidtile', (u, v, o, x, y) => {
+  const n = fbm(u, v, 231, 3, 5);
+  o.r = 0.05 + n * 0.04; o.g = 0.035 + n * 0.03; o.b = 0.09 + n * 0.06;
+  const gd = Math.min(x + 0.5, 64 - x - 0.5, y + 0.5, 64 - y - 0.5);
+  const seam = smooth(1.4, 0.3, gd) * 0.6;
+  if (seam > 0) { o.er = 0.3 * seam; o.eg = 0.12 * seam; o.eb = 0.6 * seam; mixc(o, [0.45, 0.28, 0.8], seam); }
+  if (hash2(x, y, 233) < 0.006) { o.er = o.eg = o.eb = 0.9; }
+  o.h = 0.5 - seam * 0.3; o.ro = 0.08 + n * 0.05;
+});
+def('voidcrystal', (u, v, o) => {
+  const [d1, d2, id] = voronoi(u, v, 241, 4, 0.9);
+  const n = fbm(u, v, 242, 6, 3);
+  const e = smooth(0.0, 0.06, d2 - d1);
+  const tone = 0.7 + hash2(id, 1, 241) * 0.5;
+  o.r = 0.2 * tone; o.g = 0.1 * tone; o.b = 0.36 * tone;
+  const vein = smooth(0.035, 0.0, d2 - d1) * smooth(0.4, 0.6, n);
+  if (vein > 0) { o.er = 0.7 * vein; o.eg = 0.3 * vein; o.eb = 1.0 * vein; mixc(o, [0.75, 0.45, 1], vein); }
+  o.h = e * 0.5 + (1 - d1) * 0.3; o.ro = 0.12 + (1 - e) * 0.25;
+});
+
 // ---------- construcao do atlas ----------
 function renderTile(gen) {
   const n = T * T;
@@ -320,69 +381,139 @@ export function tileTexture(name, repeat = 1) {
 // ---------- texturas de personagens ----------
 const _charTex = {};
 const CHAR = {
-  steel: { base: [0.55, 0.57, 0.6], var: 0.25, sc: 6, scratch: true },
-  steel_dark: { base: [0.28, 0.29, 0.32], var: 0.25, sc: 6, scratch: true },
-  gold: { base: [0.85, 0.66, 0.28], var: 0.2, sc: 6, scratch: true },
-  iron: { base: [0.22, 0.21, 0.21], var: 0.35, sc: 8, rust: true },
-  cloth_blue: { base: [0.12, 0.2, 0.42], var: 0.25, sc: 16, weave: true },
-  cloth_red: { base: [0.5, 0.08, 0.07], var: 0.25, sc: 16, weave: true },
-  cloth_green: { base: [0.12, 0.3, 0.16], var: 0.25, sc: 16, weave: true },
-  cloth_purple: { base: [0.26, 0.1, 0.34], var: 0.3, sc: 16, weave: true },
-  leather: { base: [0.36, 0.22, 0.12], var: 0.35, sc: 8 },
-  skin: { base: [0.78, 0.58, 0.46], var: 0.12, sc: 6 },
-  skin_rot: { base: [0.4, 0.47, 0.33], var: 0.45, sc: 5, blotch: [0.3, 0.18, 0.2] },
+  steel: { base: [0.58, 0.6, 0.63], var: 0.18, sc: 6, scratch: true, hammer: true },
+  steel_dark: { base: [0.26, 0.27, 0.3], var: 0.2, sc: 6, scratch: true, hammer: true },
+  gold: { base: [0.88, 0.68, 0.3], var: 0.16, sc: 6, scratch: true },
+  iron: { base: [0.24, 0.23, 0.23], var: 0.3, sc: 8, rust: true, hammer: true },
+  chain: { base: [0.5, 0.52, 0.55], var: 0.15, sc: 8, rings: true },
+  cloth_blue: { base: [0.1, 0.18, 0.4], var: 0.22, sc: 16, weave: true },
+  cloth_red: { base: [0.48, 0.07, 0.06], var: 0.22, sc: 16, weave: true },
+  cloth_green: { base: [0.13, 0.26, 0.15], var: 0.22, sc: 16, weave: true },
+  cloth_purple: { base: [0.24, 0.09, 0.32], var: 0.28, sc: 16, weave: true },
+  cloth_white: { base: [0.72, 0.68, 0.6], var: 0.18, sc: 16, weave: true },
+  cloth_brown: { base: [0.3, 0.2, 0.12], var: 0.25, sc: 16, weave: true },
+  leather: { base: [0.36, 0.22, 0.12], var: 0.3, sc: 8, leather: true },
+  leather_dark: { base: [0.16, 0.11, 0.08], var: 0.3, sc: 8, leather: true },
+  skin: { base: [0.78, 0.56, 0.44], var: 0.1, sc: 6, skin: true },
+  skin_dark: { base: [0.46, 0.3, 0.22], var: 0.1, sc: 6, skin: true },
+  skin_pale: { base: [0.66, 0.66, 0.6], var: 0.16, sc: 5, veins: [0.32, 0.36, 0.42], skin: true },
+  skin_drowned: { base: [0.36, 0.44, 0.4], var: 0.22, sc: 5, veins: [0.14, 0.2, 0.18], skin: true },
   rags: { base: [0.3, 0.26, 0.2], var: 0.5, sc: 10, weave: true, holes: true },
-  bone: { base: [0.82, 0.78, 0.66], var: 0.2, sc: 8, pores: true },
-  robe: { base: [0.12, 0.1, 0.14], var: 0.3, sc: 12, weave: true },
-  chitin: { base: [0.3, 0.24, 0.2], var: 0.3, sc: 5, plates: true },
-  fungus: { base: [0.55, 0.42, 0.3], var: 0.35, sc: 6, spots: [0.85, 0.8, 0.45] },
-  obsidian: { base: [0.08, 0.06, 0.1], var: 0.3, sc: 4, lava: true },
+  bone: { base: [0.82, 0.78, 0.66], var: 0.18, sc: 8, pores: true },
+  robe: { base: [0.1, 0.09, 0.12], var: 0.25, sc: 12, weave: true },
+  hair: { base: [0.14, 0.09, 0.05], var: 0.4, sc: 24, fiber: true },
+  hair_grey: { base: [0.45, 0.43, 0.4], var: 0.3, sc: 24, fiber: true },
   wood: { base: [0.42, 0.28, 0.16], var: 0.3, sc: 4, grain: true },
-  hair: { base: [0.15, 0.1, 0.06], var: 0.4, sc: 20 },
+  plant: { base: [0.2, 0.3, 0.13], var: 0.3, sc: 6, fiber: true },
+  plant_dark: { base: [0.12, 0.16, 0.08], var: 0.3, sc: 6, fiber: true },
+  petal: { base: [0.5, 0.1, 0.18], var: 0.25, sc: 6, veins: [0.8, 0.3, 0.35] },
+  scales: { base: [0.22, 0.27, 0.2], var: 0.25, sc: 6, scales: true },
+  scales_red: { base: [0.35, 0.12, 0.1], var: 0.25, sc: 6, scales: true },
+  fur: { base: [0.34, 0.29, 0.24], var: 0.3, sc: 28, fiber: true },
+  fur_white: { base: [0.82, 0.86, 0.9], var: 0.18, sc: 28, fiber: true },
+  cloth_ice: { base: [0.66, 0.78, 0.88], var: 0.16, sc: 16, weave: true },
+  hide: { base: [0.2, 0.2, 0.24], var: 0.25, sc: 6, leather: true },
+  belly: { base: [0.56, 0.46, 0.4], var: 0.3, sc: 5, blotch: [0.42, 0.26, 0.28], skin: true, stitches: true },
+  porcelain: { base: [0.9, 0.88, 0.84], var: 0.04, sc: 4, porcelain: true },
+  ice: { base: [0.62, 0.82, 0.92], var: 0.14, sc: 5, cracksLight: true },
+  crystal_void: { base: [0.16, 0.1, 0.3], var: 0.25, sc: 4, veinGlow: [0.65, 0.3, 1] },
+  carapace: { base: [0.13, 0.11, 0.15], var: 0.25, sc: 4, plates: true },
+  carapace_ice: { base: [0.5, 0.66, 0.78], var: 0.2, sc: 4, plates: true },
+  chitin: { base: [0.3, 0.24, 0.2], var: 0.3, sc: 5, plates: true },
+  obsidian: { base: [0.08, 0.06, 0.1], var: 0.3, sc: 4, lava: true },
+  moth: { base: [0.5, 0.44, 0.36], var: 0.3, sc: 24, fiber: true },
+  jelly: { base: [0.55, 0.8, 0.5], var: 0.2, sc: 5, veins: [0.8, 1, 0.6] },
 };
 export function charTex(kind) {
   if (_charTex[kind]) return _charTex[kind];
   const P = CHAR[kind] || CHAR.steel;
-  const S = 64, seed = kind.length * 97 + kind.charCodeAt(0);
+  const S = 128, seed = kind.length * 97 + kind.charCodeAt(0) * 7 + kind.charCodeAt(kind.length - 1);
   const rough = new Float32Array(S * S), emi = new Float32Array(S * S * 3), hgt = new Float32Array(S * S);
+  let hasEmi = false;
   const scr = P.scratch ? makeCracks(seed, 5) : null;
   const col = toCanvas(S, S, (d) => {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
       const u = (x + 0.5) / S, v = (y + 0.5) / S, i = y * S + x;
       let n = fbm(u, v, seed, P.sc, 4);
       if (P.grain) n = woodGrain(u, v, seed);
-      let t = 1 + (n - 0.5) * P.var * 2;
+      if (P.fiber) n = vnoise(u * P.sc, v * P.sc * 0.25, seed, P.sc, P.sc * 0.25) * 0.6 + fbm(u, v, seed + 1, P.sc, 2) * 0.4;
+      const t = 1 + (n - 0.5) * P.var * 2;
       let r = P.base[0] * t, g = P.base[1] * t, b = P.base[2] * t;
-      let ro = 0.8, h = n;
-      if (P.weave) { const w = ((x + y) % 4 < 2 ? 1 : 0.9) * ((x - y + 64) % 4 < 2 ? 1 : 0.94); r *= w; g *= w; b *= w; ro = 0.95; }
-      if (P.scratch) { ro = 0.32 + n * 0.2; const s = scr[i]; if (s > 0) { r *= 1 + s * 0.3; g *= 1 + s * 0.3; b *= 1 + s * 0.3; h -= s * 0.3; } }
-      if (P.rust) { const rr = smooth(0.55, 0.7, fbm(u, v, seed + 4, 4, 4)); r = lerp(r, 0.4, rr); g = lerp(g, 0.2, rr); b = lerp(b, 0.1, rr); ro = 0.5 + rr * 0.4; }
-      if (P.blotch) { const bl = smooth(0.58, 0.7, fbm(u, v, seed + 6, 4, 4)); r = lerp(r, P.blotch[0], bl); g = lerp(g, P.blotch[1], bl); b = lerp(b, P.blotch[2], bl); ro = 0.6; }
+      let ro = 0.8, h = n * 0.5;
+      if (P.weave) { const w = ((x + y) % 4 < 2 ? 1 : 0.88) * ((x - y + 256) % 4 < 2 ? 1 : 0.93); r *= w; g *= w; b *= w; ro = 0.95; h = w * 0.6; }
+      if (P.hammer) { const [d1] = voronoi(u, v, seed + 2, 7, 1); h = 0.5 + d1 * 0.35; }
+      if (P.scratch) { ro = 0.26 + n * 0.18; const s = scr[i % (64 * 64)] || 0; if (s > 0) { r *= 1 + s * 0.3; g *= 1 + s * 0.3; b *= 1 + s * 0.3; h -= s * 0.2; } }
+      if (P.rings) {
+        const rx = ((x + (Math.floor(y / 6) % 2) * 3) % 6) - 2.5, ry = (y % 6) - 2.5, rr = Math.hypot(rx, ry);
+        const ring = smooth(1.4, 2.0, rr) * smooth(3.2, 2.5, rr);
+        const k = 0.35 + ring * 0.75; r *= k; g *= k; b *= k; h = ring; ro = 0.35 + (1 - ring) * 0.4;
+      }
+      if (P.leather) { const cr = fbm(u, v, seed + 3, 24, 2); h = n * 0.4 + cr * 0.3; ro = 0.62 + cr * 0.2; }
+      if (P.skin) { ro = 0.55 + n * 0.1; h = n * 0.2 + fbm(u, v, seed + 9, 32, 2) * 0.1; }
+      if (P.rust) { const rr = smooth(0.55, 0.7, fbm(u, v, seed + 4, 4, 4)); r = lerp(r, 0.4, rr); g = lerp(g, 0.2, rr); b = lerp(b, 0.1, rr); ro = 0.45 + rr * 0.45; }
+      if (P.blotch) { const bl = smooth(0.58, 0.7, fbm(u, v, seed + 6, 4, 4)); r = lerp(r, P.blotch[0], bl); g = lerp(g, P.blotch[1], bl); b = lerp(b, P.blotch[2], bl); }
+      if (P.stitches) { const sy = Math.abs(y - S * 0.5); if (sy < 1.5) { r *= 0.35; g *= 0.3; b *= 0.3; h -= 0.3; } if (sy < 5 && x % 10 < 2) { r = 0.1; g = 0.08; b = 0.07; h += 0.2; } }
+      if (P.veins) { const [d1, d2] = voronoi(u, v, seed + 7, 4, 1); const vn = smooth(0.04, 0.0, d2 - d1) * smooth(0.3, 0.6, fbm(u, v, seed + 8, 6, 3)); r = lerp(r, P.veins[0], vn); g = lerp(g, P.veins[1], vn); b = lerp(b, P.veins[2], vn); h += vn * 0.2; }
       if (P.holes && fbm(u, v, seed + 8, 6, 3) > 0.7) { r *= 0.3; g *= 0.3; b *= 0.3; }
-      if (P.pores) { if (hash2(x, y, seed) < 0.05) { r *= 0.7; g *= 0.7; b *= 0.7; } ro = 0.7; }
-      if (P.plates) { const [d1, d2] = voronoi(u, v, seed, 3, 0.7); const e = smooth(0, 0.08, d2 - d1); r = r * (0.4 + 0.6 * e) + (1 - d1) * 0.05; g *= 0.4 + 0.6 * e; b *= 0.4 + 0.6 * e; ro = 0.35; h = e; }
+      if (P.pores) { if (hash2(x, y, seed) < 0.05) { r *= 0.7; g *= 0.7; b *= 0.7; h -= 0.2; } ro = 0.7; }
+      if (P.plates) { const [d1, d2] = voronoi(u, v, seed, 3, 0.7); const e = smooth(0, 0.08, d2 - d1); r = r * (0.4 + 0.6 * e) + (1 - d1) * 0.05; g *= 0.4 + 0.6 * e; b *= 0.4 + 0.6 * e; ro = 0.22 + (1 - e) * 0.4; h = e * 0.8 + (1 - d1) * 0.2; }
+      if (P.scales) {
+        const row = Math.floor(y / 8), xx = x + (row % 2) * 4, cx = Math.floor(xx / 8) * 8 + 4 - (row % 2) * 4, cy = row * 8;
+        const dd = Math.hypot(x - cx, (y - cy) * 1.2) / 6.5;
+        const e = smooth(1.0, 0.8, dd);
+        const k = 0.55 + e * 0.5 + (1 - dd) * 0.2; r *= k; g *= k; b *= k; h = e * (1 - dd * 0.5); ro = 0.35 + (1 - e) * 0.3;
+      }
+      if (P.porcelain) { ro = 0.12; h = 0.5; const cr = scr ? 0 : 0; void cr; }
+      if (P.cracksLight) { const [d1, d2] = voronoi(u, v, seed + 3, 5, 1); const c = smooth(0.03, 0.0, d2 - d1); r = lerp(r, 0.95, c * 0.6); g = lerp(g, 1, c * 0.6); b = lerp(b, 1, c * 0.6); ro = 0.06 + c * 0.2; h = 0.5 - c * 0.3; }
       if (P.spots) { const [d1, , id] = voronoi(u, v, seed, 5, 1); if (d1 < 0.25 && hash2(id, 1, seed) < 0.6) { const k = smooth(0.25, 0.18, d1); r = lerp(r, P.spots[0], k); g = lerp(g, P.spots[1], k); b = lerp(b, P.spots[2], k); } }
-      if (P.lava) {
+      if (P.lava || P.veinGlow) {
+        const vc = P.veinGlow || [1, 0.4, 0.05];
         const [d1, d2] = voronoi(u, v, seed, 4, 0.9);
         const gl = smooth(0.035, 0.0, d2 - d1);
-        ro = 0.2 + (1 - gl) * 0.2;
-        if (gl > 0) { r = lerp(r, 1, gl); g = lerp(g, 0.4, gl); b = lerp(b, 0.05, gl); emi[i * 3] = gl; emi[i * 3 + 1] = gl * 0.35; emi[i * 3 + 2] = gl * 0.05; }
+        ro = 0.18 + (1 - gl) * 0.2;
+        if (gl > 0) { hasEmi = true; r = lerp(r, vc[0], gl); g = lerp(g, vc[1], gl); b = lerp(b, vc[2], gl); emi[i * 3] = gl * vc[0]; emi[i * 3 + 1] = gl * vc[1] * 0.9; emi[i * 3 + 2] = gl * vc[2]; h -= gl * 0.3; }
       }
       rough[i] = ro; hgt[i] = h;
       d[i * 4] = clamp(r, 0, 1) * 255; d[i * 4 + 1] = clamp(g, 0, 1) * 255; d[i * 4 + 2] = clamp(b, 0, 1) * 255; d[i * 4 + 3] = 255;
     }
   });
-  const map = new THREE.CanvasTexture(col); map.colorSpace = THREE.SRGBColorSpace;
-  const rc = toCanvas(S, S, (d) => { for (let i = 0; i < S * S; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = rough[i] * 255; d[i * 4 + 3] = 255; } });
-  const roughnessMap = new THREE.CanvasTexture(rc);
+  const wrap = (tx) => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.anisotropy = 4; return tx; };
+  const map = wrap(new THREE.CanvasTexture(col)); map.colorSpace = THREE.SRGBColorSpace;
+  const rc = toCanvas(S, S, (d) => { for (let i = 0; i < S * S; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = clamp(rough[i], 0, 1) * 255; d[i * 4 + 3] = 255; } });
+  const roughnessMap = wrap(new THREE.CanvasTexture(rc));
+  const nc = toCanvas(S, S, (d) => {
+    const K = 3;
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const dx = (hgt[y * S + (x + 1) % S] - hgt[y * S + (x + S - 1) % S]) * K;
+      const dy = (hgt[((y + 1) % S) * S + x] - hgt[((y + S - 1) % S) * S + x]) * K;
+      const l = Math.hypot(dx, dy, 1), i = (y * S + x) * 4;
+      d[i] = (-dx / l * 0.5 + 0.5) * 255; d[i + 1] = (dy / l * 0.5 + 0.5) * 255; d[i + 2] = (1 / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+    }
+  });
+  const normalMap = wrap(new THREE.CanvasTexture(nc));
   let emissiveMap = null;
-  if (P.lava) {
-    const ec = toCanvas(S, S, (d) => { for (let i = 0; i < S * S; i++) { d[i * 4] = emi[i * 3] * 255; d[i * 4 + 1] = emi[i * 3 + 1] * 255; d[i * 4 + 2] = emi[i * 3 + 2] * 255; d[i * 4 + 3] = 255; } });
-    emissiveMap = new THREE.CanvasTexture(ec); emissiveMap.colorSpace = THREE.SRGBColorSpace;
+  if (hasEmi) {
+    const ec = toCanvas(S, S, (d) => { for (let i = 0; i < S * S; i++) { d[i * 4] = clamp(emi[i * 3], 0, 1) * 255; d[i * 4 + 1] = clamp(emi[i * 3 + 1], 0, 1) * 255; d[i * 4 + 2] = clamp(emi[i * 3 + 2], 0, 1) * 255; d[i * 4 + 3] = 255; } });
+    emissiveMap = wrap(new THREE.CanvasTexture(ec)); emissiveMap.colorSpace = THREE.SRGBColorSpace;
   }
-  _charTex[kind] = { map, roughnessMap, emissiveMap };
+  _charTex[kind] = { map, roughnessMap, normalMap, emissiveMap };
   return _charTex[kind];
 }
+
+// asas de mariposa com ocelos
+export const wingTexture = (base, eye) => canvas2d(128, 128, (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = base;
+  g.beginPath(); g.moveTo(4, 64); g.bezierCurveTo(20, 4, 110, 0, 124, 30); g.bezierCurveTo(128, 70, 90, 120, 40, 110); g.bezierCurveTo(20, 104, 6, 84, 4, 64); g.fill();
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,240,220'},${Math.random() * 0.08})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+  g.strokeStyle = 'rgba(40,30,20,0.5)'; g.lineWidth = 1.2;
+  for (let k = 0; k < 6; k++) { g.beginPath(); g.moveTo(6, 64); g.quadraticCurveTo(50, 40 + k * 8, 120 - k * 6, 20 + k * 16); g.stroke(); }
+  const cx = 80, cy = 58;
+  const gr = g.createRadialGradient(cx, cy, 2, cx, cy, 20);
+  gr.addColorStop(0, '#111'); gr.addColorStop(0.3, eye); gr.addColorStop(0.55, '#f4e6c8'); gr.addColorStop(0.7, '#2a1a10'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalCompositeOperation = 'source-atop'; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, 20, 0, Math.PI * 2); g.fill();
+  g.globalCompositeOperation = 'source-over';
+});
 
 // ---------- lava / agua ----------
 export function lavaTexture() {

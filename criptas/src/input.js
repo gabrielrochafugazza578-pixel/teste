@@ -5,7 +5,7 @@ const MAP = {
   up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
   attack: ['M0', 'KeyJ'], shoot: ['M2', 'KeyK', 'KeyL'], roll: ['Space', 'ShiftLeft', 'ShiftRight'],
   potion: ['KeyQ', 'KeyH'], art1: ['Digit1', 'Numpad1'], art2: ['Digit2', 'Numpad2'], art3: ['Digit3', 'Numpad3'],
-  interact: ['KeyE', 'KeyF', 'Enter'], pause: ['Escape', 'KeyP'],
+  interact: ['KeyE', 'KeyF', 'Enter'], pause: ['Escape', 'KeyP'], bag: ['KeyI', 'KeyB', 'Tab'], journal: ['KeyO'], store: ['KeyG'],
 };
 const PAD = { roll: [0], potion: [1], attack: [2, 5], interact: [3], shoot: [7], art1: [4], art2: [6], art3: [8], pause: [9] };
 

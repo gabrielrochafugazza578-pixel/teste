@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { getAtlas, TILES, lavaTexture, waterNormal } from './textures.js';
 import { C } from './dungeon.js';
 import { hash2 } from './util.js';
+import { patchMirror } from './reflect.js';
 
 export const OFF = 5;
 const H = OFF + 5;
@@ -45,17 +46,17 @@ export function buildWorld(dg) {
       const bt = c === C.LAVA ? T('basalt') : T(theme.themeKey === 'minas' ? 'gravel' : 'gravel');
       for (let y = 0; y < OFF - 1; y++) set(x, y, z, found, bt);
     } else if (c === C.PIT) {
-      set(x, 0, z, found, T('gravel'));
+      if (!theme.voidPits) set(x, 0, z, found, T('gravel'));
     } else if (c === C.WALL) {
       const ty = OFF - 1 + wallH[i];
       for (let y = 0; y <= ty; y++) {
         const s = y < OFF - 1 ? found : T(weighted(theme.walls, hash2(x * 13 + y * 7, z, seed + 3)));
         set(x, y, z, s, y === ty ? T(theme.cap) : s);
       }
-    } else if (c === C.PILLAR) {
-      const ty = OFF - 1 + 4;
-      const p = T(theme.pillar);
-      for (let y = 0; y <= ty; y++) set(x, y, z, y < OFF ? found : p, y === ty ? (theme.pillar === 'log_side' ? T('log_top') : T(theme.cap)) : p);
+    } else if (c === C.PILLAR) { // coluna redonda feita em props.js; aqui so o chao
+      const ty = OFF - 1 + h[i], m = T(mat[i] && mat[i] !== theme.pillar ? mat[i] : theme.floor[0][0]);
+      for (let y = 0; y < ty; y++) set(x, y, z, found);
+      set(x, ty, z, h[i] > 0 ? m : found, m);
     }
   }
 
@@ -66,16 +67,28 @@ export function buildWorld(dg) {
   };
   const voidAt = (x, z) => x < 0 || z < 0 || x >= W || z >= D || cell[x + z * W] === C.VOID;
 
+  // deslocamento organico: cada canto da grade se move de forma deterministica (malha continua sem frestas)
+  const hh = (a, b, c, s) => { let n = (a * 374761393 + b * 668265263 + c * 2147483647 + s * 1274126177) | 0; n = (n ^ (n >>> 13)) * 1274126177; return ((n ^ (n >>> 16)) >>> 0) / 4294967296 - 0.5; };
+  const AH = theme.hub ? 0.1 : 0.16, AV = 0.22;
+  const disp = (X, Y, Z, out) => {
+    const up = Y > OFF + 1;
+    out[0] = X + hh(X, Y, Z, 1) * AH * (up ? 1.25 : 1);
+    out[1] = Y - OFF + (up ? hh(X, Y, Z, 2) * AV : 0);
+    out[2] = Z + hh(X, Y, Z, 3) * AH * (up ? 1.25 : 1);
+    return out;
+  };
+  const dv = [0, 0, 0];
   const atlas = getAtlas();
   const material = new THREE.MeshStandardMaterial({
     map: atlas.map, normalMap: atlas.normalMap, roughnessMap: atlas.roughnessMap,
     emissiveMap: atlas.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.6,
     vertexColors: true, metalness: 0, normalScale: new THREE.Vector2(1.1, 1.1),
   });
+  patchMirror(material);
   const group = new THREE.Group();
 
   for (let cz = 0; cz < D; cz += CH) for (let cx = 0; cx < W; cx += CH) {
-    const pos = [], nor = [], uvs = [], col = [], ind = [];
+    const pos = [], uvs = [], col = [], ind = [];
     for (let z = cz; z < Math.min(D, cz + CH); z++) for (let x = cx; x < Math.min(W, cx + CH); x++) for (let y = 0; y < H; y++) {
       const i = vi(x, y, z);
       if (!side[i]) continue;
@@ -101,8 +114,8 @@ export function buildWorld(dg) {
           const cc = solidAt(off[0] + du[0] + dv[0], off[1] + du[1] + dv[1], off[2] + du[2] + dv[2]) ? 1 : 0;
           const lvl = s1 && s2 ? 0 : 3 - (s1 + s2 + cc);
           ao.push(lvl);
-          pos.push(x + c[0], y - OFF + c[1], z + c[2]);
-          nor.push(dx, dy, dz);
+          disp(x + c[0], y + c[1], z + c[2], dv);
+          pos.push(dv[0], dv[1], dv[2]);
           uvs.push(u0 + c[3] * (u1 - u0), v0 + c[4] * (v1 - v0));
           const k = AO[lvl] * tint;
           col.push(k, k, k);
@@ -114,10 +127,10 @@ export function buildWorld(dg) {
     if (!pos.length) continue;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.setIndex(ind);
+    g.computeVertexNormals();
     g.computeBoundingSphere();
     const m = new THREE.Mesh(g, material);
     m.castShadow = true; m.receiveShadow = true;
@@ -130,8 +143,8 @@ export function buildWorld(dg) {
     const pos = [], uvs = [], ind = [];
     for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
       if (cell[x + z * W] !== type) continue;
-      const b = pos.length / 3;
-      pos.push(x, y, z + 1, x + 1, y, z + 1, x, y, z, x + 1, y, z);
+      const b = pos.length / 3, e = 0.22;
+      pos.push(x - e, y, z + 1 + e, x + 1 + e, y, z + 1 + e, x - e, y, z - e, x + 1 + e, y, z - e);
       uvs.push(x * 0.25, (z + 1) * 0.25, (x + 1) * 0.25, (z + 1) * 0.25, x * 0.25, z * 0.25, (x + 1) * 0.25, z * 0.25);
       ind.push(b, b + 1, b + 2, b + 2, b + 1, b + 3);
     }
@@ -149,10 +162,12 @@ export function buildWorld(dg) {
     lavaMat = new THREE.MeshStandardMaterial({ map: lt, emissiveMap: lt, emissive: 0xffffff, emissiveIntensity: 0.95, roughness: 0.7 });
     const m = new THREE.Mesh(lg, lavaMat); m.receiveShadow = false; group.add(m); liquids.push(m);
   }
-  const wg = mkPlane(C.WATER, -0.32);
+  const wg = mkPlane(C.WATER, theme.shallow ? -0.12 : -0.32);
   if (wg) {
     const wn = waterNormal();
-    waterMat = new THREE.MeshStandardMaterial({ color: 0x0e2c30, roughness: 0.06, metalness: 0.2, normalMap: wn, normalScale: new THREE.Vector2(0.5, 0.5), transparent: true, opacity: 0.8 });
+    wn.repeat.set(0.6, 0.6);
+    waterMat = new THREE.MeshStandardMaterial({ color: theme.water || 0x0b2428, roughness: 0.05, metalness: 0.0, normalMap: wn, normalScale: new THREE.Vector2(0.35, 0.35) });
+    patchMirror(waterMat, { water: true });
     const m = new THREE.Mesh(wg, waterMat); m.receiveShadow = true; group.add(m); liquids.push(m);
   }
 

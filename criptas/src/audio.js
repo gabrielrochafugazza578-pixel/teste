@@ -57,6 +57,12 @@ export class Audio {
       case 'arrowHit': this.nz(0.05, 0.3 * v, 'bandpass', 1800, 900, 3); break;
       case 'hurt': this.osc('sawtooth', 220, 110, 0.18, 0.18 * v); this.nz(0.15, 0.3 * v, 'lowpass', 1500, 300); break;
       case 'roll': this.nz(0.25, 0.25 * v, 'bandpass', 500, 1400, 0.8); break;
+      case 'plantHit': this.nz(0.09, 0.4 * v, 'bandpass', 700 * r(), 300, 2); this.osc('triangle', 160 * r(), 80, 0.1, 0.3 * v); break;
+      case 'squish': this.nz(0.14, 0.35 * v, 'lowpass', 1200 * r(), 200, 3); this.osc('sine', 300 * r(), 90, 0.12, 0.25 * v); break;
+      case 'glass': this.osc('sine', 2200 * r(), 1800, 0.18, 0.1 * v, null, 0, 0.5); this.osc('sine', 3300 * r(), 2600, 0.12, 0.06 * v, null, 0.02, 0.5); this.nz(0.06, 0.2 * v, 'highpass', 4000, 6000); break;
+      case 'shell': this.nz(0.08, 0.45 * v, 'bandpass', 1400 * r(), 700, 5); this.osc('square', 220 * r(), 120, 0.06, 0.08 * v); break;
+      case 'thorn': this.nz(0.1, 0.25 * v, 'highpass', 2500, 5000); this.osc('triangle', 500 * r(), 250, 0.08, 0.12 * v); break;
+      case 'anvil': this.osc('sine', 880, 870, 0.8, 0.25 * v, null, 0, 0.5); this.osc('sine', 1320, 1300, 0.6, 0.12 * v, null, 0, 0.5); this.osc('sine', 2210, 2200, 0.4, 0.06 * v, null, 0, 0.5); this.nz(0.05, 0.4 * v, 'highpass', 3000, 5000); break;
       case 'coin': this.osc('sine', 1800 * r(), 1800, 0.06, 0.12 * v, null, 0, 0.3); this.osc('sine', 2400 * r(), 2400, 0.12, 0.1 * v, null, 0.05, 0.3); break;
       case 'pickup': this.osc('triangle', 520, 520, 0.1, 0.2 * v); this.osc('triangle', 780, 780, 0.2, 0.2 * v, null, 0.08); break;
       case 'potion': for (let i = 0; i < 5; i++) this.osc('sine', 300 + Math.random() * 500, 800, 0.08, 0.15 * v, null, i * 0.06); break;

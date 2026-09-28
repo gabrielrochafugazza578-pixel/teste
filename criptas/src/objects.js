@@ -2,12 +2,15 @@
 import * as THREE from 'three';
 import { propMats, makeFlame } from './props.js';
 import { ringTexture, charTex } from './textures.js';
-import { Rig, makeWeapon, makeBow, makeMat } from './models.js';
+import { makeWeapon, makeBow, makeNpc, animateWalk, M as makeMatK } from './models.js';
+import { GEO, lathe, taperTube } from './geo.js';
 import { RARITY } from './items.js';
 
 let _ring = null;
 const ringTex = () => (_ring || (_ring = ringTexture()));
-const box = (w, h, d, m) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.castShadow = true; me.receiveShadow = true; return me; };
+const box = (w, h, d, m) => { const me = new THREE.Mesh(GEO.rbox(w, h, d, Math.min(w, h, d) * 0.2), m); me.castShadow = true; me.receiveShadow = true; return me; };
+const mesh = (geo, m) => { const me = new THREE.Mesh(geo, m); me.castShadow = true; me.receiveShadow = true; return me; };
+const makeMat = (kind, o) => makeMatK(kind, o);
 
 // ---------- bau ----------
 export class Chest {
@@ -16,12 +19,13 @@ export class Chest {
     const M = propMats();
     const g = new THREE.Group();
     const s = big ? 1.15 : 0.9;
-    const base = box(0.9, 0.48, 0.6, M.wood); base.position.y = 0.24; g.add(base);
-    for (const x2 of [-0.44, 0.44]) { const b = box(0.06, 0.5, 0.62, big ? M.gold : M.iron); b.position.set(x2, 0.25, 0); g.add(b); }
+    const band = big ? M.gold : M.iron;
+    const base = mesh(GEO.rbox(0.9, 0.48, 0.6, 0.05), M.wood); base.position.y = 0.24; g.add(base);
+    for (const x2 of [-0.42, 0.42]) { const b = mesh(GEO.rbox(0.07, 0.5, 0.63, 0.02), band); b.position.set(x2, 0.25, 0); g.add(b); }
     this.lid = new THREE.Group(); this.lid.position.set(0, 0.48, -0.3); g.add(this.lid);
-    const lid = box(0.92, 0.22, 0.62, M.wood); lid.position.set(0, 0.11, 0.3); this.lid.add(lid);
-    const band = box(0.94, 0.06, 0.64, big ? M.gold : M.iron); band.position.set(0, 0.2, 0.3); this.lid.add(band);
-    const lock = box(0.12, 0.14, 0.04, M.gold); lock.position.set(0, 0.46, 0.31); g.add(lock);
+    const lid = mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 16, 1, false, 0, Math.PI), M.wood); lid.rotation.z = Math.PI / 2; lid.rotation.y = Math.PI / 2; lid.position.set(0, 0, 0.3); lid.scale.set(1, 1, 0.55); this.lid.add(lid);
+    for (const x2 of [-0.42, 0.42]) { const b = mesh(new THREE.TorusGeometry(0.3, 0.025, 6, 16, Math.PI), band); b.rotation.y = Math.PI / 2; b.position.set(x2, 0, 0.3); b.scale.set(1, 0.55, 1); this.lid.add(b); }
+    const lock = mesh(GEO.rbox(0.12, 0.14, 0.05, 0.02), M.gold); lock.position.set(0, 0.46, 0.31); g.add(lock);
     g.scale.setScalar(s);
     g.position.set(x, game.floorAt(x, z), z);
     g.rotation.y = Math.PI / 4 + (Math.random() - 0.5) * 0.4;
@@ -40,6 +44,7 @@ export class Chest {
     if (this.big) g.dropItem(this.x, this.z, { bonus: 0.3 });
     if (Math.random() < 0.6) g.spawnLoot('arrows', this.x, this.z);
     this.glow.intensity = 4;
+    g.onChestOpened(this);
   }
   update(dt) {
     if (this.opened && this.t < 1) {
@@ -54,7 +59,7 @@ export class Chest {
 // ---------- vaso quebravel ----------
 const potGeo = new THREE.LatheGeometry([
   [0, 0], [0.16, 0], [0.24, 0.1], [0.27, 0.25], [0.22, 0.42], [0.12, 0.5], [0.13, 0.58], [0.16, 0.6], [0, 0.6],
-].map(p => new THREE.Vector2(p[0], p[1])), 12);
+].map(p => new THREE.Vector2(p[0], p[1])), 16);
 export class Pot {
   constructor(game, x, z) {
     this.game = game; this.x = x; this.z = z; this.dead = false; this.r = 0.3;
@@ -83,44 +88,61 @@ export class Pot {
   }
 }
 
-// ---------- braseiro ancestral ----------
+// ---------- objetivo do andar: braseiro / cristal / totem / selo ----------
+const FLAME_COL = { catacumbas: [0xff8a3a, 0xffd0a0], minas: [0xff8a3a, 0xffd0a0], forja: [0xff6a20, 0xffc080], geleira: [0x70d8ff, 0xc0f0ff], pantano: [0x70ff60, 0xc0ffa0], vazio: [0xb060ff, 0xe0c0ff] };
 export class Brazier {
   constructor(game, x, z) {
     this.game = game; this.x = x; this.z = z; this.lit = false; this.t = 0;
     const M = propMats();
+    const tk = game.dg.themeKey;
+    const [lc, fc] = FLAME_COL[tk] || FLAME_COL.catacumbas;
+    this.col = lc;
     const g = new THREE.Group();
-    const ped = box(0.8, 0.7, 0.8, M.stone); ped.position.y = 0.35; g.add(ped);
-    const ped2 = box(0.6, 0.2, 0.6, M.stone); ped2.position.y = 0.8; g.add(ped2);
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.32, 0.32, 10, 1, true), M.iron);
-    bowl.material = M.iron; bowl.position.y = 1.06; bowl.castShadow = true; g.add(bowl);
-    const coal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 10), makeMat('glow', { color: 0x401005, intensity: 0.4 }));
-    coal.position.y = 1.12; g.add(coal); this.coal = coal;
-    const rune = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.1, 32), new THREE.MeshBasicMaterial({ color: 0xff9a40, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+    if (tk === 'geleira' || tk === 'vazio') {
+      const mat = tk === 'geleira' ? M.ice : M.crystalV;
+      g.add(mesh(lathe('bzped', [[0, 0], [0.55, 0], [0.5, 0.2], [0.3, 0.35], [0.3, 0.6], [0.45, 0.7], [0, 0.72]], 16), tk === 'geleira' ? M.rock : M.basalt));
+      const cr = mesh(new THREE.OctahedronGeometry(0.4, 0), mat); cr.scale.set(0.8, 1.6, 0.8); cr.position.y = 1.5; g.add(cr); this.spin = cr;
+      this.coal = cr;
+    } else if (tk === 'pantano') {
+      const tot = mesh(taperTube('totem', [[0, 0, 0], [0.05, 0.6, 0], [-0.03, 1.2, 0.02], [0, 1.7, 0]], 0.28, 0.2, 12, 10), M.log); g.add(tot);
+      for (let i = 0; i < 3; i++) { const r = mesh(new THREE.TorusGeometry(0.26, 0.03, 6, 16), M.rune); r.rotation.x = Math.PI / 2; r.position.y = 0.5 + i * 0.4; g.add(r); }
+      const mask = mesh(new THREE.SphereGeometry(0.2, 12, 10), M.bone); mask.scale.set(1, 1.2, 0.6); mask.position.set(0, 1.35, 0.18); g.add(mask);
+      this.coal = mask;
+    } else {
+      g.add(mesh(lathe('bzped2', [[0, 0], [0.5, 0], [0.48, 0.12], [0.3, 0.25], [0.24, 0.7], [0.34, 0.85], [0.3, 0.9], [0, 0.9]], 18), M.stone));
+      const bowl = mesh(lathe('bzbowl', [[0.1, 0], [0.34, 0.02], [0.55, 0.26], [0.58, 0.34], [0.5, 0.3], [0.3, 0.1], [0, 0.08]], 18), M.iron); bowl.position.y = 0.88; g.add(bowl);
+      const coal = mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.05, 16), makeMat('glow', { color: 0x401005, intensity: 0.4 }));
+      coal.position.y = 1.12; g.add(coal); this.coal = coal;
+    }
+    const rune = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.1, 40), new THREE.MeshBasicMaterial({ color: lc, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
     rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; g.add(rune); this.rune = rune;
     g.position.set(x, game.floorAt(x, z), z);
     this.mesh = g; game.scene.add(g);
-    this.flame = makeFlame(3.2, 0xffd0a0); this.flame.position.set(x, g.position.y + 1.8, z); this.flame.visible = false; game.scene.add(this.flame);
-    this.light = game.addLight(x, g.position.y + 2, z, 0xff8a3a, 0, 14, 1, true);
+    this.flame = makeFlame(3.2, fc); this.flame.position.set(x, g.position.y + 1.8, z); this.flame.visible = false; game.scene.add(this.flame);
+    this.light = game.addLight(x, g.position.y + 2, z, lc, 0, 14, 1, true);
   }
-  get prompt() { return this.lit ? null : 'Acender o braseiro'; }
+  get prompt() { const o = this.game.theme.obj; return this.lit ? null : `${o.verb} o ${o.noun}`; }
   interact() {
     if (this.lit) return;
     this.lit = true; this.t = 0;
     this.flame.visible = true;
-    this.coal.material.emissiveIntensity = 5;
+    if (this.coal.material.emissiveIntensity !== undefined) { this.coal.material = this.coal.material.clone(); this.coal.material.emissive = new THREE.Color(this.col); this.coal.material.emissiveIntensity = 4; }
     this.game.audio.play('brazier');
-    this.game.particles.burst(this.x, this.mesh.position.y + 1.3, this.z, 60, [1, 0.6, 0.2], 6, 0.9, 0.4);
+    const c = new THREE.Color(this.col);
+    this.game.particles.burst(this.x, this.mesh.position.y + 1.3, this.z, 60, [c.r, c.g, c.b], 6, 0.9, 0.4);
     this.game.onBrazierLit(this);
   }
   update(dt, time) {
     this.rune.material.opacity = this.lit ? 0.7 : 0.25 + Math.sin(time * 2) * 0.1;
-    if (!this.lit) { if (Math.random() < dt * 4) this.game.particles.ember(this.x + (Math.random() - 0.5) * 0.6, this.mesh.position.y + 1.15, this.z + (Math.random() - 0.5) * 0.6); return; }
+    if (this.spin) { this.spin.rotation.y += dt * (this.lit ? 2 : 0.4); this.spin.position.y = 1.5 + Math.sin(time * 1.5) * 0.08; }
+    const c = new THREE.Color(this.col);
+    if (!this.lit) { if (Math.random() < dt * 4) this.game.particles.ember(this.x + (Math.random() - 0.5) * 0.6, this.mesh.position.y + 1.15, this.z + (Math.random() - 0.5) * 0.6, [c.r, c.g, c.b]); return; }
     this.t += dt;
     this.light.intensity = Math.min(30, this.t * 40) * (0.9 + Math.sin(time * 13) * 0.05 + Math.sin(time * 7.3) * 0.05);
     const f = 1 + Math.sin(time * 17) * 0.06;
     this.flame.scale.set(1.1 * f, 1.9 / f, 1);
-    if (Math.random() < dt * 30) this.game.particles.fire(this.x, this.mesh.position.y + 1.2, this.z, 1, 0.7, [1, 0.45, 0.12], 0.8);
-    if (Math.random() < dt * 8) this.game.particles.ember(this.x, this.mesh.position.y + 1.6, this.z);
+    if (Math.random() < dt * 30) this.game.particles.fire(this.x, this.mesh.position.y + 1.2, this.z, 1, 0.7, [c.r, c.g, c.b], 0.8);
+    if (Math.random() < dt * 8) this.game.particles.ember(this.x, this.mesh.position.y + 1.6, this.z, [c.r, c.g, c.b]);
   }
 }
 
@@ -166,41 +188,43 @@ export class Gates {
 // ---------- portal de saida ----------
 const portalVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
 const portalFS = `
-uniform float t; varying vec2 vUv;
+uniform float t; uniform float hue; varying vec2 vUv;
 void main(){
   vec2 p = vUv*2.0-1.0; float r = length(p); if (r>1.0) discard;
   float a = atan(p.y,p.x);
   float s = sin(a*5.0 + r*12.0 - t*3.0)*0.5+0.5;
   float s2 = sin(a*3.0 - r*20.0 + t*2.0)*0.5+0.5;
-  vec3 c = mix(vec3(0.25,0.05,0.6), vec3(0.3,0.9,1.0), s*s2);
+  vec3 c = mix(vec3(0.25,0.05,0.6), mix(vec3(0.3,0.9,1.0), vec3(1.0,0.45,0.9), hue), s*s2);
   c += vec3(1.0)*pow(1.0-r,4.0);
   float alpha = smoothstep(1.0,0.8,r);
   gl_FragColor = vec4(c*1.6, alpha);
 }`;
 export class Portal {
-  constructor(game, x, z) {
-    this.game = game; this.x = x; this.z = z; this.t = 0;
+  constructor(game, x, z, kind = 'exit', label = 'Entrar no portal') {
+    this.game = game; this.x = x; this.z = z; this.t = 0; this.kind = kind; this.label = label;
     const g = new THREE.Group();
     const y = game.floorAt(x, z);
-    this.uni = { t: { value: 0 } };
+    this.uni = { t: { value: 0 }, hue: { value: 0 } };
     const disc = new THREE.Mesh(new THREE.CircleGeometry(1.2, 48), new THREE.ShaderMaterial({ uniforms: this.uni, vertexShader: portalVS, fragmentShader: portalFS, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
     disc.position.y = 1.5; g.add(disc); this.disc = disc;
     const M = propMats();
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.14, 8, 32), M.stone);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.16, 12, 40), M.stone);
     ring.position.y = 1.5; ring.castShadow = true; g.add(ring);
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const st = mesh(GEO.rbox(0.32, 0.26, 0.4, 0.06), M.rock); st.position.set(Math.cos(a) * 1.32, 1.5 + Math.sin(a) * 1.32, 0); st.rotation.z = a; g.add(st); }
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), makeMat('glow', { color: 0x70e0ff, intensity: 4 }));
       gem.position.set(Math.cos(a) * 1.3, 1.5 + Math.sin(a) * 1.3, 0.12); g.add(gem);
     }
-    const base = box(2.6, 0.2, 0.8, M.stone); base.position.y = 0.1; g.add(base);
+    const base = box(2.8, 0.22, 0.9, M.stone); base.position.y = 0.11; g.add(base);
     g.position.set(x, y, z);
     g.rotation.y = Math.PI / 4;
     this.mesh = g; game.scene.add(g);
-    this.light = game.addLight(x, y + 1.5, z, 0x70b0ff, 20, 12, 0.2, true);
+    this.light = game.addLight(x, y + 1.5, z, kind === 'dim' ? 0xb070ff : 0x70b0ff, 20, 12, 0.2, true);
+    if (kind === 'dim') this.uni.hue.value = 1;
   }
-  get prompt() { return 'Entrar no portal'; }
-  interact() { this.game.enterPortal(); }
+  get prompt() { return this.label; }
+  interact() { this.game.usePortal(this); }
   update(dt) {
     this.t += dt; this.uni.t.value = this.t;
     const s = Math.min(1, this.t * 1.5);
@@ -219,9 +243,8 @@ export class Altar {
     this.price = 50 + 25 * game.floorNum;
     const M = propMats();
     const g = new THREE.Group();
-    const b = box(1.1, 0.9, 0.8, M.stone); b.position.y = 0.45; g.add(b);
-    const t = box(1.3, 0.12, 1.0, M.stone); t.position.y = 0.96; g.add(t);
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 0.18, 12), M.gold); bowl.position.y = 1.1; bowl.castShadow = true; g.add(bowl);
+    g.add(mesh(lathe('altar', [[0, 0], [0.62, 0], [0.6, 0.12], [0.42, 0.25], [0.36, 0.8], [0.6, 0.92], [0.64, 1.0], [0, 1.0]], 20), M.stone));
+    const bowl = mesh(lathe('altarbowl', [[0.05, 0], [0.2, 0.02], [0.32, 0.14], [0.34, 0.2], [0.28, 0.17], [0, 0.1]], 18), M.gold); bowl.position.y = 1.0; g.add(bowl);
     this.orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), makeMat('glow', { color: 0xffc040, intensity: 5 }));
     this.orb.position.y = 1.55; g.add(this.orb);
     g.position.set(x, game.floorAt(x, z), z);
@@ -244,8 +267,9 @@ export class Altar {
 
 // ---------- saques ----------
 const lootGeo = {
-  coin: new THREE.CylinderGeometry(0.1, 0.1, 0.03, 10),
-  heart: new THREE.OctahedronGeometry(0.16),
+  coin: new THREE.CylinderGeometry(0.1, 0.1, 0.03, 16),
+  heart: new THREE.SphereGeometry(0.15, 16, 12),
+  frag: new THREE.OctahedronGeometry(0.2, 0),
   beam: new THREE.CylinderGeometry(0.1, 0.25, 5, 10, 1, true),
 };
 let _beamTex = null;
@@ -259,22 +283,27 @@ function beamTex() {
 }
 
 export function itemModel(item) {
-  const r = new Rig('item');
   const g = new THREE.Group();
   const glow = item.affixes.includes('chamas') ? 0xff6a20 : item.affixes.includes('trovao') ? 0x80d0ff : null;
-  if (item.cat === 'melee') { const w = makeWeapon(item.kind, r, item.rarity === 'unico' ? (glow || null) : null); w.rotation.z = 0.6; w.position.y = -0.3; g.add(w); g.scale.setScalar(0.9); }
-  else if (item.cat === 'bow') { const b = makeBow(r, item.kind === 'besta'); b.rotation.z = 0.3; g.add(b); }
+  if (item.cat === 'melee') { const w = makeWeapon(item.kind, item.rarity === 'unico' ? glow : null); w.rotation.z = 0.6; w.position.y = -0.3; g.add(w); g.scale.setScalar(0.9); }
+  else if (item.cat === 'bow') { const b = makeBow(item.kind === 'besta'); b.rotation.z = 0.3; g.add(b); }
   else if (item.cat === 'armor') {
-    const look = { couro: 'leather', malha: 'steel', placas: 'steel', andarilho: 'cloth_green', obsidiana: 'obsidian' }[item.kind];
-    const m = r.mat(look);
-    r.part(g, 0.5, 0.55, 0.28, m, 0, 0, 0);
-    r.part(g, 0.24, 0.16, 0.3, m, -0.34, 0.2, 0); r.part(g, 0.24, 0.16, 0.3, m, 0.34, 0.2, 0);
+    const look = { couro: 'leather', malha: 'chain', placas: 'steel', andarilho: 'cloth_green', obsidiana: 'obsidian' }[item.kind];
+    const m = makeMat(look);
+    g.add(mesh(lathe('itemtorso', [[0, -0.28], [0.2, -0.28], [0.22, -0.05], [0.26, 0.15], [0.24, 0.26], [0.1, 0.3], [0, 0.3]], 16), m));
+    for (const s of [-1, 1]) { const p = mesh(GEO.hemi(), m); p.scale.set(0.13, 0.1, 0.14); p.position.set(s * 0.26, 0.22, 0); p.rotation.z = s * 0.4; g.add(p); }
+    g.children[0].scale.z = 0.6;
   } else {
     const col = { chamas: 0xff6a20, raio: 0x80d0ff, estandarte: 0xff3030, vendaval: 0xc0ffd0, laminas: 0x9a8cff, gelo: 0x8ff0ff }[item.kind];
-    r.part(g, 0.34, 0.44, 0.1, r.mat('leather'), 0, 0, 0);
-    r.part(g, 0.3, 0.4, 0.11, r.mat('bone', { color: 0xf0e8d0 }), 0.01, 0, 0);
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), makeMat('glow', { color: col, intensity: 4 }));
-    gem.position.z = 0.08; g.add(gem);
+    const glowM = makeMat('glow', { color: col, intensity: 4 });
+    if (item.kind === 'raio') { g.add(mesh(lathe('bottle', [[0, 0], [0.14, 0], [0.18, 0.12], [0.16, 0.26], [0.06, 0.34], [0.05, 0.44], [0, 0.44]], 16), new THREE.MeshPhysicalMaterial({ color: 0xaad8ff, roughness: 0.05, transparent: true, opacity: 0.45, clearcoat: 1 }))); const core = mesh(new THREE.SphereGeometry(0.1, 12, 10), glowM); core.position.y = 0.14; g.add(core); g.position.y = -0.2; }
+    else if (item.kind === 'vendaval') { g.add(mesh(taperTube('horn', [[0, -0.2, 0], [0.12, 0, 0], [0.1, 0.2, 0.05], [-0.05, 0.3, 0.1]], 0.12, 0.03, 16, 10), makeMat('bone'))); }
+    else if (item.kind === 'gelo') { const c = mesh(new THREE.OctahedronGeometry(0.2, 0), makeMat('ice')); c.scale.set(0.7, 1.4, 0.7); g.add(c); }
+    else {
+      g.add(mesh(GEO.rbox(0.34, 0.44, 0.1, 0.03), makeMat('leather')));
+      const pg = mesh(GEO.rbox(0.3, 0.4, 0.11, 0.02), makeMat('bone', { color: 0xf0e8d0 })); pg.position.x = 0.015; g.add(pg);
+      const gem = mesh(new THREE.OctahedronGeometry(0.1), glowM); gem.position.z = 0.08; g.add(gem);
+    }
   }
   return g;
 }
@@ -289,11 +318,11 @@ export class Loot {
     const M = propMats();
     if (kind === 'gold') { this.mesh = new THREE.Mesh(lootGeo.coin, M.gold); this.mesh.rotation.x = Math.PI / 2; }
     else if (kind === 'heart') { this.mesh = new THREE.Mesh(lootGeo.heart, makeMat('glow', { color: 0xff2a3a, intensity: 3 })); }
+    else if (kind === 'fragment') { this.mesh = new THREE.Mesh(lootGeo.frag, M.crystalV); this.mesh.scale.set(0.8, 1.4, 0.8); this.light = game.addLight(x, this.y, z, 0xb070ff, 4, 4, 0.2); }
     else if (kind === 'arrows') {
       this.mesh = new THREE.Group();
-      const r = new Rig('a');
-      for (let i = 0; i < 5; i++) { const m = r.part(this.mesh, 0.025, 0.6, 0.025, M.wood, (i - 2) * 0.05, 0, 0); m.rotation.z = (i - 2) * 0.08; }
-      r.part(this.mesh, 0.18, 0.06, 0.05, M.iron, 0, 0, 0);
+      for (let i = 0; i < 5; i++) { const m = mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.6, 6), M.wood); m.position.x = (i - 2) * 0.05; m.rotation.z = (i - 2) * 0.08; this.mesh.add(m); }
+      const band = mesh(new THREE.TorusGeometry(0.1, 0.025, 6, 16), M.leather || M.iron); band.rotation.x = Math.PI / 2; band.scale.set(1.1, 0.5, 1); this.mesh.add(band);
       this.mesh.rotation.z = Math.PI / 2.3;
     } else if (kind === 'item') {
       this.mesh = new THREE.Group();
@@ -335,6 +364,7 @@ export class Loot {
     }
     this.mesh.position.set(this.x, this.y + (this.grounded ? Math.sin(time * 3 + this.x) * 0.06 : 0), this.z);
     if (this.kind === 'gold') this.mesh.rotation.z += dt * 4;
+    else if (this.kind === 'fragment') { this.mesh.rotation.y += dt * 2; if (this.light) { this.light.x = this.x; this.light.z = this.z; } }
     else if (this.kind === 'item') { this.model.rotation.y += dt * 1.5; this.beam.material.opacity = 0.55 + Math.sin(time * 3) * 0.2; if (this.light) { this.light.x = this.x; this.light.z = this.z; } }
     else this.mesh.rotation.y += dt * 2;
     if (this.kind === 'heart' && Math.random() < dt * 5) g.particles.add.emit(this.x, this.y, this.z, 0, 0.6, 0, 0.6, 0.12, 0.02, 1, 0.2, 0.3, 1, 0, 0);
@@ -345,6 +375,7 @@ export class Loot {
     if (this.kind === 'gold') { p.gold += this.data || 1; g.audio.play('coin', 0.6); }
     if (this.kind === 'arrows') { p.arrows = Math.min(p.maxArrows, p.arrows + 8); g.audio.play('pickup'); g.floatText(p.x, p.y + 2, p.z, '+8 flechas', '#d8d0b0'); }
     if (this.kind === 'heart') { p.heal(p.maxHp * 0.2); g.audio.play('potion', 0.6); }
+    if (this.kind === 'fragment') { p.fragments += this.data || 1; g.audio.play('levelup', 0.6); g.floatText(p.x, p.y + 2, p.z, '+' + (this.data || 1) + ' fragmento', '#c9a0ff'); g.ui.toast('Fragmento dimensional obtido! Use-o no Portal das Dimensões do Refúgio.', '#c9a0ff'); }
   }
   remove() {
     this.dead = true; this.game.scene.remove(this.mesh);
@@ -414,3 +445,96 @@ export function makeBannerMesh() {
   return g;
 }
 export { ringTex };
+
+// ---------- NPCs do Refugio ----------
+export class Npc {
+  constructor(game, n) {
+    this.game = game; this.x = n.x; this.z = n.z; this.role = n.role; this.name = n.name; this.baseRot = n.rot || 0;
+    this.rig = makeNpc(n.kind);
+    this.rig.root.position.set(n.x, game.floorAt(n.x, n.z), n.z);
+    this.rig.root.rotation.y = this.baseRot;
+    game.scene.add(this.rig.root);
+    this.t = Math.random() * 10;
+  }
+  get prompt() { return { shop: `Falar com ${this.name} (loja)`, smith: `Falar com ${this.name} (aprimorar)`, quests: `Falar com ${this.name} (missões)` }[this.role]; }
+  interact() { this.game.openStation(this.role); }
+  update(dt) {
+    this.t += dt;
+    const p = this.game.player, d = Math.hypot(p.x - this.x, p.z - this.z);
+    const want = d < 5 ? Math.atan2(p.x - this.x, p.z - this.z) : this.baseRot;
+    let r = this.rig.root.rotation.y; const diff = Math.atan2(Math.sin(want - r), Math.cos(want - r));
+    this.rig.root.rotation.y = r + diff * Math.min(1, dt * 3);
+    animateWalk(this.rig, 0, 0, this.t);
+    if (this.role === 'smith') { const k = Math.max(0, Math.sin(this.t * 2.2)); this.rig.armR.rotation.x = -0.4 - k * 1.6; this.rig.elbowR.rotation.x = -0.6; if (k > 0.98 && !this.hit) { this.hit = true; this.game.particles.sparks(this.x - 1.9, this.game.floorAt(this.x, this.z) + 1.05, this.z + 1.3, 5, [1, 0.7, 0.3], 2); } if (k < 0.5) this.hit = false; }
+  }
+}
+
+// ---------- estacao interativa (quadro de missoes, fogueira) ----------
+export class Station {
+  constructor(game, x, z, role, label, r = 2.2) { this.game = game; this.x = x; this.z = z; this.role = role; this.label = label; this.range = r; }
+  get prompt() { return this.label; }
+  interact() { this.game.openStation(this.role); }
+}
+
+// ---------- prisioneiro (missao de resgate) ----------
+export class Prisoner {
+  constructor(game, x, z, quest) {
+    this.game = game; this.x = x; this.z = z; this.quest = quest; this.freed = false; this.t = 0;
+    this.rig = makeNpc('prisioneiro');
+    const y = game.floorAt(x, z);
+    this.rig.root.position.set(x, y, z);
+    game.scene.add(this.rig.root);
+    const M = propMats();
+    const cage = new THREE.Group();
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const b = mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 6), M.iron); b.position.set(Math.cos(a) * 0.62, 1.1, Math.sin(a) * 0.62); cage.add(b); }
+    for (const yy of [0.05, 2.2]) { const r = mesh(new THREE.TorusGeometry(0.62, 0.04, 6, 24), M.iron); r.rotation.x = Math.PI / 2; r.position.y = yy; cage.add(r); }
+    const top = mesh(new THREE.ConeGeometry(0.66, 0.4, 16), M.iron); top.position.y = 2.4; cage.add(top);
+    cage.position.set(x, y, z); game.scene.add(cage); this.cage = cage;
+    this.light = game.addLight(x, y + 2.5, z, 0xffe0a0, 5, 5, 0.3);
+    game.dg.solid[game.dg.idx(Math.floor(x), Math.floor(z))] = 1;
+  }
+  get prompt() { return this.freed ? null : 'Libertar o prisioneiro'; }
+  interact() {
+    if (this.freed) return;
+    this.freed = true;
+    const g = this.game;
+    g.audio.play('gate'); g.particles.dust(this.x, this.cage.position.y + 1, this.z, 20, [0.5, 0.45, 0.4], 2, 1);
+    g.ui.toast('"Obrigado, aventureiro! Que a última chama te guie."', '#e8dcc0');
+    g.onQuestEvent('rescue', this.quest);
+  }
+  update(dt) {
+    this.t += dt;
+    animateWalk(this.rig, 0, 0, this.t);
+    if (!this.freed) { this.rig.armL.rotation.x = this.rig.armR.rotation.x = -0.6; this.rig.elbowL.rotation.x = this.rig.elbowR.rotation.x = -1.4; }
+    else if (this.cage.position.y > -3) { this.cage.position.y -= dt * 1.5; this.rig.armR.rotation.x = -2.6 + Math.sin(this.t * 8) * 0.3; }
+  }
+}
+
+// ---------- reliquia (missao de busca) ----------
+export class Relic {
+  constructor(game, x, z, quest) {
+    this.game = game; this.x = x; this.z = z; this.quest = quest; this.taken = false;
+    const M = propMats();
+    const g = new THREE.Group();
+    g.add(mesh(lathe('relped', [[0, 0], [0.4, 0], [0.36, 0.1], [0.2, 0.2], [0.18, 0.8], [0.34, 0.9], [0, 0.92]], 16), M.stone));
+    const box2 = mesh(GEO.rbox(0.36, 0.28, 0.26, 0.05), M.gold); box2.position.y = 1.08; g.add(box2);
+    const lid = mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.36, 12, 1, false, 0, Math.PI), M.gold); lid.rotation.z = Math.PI / 2; lid.rotation.y = Math.PI / 2; lid.position.y = 1.22; g.add(lid);
+    const gem = mesh(new THREE.OctahedronGeometry(0.07), makeMat('glow', { color: 0xff4060, intensity: 5 })); gem.position.set(0, 1.1, 0.14); g.add(gem);
+    const y = game.floorAt(x, z);
+    g.position.set(x, y, z); game.scene.add(g); this.mesh = g;
+    this.light = game.addLight(x, y + 1.6, z, 0xffd070, 7, 6, 0.2, true);
+    game.dg.solid[game.dg.idx(Math.floor(x), Math.floor(z))] = 1;
+  }
+  get prompt() { return this.taken ? null : `Pegar: ${this.quest.relicName}`; }
+  interact() {
+    if (this.taken) return;
+    this.taken = true;
+    const g = this.game;
+    this.mesh.children.slice(1).forEach(c => c.visible = false);
+    g.removeLight(this.light);
+    g.audio.play('levelup', 0.7);
+    g.particles.burst(this.x, this.mesh.position.y + 1.2, this.z, 40, [1, 0.85, 0.4], 3, 0.8, 0.3);
+    g.onQuestEvent('relic', this.quest);
+  }
+  update(dt, time) { if (!this.taken) { this.mesh.children[1].position.y = 1.08 + Math.sin(time * 2) * 0.03; if (Math.random() < dt * 6) this.game.particles.add.emit(this.x, this.mesh.position.y + 1.3, this.z, (Math.random() - 0.5) * 0.4, 0.8, (Math.random() - 0.5) * 0.4, 1, 0.1, 0.02, 1, 0.85, 0.4, 1, 0, 0); } }
+}

@@ -16,6 +16,7 @@ export class RNG {
   int(a, b) { return Math.floor(a + (b - a + 1) * this.f()); }
   pick(arr) { return arr[Math.floor(this.f() * arr.length)]; }
   chance(p) { return this.f() < p; }
+  shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(this.f() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   weighted(list) { // [[valor, peso], ...]
     let tot = 0; for (const [, w] of list) tot += w;
     let r = this.f() * tot;
