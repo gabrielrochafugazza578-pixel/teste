@@ -257,7 +257,7 @@ func _apply_viewport() -> void:
 	RenderingServer.directional_soft_shadow_filter_set_quality([0, 1, 1, 2, 3][sq])
 	RenderingServer.positional_soft_shadow_filter_set_quality([0, 0, 1, 2, 3][sq])
 	vp.positional_shadow_atlas_size = [256, 512, 1024, 2048, 4096][sq]
-	RenderingServer.global_shader_parameter_set("detail_distance", get_detail_distance())
+	ShaderGlobals.set_value("detail_distance", get_detail_distance())
 
 
 func _apply_audio() -> void:

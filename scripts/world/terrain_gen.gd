@@ -119,8 +119,8 @@ static func build(layout: WorldLayout, c: Vector2i, res: int, want_collision: bo
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = idx
 	var out := {"arrays": arrays, "heights": heights, "res": res, "cell": cell, "has_holes": has_holes}
-	if want_collision and has_holes:
-		# colisão trimesh (sem os buracos dos portais) para os chunks do túnel
+	if want_collision:
+		# colisão trimesh (respeita os buracos dos portais do túnel)
 		var faces := PackedVector3Array()
 		for q in range(0, idx.size(), 3):
 			if idx[q] >= n * n:

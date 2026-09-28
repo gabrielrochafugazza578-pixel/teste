@@ -1,6 +1,6 @@
 // Grama geométrica (tufos de lâminas, SEM transparência => early-Z preservado).
-// COLOR.r = altura relativa na lâmina (0 raiz, 1 ponta), COLOR.g = variação.
-// INSTANCE_CUSTOM: r = escala de altura, g = tom, b = secura.
+// Altura relativa na lâmina = VERTEX.y / 0.65 (0 raiz, 1 ponta).
+// Cor da instância (COLOR, MultiMesh use_colors): r = escala de altura, g = tom, b = secura.
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_lambert_wrap, specular_disabled;
 
@@ -20,8 +20,8 @@ varying float v_tone;
 varying float v_dry;
 
 void vertex() {
-	float h = COLOR.r;
-	vec4 ic = use_custom ? INSTANCE_CUSTOM : vec4(1.0, 0.5, 0.2, 0.0);
+	float h = clamp(VERTEX.y / 0.65, 0.0, 1.0);
+	vec4 ic = use_custom ? COLOR : vec4(1.0, 0.5, 0.2, 1.0);
 	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float d = distance(wp, CAMERA_POSITION_WORLD);
 	float fade = 1.0 - smoothstep(fade_distance * 0.7, fade_distance, d);
@@ -45,7 +45,7 @@ void vertex() {
 	float s2 = max(dot(m[0], m[0]), 0.0001);
 	VERTEX = local + transpose(m) * bend / s2;
 	v_h = h;
-	v_tone = ic.g + COLOR.g * 0.3;
+	v_tone = ic.g;
 	v_dry = ic.b;
 	NORMAL = normalize(mix(NORMAL, vec3(0.0, 1.0, 0.0), 0.6));
 }

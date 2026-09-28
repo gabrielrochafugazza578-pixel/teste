@@ -368,6 +368,29 @@ func character_material(infection: float = 0.0) -> ShaderMaterial:
 	return m
 
 
+func window_light_material() -> ShaderMaterial:
+	if _mats.has("window_light"):
+		return _mats["window_light"]
+	var m := ShaderMaterial.new()
+	m.shader = shader("res://shaders/window_light.gdshader")
+	_mats["window_light"] = m
+	return m
+
+
+## mode 0 poste, 1 semáforo, 2 sempre aceso
+func power_emitter(mode: int, color: Color = Color(1.0, 0.82, 0.55), energy: float = 2.5) -> ShaderMaterial:
+	var key := "power_%d_%s_%.1f" % [mode, color.to_html(), energy]
+	if _mats.has(key):
+		return _mats[key]
+	var m := ShaderMaterial.new()
+	m.shader = shader("res://shaders/emissive_power.gdshader")
+	m.set_shader_parameter("mode", mode)
+	m.set_shader_parameter("color", color)
+	m.set_shader_parameter("energy", energy)
+	_mats[key] = m
+	return m
+
+
 func sky_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/sky.gdshader")

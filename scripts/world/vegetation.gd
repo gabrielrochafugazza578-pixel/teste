@@ -158,7 +158,7 @@ static func grass_mesh() -> ArrayMesh:
 		for k in 5:
 			verts.append(pts[k])
 			norms.append((dir + Vector3(0, 0.5, 0)).normalized())
-			cols.append(Color(hs[k], tone, 0, 1))
+			cols.append(Color(1, 1, 1, 1))
 		idx.append_array(PackedInt32Array([base, base + 1, base + 3, base, base + 3, base + 2, base + 2, base + 3, base + 4]))
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)

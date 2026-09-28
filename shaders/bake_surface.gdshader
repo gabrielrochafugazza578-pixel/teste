@@ -17,7 +17,6 @@ uniform int layer = 0;
 uniform int channel = 0;
 uniform float px = 0.001953125;
 
-const float PI = 3.14159265;
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));

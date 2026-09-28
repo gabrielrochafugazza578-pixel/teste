@@ -55,10 +55,10 @@ void vertex() {
 	v_layer = mod(floor(code), 16.0);
 	v_wmode = floor(code / 16.0);
 	v_seed = UV2.y;
+	// Em MultiMesh com use_colors, COLOR já vem multiplicado pela cor da instância.
 	v_tint = COLOR;
 	if (use_instance_tint) {
-		v_tint.rgb *= INSTANCE_CUSTOM.rgb;
-		v_seed = fract(v_seed + INSTANCE_CUSTOM.a);
+		v_seed = fract(v_seed + dot(MODEL_MATRIX[3].xz, vec2(0.137, 0.291)));
 	}
 }
 
@@ -142,17 +142,24 @@ void fragment() {
 		float rnd2 = h21(cell.yx + v_seed * 71.0 + 3.0);
 		if (inx * iny > 0.5) {
 			is_window = 1.0;
-			// vidro: interior escuro + persianas variadas + reflexo especular
-			float depth_fake = smoothstep(0.0, 1.0, f.y) * 0.5 + 0.5;
-			vec3 interior = mix(vec3(0.018, 0.02, 0.024), vec3(0.07, 0.06, 0.05), rnd2) * depth_fake;
-			float blinds = step(0.72, rnd) * step(fract(f.y * 14.0), 0.55);
-			interior = mix(interior, vec3(0.32, 0.3, 0.26), blinds * (0.4 + rnd2 * 0.4));
-			float broken = step(1.0 - world_decay * 0.45, rnd2) * (exterior ? 1.0 : 0.0);
-			alb = mix(interior, vec3(0.01), broken);
-			rough = mix(0.05, 0.95, broken);
+			// vidro escuro com reflexo falso do céu (fresnel) + cortinas variadas
+			vec3 interior = mix(vec3(0.012, 0.014, 0.018), vec3(0.05, 0.045, 0.04), rnd2) * (0.6 + 0.4 * f.y);
+			float curtain = step(0.62, rnd) * step(0.45 + rnd2 * 0.3, f.y) * step(0.5, fract(rnd * 7.0 + (f.x > 0.5 ? 0.5 : 0.0)));
+			interior = mix(interior, vec3(0.28, 0.25, 0.21) * (0.6 + rnd2 * 0.6), curtain * 0.8);
+			float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+			vec3 refl = mix(vec3(0.16, 0.18, 0.2), vec3(0.42, 0.47, 0.53), f.y) * (0.2 + daylight * 0.8);
+			vec3 glass_col = mix(interior, refl, 0.25 + fres * 0.55);
+			float broken = step(1.0 - world_decay * 0.2, rnd2) * (exterior ? 1.0 : 0.0);
+			alb = mix(glass_col, vec3(0.008), broken);
+			rough = mix(0.06, 0.95, broken);
 			metal = 0.0;
 			ao = 1.0;
 			nmap = vec3(0.0, 0.0, 1.0);
+			// caixilho central nas janelas largas
+			if (v_wmode > 1.5 && abs(f.x - (wmin.x + wmax.x) * 0.5) < 0.012) {
+				alb = vec3(0.12);
+				rough = 0.5;
+			}
 			// luz acesa (energia + apagão progressivo em onda)
 			float powered = city_power * step(blackout_radius, distance(w_pos.xz, blackout_origin.xz) + rnd * 25.0);
 			float occupancy = shop ? 0.85 : (0.25 + 0.45 * (1.0 - daylight));
@@ -176,7 +183,7 @@ void fragment() {
 		rough = mix(rough, 0.18, wet * 0.85);
 		if (enable_puddles && w_nrm.y > 0.92) {
 			float pn = texture(noise_tex, w_pos.xz * 0.028).r * 0.7 + nz.b * 0.3;
-			float th = 0.72 - wetness * 0.2;
+			float th = 0.8 - wetness * 0.12;
 			float puddle = smoothstep(th, th + 0.04, pn) * smoothstep(0.2, 0.6, wetness);
 			alb = mix(alb, alb * 0.35 + vec3(0.01), puddle);
 			rough = mix(rough, 0.02, puddle);

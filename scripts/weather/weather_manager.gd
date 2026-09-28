@@ -114,9 +114,9 @@ func strike_now() -> void:
 
 
 func _publish() -> void:
-	RenderingServer.global_shader_parameter_set("wetness", wetness)
-	RenderingServer.global_shader_parameter_set("rain_intensity", rain)
-	RenderingServer.global_shader_parameter_set("wind", Vector4(wind_dir.x, wind_dir.y, wind * (0.7 + _gust * 0.6), _gust))
+	ShaderGlobals.set_value("wetness", wetness)
+	ShaderGlobals.set_value("rain_intensity", rain)
+	ShaderGlobals.set_value("wind", Vector4(wind_dir.x, wind_dir.y, wind * (0.7 + _gust * 0.6), _gust))
 
 
 ## Temperatura ambiente aproximada (°C) na posição (altitude e clima).

@@ -675,6 +675,10 @@ func _furnish(room: Dictionary, doors: Array, y_off: float) -> void:
 			return
 		"corridor":
 			out["npc_spots"].append(fr.p(rr.get_center().x, rr.get_center().y, y_off))
+			out["markers"]["elevator"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(-1, 0)), fr.p(rr.end.x - 0.9, rr.get_center().y, y_off))
+			out["markers"]["corridor_mid"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(1, 0)), fr.p(rr.get_center().x, rr.get_center().y, y_off))
+			out["markers"]["corridor_west"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(1, 0)), fr.p(rr.position.x + 2.0, rr.get_center().y, y_off))
+			mesh.box(fr.p(rr.end.x - 0.25, rr.get_center().y, y_off + 1.2), Vector3(0.3, 2.4, 2.2) if absf(fr.U.x) > 0.5 else Vector3(2.2, 2.4, 0.3), Assets.uv2_code(Assets.L_METAL), 0.0, Color(0.6, 0.62, 0.64))
 			for i in 4:
 				out["lights"].append({"pos": fr.p(rr.size.x * (0.15 + i * 0.23), rr.get_center().y, y_off + fh - 0.1), "range": 7.0, "room": "corridor", "type": "emergency"})
 			return
