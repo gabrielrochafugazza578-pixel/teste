@@ -56,9 +56,12 @@ const Q = {
   Média: { pr: 1, msaa: 2, bloom: true, mirror: 0.33, env: 64, envEvery: 15, pool: 10, shadows: 0, sun: 1024 },
   Baixa: { pr: 0.75, msaa: 0, bloom: false, mirror: 0, env: 0, envEvery: 0, pool: 6, shadows: 0, sun: 512 },
 };
-let quality = 'Ultra';
-try { quality = localStorage.getItem('criptas-quality-v2') || 'Ultra'; } catch (e) { /* ignora */ }
-if (!QUALITIES.includes(quality)) quality = 'Ultra';
+// celulares e tablets comecam em "Alta": o Ultra pode esgotar a memoria de video e apagar a tela
+const MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
+const DEFAULT_Q = MOBILE ? 'Alta' : 'Ultra';
+let quality = DEFAULT_Q;
+try { quality = localStorage.getItem('criptas-quality-v2') || DEFAULT_Q; } catch (e) { /* ignora */ }
+if (!QUALITIES.includes(quality)) quality = DEFAULT_Q;
 game.quality = quality;
 
 let composer, renderPass, bloom, grade, rt;
@@ -95,6 +98,14 @@ function resize() {
   mirror.resize();
 }
 addEventListener('resize', () => composer && resize());
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  const next = QUALITIES[Math.min(QUALITIES.length - 1, QUALITIES.indexOf(quality) + 1)];
+  try { localStorage.setItem('criptas-quality-v2', next); if (game.inHub && game.state !== 'title') game.save(); } catch (err) { /* ignora */ }
+  ui.showPanel(`<h2>O vídeo do aparelho reiniciou</h2><p class="sub">A placa de vídeo ficou sem memória com os gráficos em "${quality}". O jogo vai recarregar em "${next}".</p><button data-go="reload" class="primary">Recarregar agora</button>`);
+  ui.on.reload = () => location.reload();
+  setTimeout(() => location.reload(), 4000);
+});
 
 function setQuality(q) {
   quality = q; game.quality = q;
@@ -174,6 +185,9 @@ function frame(now) {
   input.poll();
   game.update(dt);
   renderer.shadowMap.needsUpdate = true;
+  // toda luz com sombra precisa de um mapa pronto antes de desenhar (sem ele o WebGL recusa o desenho e a tela fica preta)
+  for (const l of game.pool) if (l.castShadow && !l.shadow.map) l.shadow.needsUpdate = true;
+  if (game.moon.castShadow && !game.moon.shadow.map) game.moon.shadow.needsUpdate = true;
   const P = window.__perf;
   if (P) { renderer.info.autoReset = false; renderer.info.reset(); }
   mirror.render(game.scene, game.camera, 0);
@@ -189,10 +203,11 @@ function frame(now) {
     perf.t += dt; perf.frames++;
     if (perf.t > 6) {
       const fps = perf.frames / perf.t;
-      if (fps < 24 && quality === 'Ultra') { setQuality('Alta'); ui.toast(`Gráficos ajustados para "Alta" (${Math.round(fps)} FPS). Pode voltar ao Ultra no menu de pausa.`); perf = { t: 0, frames: 0 }; }
+      if (fps < 24 && quality === 'Ultra' && game.state === 'play') { setQuality('Alta'); ui.toast(`Gráficos ajustados para "Alta" (${Math.round(fps)} FPS). Pode voltar ao Ultra no menu de pausa.`); perf = { t: 0, frames: 0 }; }
       else perf = null;
     }
   }
 }
 requestAnimationFrame(frame);
 window.__game = game;
+window.__setQuality = setQuality;

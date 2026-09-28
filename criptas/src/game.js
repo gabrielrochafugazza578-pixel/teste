@@ -60,8 +60,10 @@ export class Game {
       this.shadowLights = shadows;
       this.pool.forEach((l, i) => {
         l.castShadow = i < shadows;
-        if (l.castShadow) { l.shadow.mapSize.set(512, 512); l.shadow.bias = -0.004; l.shadow.normalBias = 0.03; l.shadow.camera.near = 0.15; l.shadow.camera.far = 12; if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; } }
+        if (l.castShadow) { l.shadow.mapSize.set(512, 512); l.shadow.bias = -0.004; l.shadow.normalBias = 0.03; l.shadow.camera.near = 0.15; l.shadow.camera.far = 12; if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; } l.shadow.needsUpdate = true; }
       });
+      // mudar o numero de luzes com sombra muda os shaders: recompila tudo o que esta na cena
+      if (this.scene) this.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
     }
   }
 
@@ -301,8 +303,9 @@ export class Game {
         pl.intensity = l.intensity * f * fade;
         pl.distance = l.dist;
         // sombras das tochas: metade atualiza em cada quadro (alternando), o que corta o custo pela metade
-        if (pl.castShadow) { const moved = pl.userData.lx !== l.x || pl.userData.lz !== l.z; pl.shadow.autoUpdate = moved || ((i + this.frameN) % 2 === 0); pl.userData.lx = l.x; pl.userData.lz = l.z; }
-      } else { pl.intensity = 0; if (pl.castShadow) pl.shadow.autoUpdate = false; }
+        // o mapa de sombra precisa existir antes de pausar a atualizacao: sem ele o WebGL recusa desenhar a cena
+        if (pl.castShadow) { const moved = pl.userData.lx !== l.x || pl.userData.lz !== l.z; pl.shadow.autoUpdate = !pl.shadow.map || moved || ((i + this.frameN) % 2 === 0); pl.userData.lx = l.x; pl.userData.lz = l.z; }
+      } else { pl.intensity = 0; if (pl.castShadow) pl.shadow.autoUpdate = !pl.shadow.map; }
     }
     const p = this.player;
     this.playerLight.position.set(p.x, p.y + 2.2, p.z);
