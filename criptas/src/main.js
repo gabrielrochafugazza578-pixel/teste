@@ -110,7 +110,29 @@ ui.on = {
 };
 
 setupComposer();
-toTitle();
+
+// som: liberado no primeiro toque ou tecla depois de sair do menu
+const unlockAudio = () => { if (game.state !== 'title') audio.init(); };
+addEventListener('pointerdown', unlockAudio);
+addEventListener('keydown', unlockAudio);
+
+// quando a pagina e atualizada ao vivo, continua do mesmo andar com o mesmo equipamento
+const hot = window.claude && window.claude.hot;
+if (hot && hot.snapshot) hot.snapshot(() => (game.state === 'title' ? {} : { floor: game.floorNum, snap: game.snapshot || game.snap(), kills: game.stats.kills }));
+const start = (data) => {
+  if (data && data.snap && data.floor) {
+    try {
+      game.restore(data.snap);
+      game.stats.kills = data.kills || 0;
+      game.loadFloor(data.floor, true);
+      game.snapshot = data.snap;
+      ui.hidePanels();
+      return;
+    } catch (e) { /* estado antigo incompativel: volta ao menu */ }
+  }
+  toTitle();
+};
+if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 
 // ---------- laco ----------
 let last = performance.now();

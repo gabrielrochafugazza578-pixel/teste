@@ -6,7 +6,7 @@ Tudo é gerado por código: as masmorras (diferentes a cada partida), as textura
 
 ## Como jogar
 
-Abra o arquivo **`index.html`** em um navegador moderno (Chrome, Edge, Firefox ou Safari). Não precisa instalar nada nem ligar servidor: o jogo já vem compilado em `dist/jogo.js`.
+Abra o arquivo **`index.html`** em um navegador moderno (Chrome, Edge, Firefox ou Safari). Não precisa instalar nada nem ligar servidor: o jogo já vem compilado em `dist/jogo.js` e funciona sem internet. (Com internet, a interface usa as fontes IM Fell English SC e Alegreya Sans do Google Fonts; sem internet, usa as fontes do sistema.)
 
 No Linux, também dá para usar:
 

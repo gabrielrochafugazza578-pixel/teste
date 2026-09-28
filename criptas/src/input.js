@@ -74,7 +74,8 @@ export class Input {
     }
     this.aimStick = null;
     this.padDown = new Set();
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let pads = [];
+    try { pads = navigator.getGamepads ? navigator.getGamepads() : []; } catch (e) { pads = []; } // bloqueado em alguns frames
     for (const gp of pads) {
       if (!gp) continue;
       const dz = (v) => (Math.abs(v) < 0.18 ? 0 : v);

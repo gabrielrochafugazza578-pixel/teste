@@ -297,7 +297,11 @@ export class Game {
     this.floatTexts.push({ wx: x, y, wz: z, el, t: 0, jx: (Math.random() - 0.5) * 0.6, big });
   }
   hitstop(t) { this.hitstopT = Math.max(this.hitstopT, t); }
-  shake(a) { this.shakeAmt = Math.min(1, Math.max(this.shakeAmt, a)); }
+  shake(a) {
+    if (this.reducedMotion === undefined) { try { this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { this.reducedMotion = false; } }
+    if (this.reducedMotion) a *= 0.25;
+    this.shakeAmt = Math.min(1, Math.max(this.shakeAmt, a));
+  }
   slashFx(p, range, arc, final) {
     const col = p.has('melee', 'chamas') ? 0xff8a3a : p.has('melee', 'trovao') ? 0x9ad8ff : 0xfff2dc;
     const geo = new THREE.RingGeometry(range * 0.3, range, 24, 1, -Math.PI / 2 - arc / 2, arc);
