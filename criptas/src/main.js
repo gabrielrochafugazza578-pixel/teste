@@ -56,11 +56,10 @@ const Q = {
   Média: { pr: 1, msaa: 2, bloom: true, mirror: 0.33, env: 64, envEvery: 15, pool: 10, shadows: 0, sun: 1024 },
   Baixa: { pr: 0.75, msaa: 0, bloom: false, mirror: 0, env: 0, envEvery: 0, pool: 6, shadows: 0, sun: 512 },
 };
-// celulares e tablets comecam em "Alta": o Ultra pode esgotar a memoria de video e apagar a tela
-const MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
-const DEFAULT_Q = MOBILE ? 'Alta' : 'Ultra';
+// o jogo sempre abre no grafico maximo; so desce se o video do aparelho reiniciar nesta sessao
+const DEFAULT_Q = 'Ultra';
 let quality = DEFAULT_Q;
-try { quality = localStorage.getItem('criptas-quality-v2') || DEFAULT_Q; } catch (e) { /* ignora */ }
+try { quality = sessionStorage.getItem('criptas-quality-s') || DEFAULT_Q; } catch (e) { /* ignora */ }
 if (!QUALITIES.includes(quality)) quality = DEFAULT_Q;
 game.quality = quality;
 
@@ -101,7 +100,7 @@ addEventListener('resize', () => composer && resize());
 canvas.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
   const next = QUALITIES[Math.min(QUALITIES.length - 1, QUALITIES.indexOf(quality) + 1)];
-  try { localStorage.setItem('criptas-quality-v2', next); if (game.inHub && game.state !== 'title') game.save(); } catch (err) { /* ignora */ }
+  try { sessionStorage.setItem('criptas-quality-s', next); if (game.inHub && game.state !== 'title') game.save(); } catch (err) { /* ignora */ }
   ui.showPanel(`<h2>O vídeo do aparelho reiniciou</h2><p class="sub">A placa de vídeo ficou sem memória com os gráficos em "${quality}". O jogo vai recarregar em "${next}".</p><button data-go="reload" class="primary">Recarregar agora</button>`);
   ui.on.reload = () => location.reload();
   setTimeout(() => location.reload(), 4000);
@@ -109,7 +108,7 @@ canvas.addEventListener('webglcontextlost', (e) => {
 
 function setQuality(q) {
   quality = q; game.quality = q;
-  try { localStorage.setItem('criptas-quality-v2', q); } catch (e) { /* ignora */ }
+  try { sessionStorage.setItem('criptas-quality-s', q); } catch (e) { /* ignora */ }
   setupComposer();
 }
 
@@ -126,16 +125,15 @@ function toTitle() {
 function saveSummary() {
   try { const s = JSON.parse(localStorage.getItem('criptas-save-v2')); return (s && s.summary) || { depth: s ? s.depth : 1 }; } catch (e) { return {}; }
 }
-let perf = null;
 const st = (role, opt = {}) => ui.openStation(game, role, opt);
 const act = (role, fn, extra = {}) => (b) => { const msg = fn(b); st(role, { ...extra(b), msg: msg || '' }); };
 ui.on = {
   play: (b) => {
     if (Game.hasSave() && b && !b.dataset.ok) { b.dataset.ok = '1'; b.classList.add('warn'); b.textContent = 'Começar do zero? O progresso salvo será apagado'; return; }
-    audio.init(); ui.hidePanels(); game.newGame(); perf = { t: 0, frames: 0 };
+    audio.init(); ui.hidePanels(); game.newGame();
   },
   tquality: () => { setQuality(QUALITIES[(QUALITIES.indexOf(quality) + 1) % QUALITIES.length]); ui.showTitle(saveSummary(), Game.hasSave(), quality); },
-  continue: () => { audio.init(); ui.hidePanels(); if (!game.loadSave()) game.newGame(); perf = { t: 0, frames: 0 }; },
+  continue: () => { audio.init(); ui.hidePanels(); if (!game.loadSave()) game.newGame(); },
   controls: () => ui.showControls(() => ui.showTitle(saveSummary(), Game.hasSave(), quality)),
   controlsP: () => ui.showControls(() => ui.showPause(game)),
   resume: () => { game.state = 'play'; ui.hidePanels(); },
@@ -198,15 +196,6 @@ function frame(now) {
   grade.uniforms.uTime.value = now * 0.001 % 100;
   composer.render();
   if (P) { P.main += renderer.info.render.calls; P.tris += renderer.info.render.triangles; P.frames++; renderer.info.autoReset = true; }
-  // ajuste automatico de qualidade nos primeiros segundos de jogo
-  if (perf && game.state === 'play') {
-    perf.t += dt; perf.frames++;
-    if (perf.t > 6) {
-      const fps = perf.frames / perf.t;
-      if (fps < 24 && quality === 'Ultra' && game.state === 'play') { setQuality('Alta'); ui.toast(`Gráficos ajustados para "Alta" (${Math.round(fps)} FPS). Pode voltar ao Ultra no menu de pausa.`); perf = { t: 0, frames: 0 }; }
-      else perf = null;
-    }
-  }
 }
 requestAnimationFrame(frame);
 window.__game = game;
