@@ -88,7 +88,7 @@ func _go(pos: Vector3, look: Vector3, hour: float, weather: int, pitch: float = 
 	var yaw := atan2(-d.x, -d.z)
 	p.cam_rig.yaw = yaw
 	p.cam_rig.pitch = pitch
-	p.rotation.y = yaw
+	p.set_yaw(yaw)
 	p.set_physics_process(true)
 	await _wait(2.5)
 
