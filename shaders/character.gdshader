@@ -1,12 +1,11 @@
 // Personagens (Caio, sobreviventes, infectados, pesquisadores).
 // UMA draw call por personagem: cor por vértice (rgb) + id de material (alpha)
-// que seleciona o quadrante do atlas de detalhe (pele, malha, brim, couro).
-// textureGrad mantém mipmaps corretos dentro do atlas sem costuras.
+// que seleciona a camada da textura de detalhe (pele, malha, brim, couro).
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-uniform sampler2D detail_a : source_color, filter_linear_mipmap, repeat_enable;
-uniform sampler2D detail_b : filter_linear_mipmap, repeat_enable;
+uniform sampler2DArray detail_a : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2DArray detail_b : filter_linear_mipmap, repeat_enable;
 uniform float infection : hint_range(0.0, 1.0) = 0.0;
 uniform float grime_amount : hint_range(0.0, 1.0) = 0.25;
 uniform float wet_self : hint_range(0.0, 1.0) = 0.0;
@@ -20,6 +19,17 @@ global uniform float wetness;
 varying float mat_id;
 varying vec3 l_pos;
 
+float h3(vec3 p) { return fract(sin(dot(p, vec3(12.9, 78.2, 37.7))) * 43758.5); }
+// ruído de valor suave (sujeira sem blocos visíveis)
+float vn3(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y);
+	float b = mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y);
+	return mix(a, b, f.z);
+}
+
 void vertex() {
 	mat_id = COLOR.a;
 	l_pos = VERTEX;
@@ -27,17 +37,31 @@ void vertex() {
 
 void fragment() {
 	float q = floor(mat_id * 3.0 + 0.5); // 0 pele, 1 malha, 2 brim, 3 couro
-	vec2 qoff = vec2(mod(q, 2.0), floor(q / 2.0)) * 0.5;
-	vec2 luv = UV * 2.2;
-	vec2 auv = qoff + fract(luv) * 0.5;
-	vec2 dx = dFdx(luv) * 0.5;
-	vec2 dy = dFdy(luv) * 0.5;
-	vec4 da = textureGrad(detail_a, auv, dx, dy);
-	vec4 db = textureGrad(detail_b, auv, dx, dy);
+	vec3 luv = vec3(UV * 2.2, q);
+	vec4 da = texture(detail_a, luv);
+	vec4 db = texture(detail_b, luv);
 
 	vec3 base = COLOR.rgb;
 	float rough = da.a;
 	vec3 alb = base * da.rgb;
+	vec2 nxy = db.rg * 2.0 - 1.0;
+	bool eye = UV.y > 19.0;
+	bool hair = UV.y > 9.0 && !eye;
+	if (eye) {
+		nxy = vec2(0.0);
+		alb = base;
+	}
+	if (hair) {
+		// fios: listras finas no sentido do penteado, contraste some à distância
+		float u = UV.x * 1400.0;
+		float fw = clamp(1.0 - fwidth(u) * 0.6, 0.0, 1.0);
+		float h1 = fract(sin(floor(u) * 12.9898) * 43758.5453);
+		float h2 = fract(sin(floor(u * 0.23) * 78.233) * 43758.5453);
+		float st = mix(0.5, 0.35 + 0.45 * h1 + 0.2 * h2, fw);
+		alb = base * (0.6 + 0.6 * st);
+		rough = 0.5 + 0.15 * h1;
+		nxy = vec2((h1 - 0.5) * 0.7 * fw, 0.0);
+	}
 
 	if (q < 0.5) {
 		// Infecção NEXUS: palidez acinzentada, veias escuras, olheiras.
@@ -47,24 +71,27 @@ void fragment() {
 		rough = mix(rough, 0.35, infection * 0.4);
 	}
 	// sujeira geral
-	float g = grime_amount * (0.4 + 0.6 * fract(sin(dot(floor(l_pos * 9.0), vec3(12.9, 78.2, 37.7))) * 43758.5));
+	float g = grime_amount * (0.3 + 0.7 * vn3(l_pos * 7.0) * (0.6 + 0.4 * vn3(l_pos * 23.0)));
 	alb *= 1.0 - g * 0.35;
 
 	float wet = max(wetness * 0.8, wet_self);
-	if (wet > 0.01 && q > 0.5) {
+	if (wet > 0.01 && (q > 0.5 || hair)) {
 		alb *= mix(1.0, 0.62, wet);
 		rough = mix(rough, 0.35, wet * 0.7);
 	}
 
-	vec2 nxy = db.rg * 2.0 - 1.0;
 	ALBEDO = alb;
 	ROUGHNESS = rough;
 	METALLIC = 0.0;
 	NORMAL_MAP = vec3(nxy * 0.8, sqrt(max(0.0, 1.0 - dot(nxy, nxy)))) * 0.5 + 0.5;
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	EMISSION = rim_color * rim * fresnel_rim;
-	// olhos: cor quase branca com mat_id 0 e rgb > 0.95 => realce
-	if (emissive_eyes > 0.0 && q < 0.5 && base.r > 0.8 && base.g > 0.78 && base.b > 0.74) {
+	// olhos (UV.y > 19 marca o globo ocular): esclera/íris brilham nos infectados
+	if (eye) {
+		ROUGHNESS = 0.12;
+		SPECULAR = 0.7;
+	}
+	if (emissive_eyes > 0.0 && eye && base.r > 0.3) {
 		EMISSION += vec3(0.8, 0.85, 0.7) * emissive_eyes;
 	}
 }

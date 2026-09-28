@@ -37,10 +37,10 @@ static func caio() -> Dictionary:
 	a["hair_color"] = Color(0.09, 0.07, 0.05)
 	a["beard"] = 0.55
 	a["top"] = "jacket"
-	a["top_color"] = Color(0.24, 0.26, 0.19)
-	a["top2_color"] = Color(0.42, 0.43, 0.44)
+	a["top_color"] = Color(0.33, 0.34, 0.25)
+	a["top2_color"] = Color(0.46, 0.47, 0.48)
 	a["bottom"] = "jeans"
-	a["bottom_color"] = Color(0.14, 0.18, 0.28)
+	a["bottom_color"] = Color(0.2, 0.25, 0.36)
 	a["shoes"] = "boots"
 	a["shoes_color"] = Color(0.28, 0.18, 0.1)
 	a["backpack"] = true

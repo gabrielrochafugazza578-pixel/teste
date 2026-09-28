@@ -60,6 +60,15 @@ func _ready() -> void:
 		light_pool.append(l)
 
 
+## Espera as tarefas de geração em andamento antes de sair (encerrar o jogo
+## com tarefas soltas no WorkerThreadPool aborta o processo).
+func _exit_tree() -> void:
+	for j in jobs:
+		if j.task >= 0:
+			WorkerThreadPool.wait_for_task_completion(j.task)
+	jobs.clear()
+
+
 func setup(world_layout: WorldLayout) -> void:
 	layout = world_layout
 	PropLib.warm()

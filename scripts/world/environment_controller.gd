@@ -81,7 +81,7 @@ func _apply_settings() -> void:
 		env.sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL if rq < 3 else Sky.PROCESS_MODE_REALTIME
 	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if cam:
-		cam.far = Settings.get_view_distance() + 300.0
+		cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0)
 
 
 func set_indoor(v: bool) -> void:
@@ -149,7 +149,7 @@ func _update(delta: float) -> void:
 	env.ambient_light_sky_contribution = 0.0
 	# --- neblina ------------------------------------------------------------
 	var vd := Settings.get_view_distance()
-	var base_fog := 2.2 / (vd * fog_scale)
+	var base_fog := 1.45 / (vd * fog_scale)
 	var fog_d := base_fog + wm.fog * 0.0085 + wm.rain * 0.0022
 	if override_fog >= 0.0:
 		fog_d = override_fog

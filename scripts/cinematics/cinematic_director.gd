@@ -35,6 +35,7 @@ var cam: Camera3D
 var anim: AnimationPlayer
 var cam_fov: float = 60.0
 var ground_mode: bool = false
+var _hidden_props: Array = []      # [MultiMesh, índice, Transform3D] escondidos da lente
 var follow_caio: bool = false
 var running: bool = false
 var skipping: bool = false
@@ -87,7 +88,7 @@ func _ready() -> void:
 		add_child(cam)
 	cam.top_level = true
 	cam.near = 0.08
-	cam.far = 1100.0
+	cam.far = 3400.0
 	anim = get_node_or_null("AnimationPlayer") as AnimationPlayer
 	if anim == null:
 		anim = AnimationPlayer.new()
@@ -304,6 +305,9 @@ func _enter_scene(si: int) -> void:
 	if game.env:
 		game.env.exposure = float(sc.get("exposure", 1.0))
 		game.env.fog_scale = float(sc.get("fog_scale", 1.7))
+		# cidade "normal" mais viva; depois do colapso, a paleta dessatura
+		game.env.mood_saturation = float(sc.get("saturation", 0.85))
+		game.env.env.fog_sky_affect = float(sc.get("sky_fog", 0.65))
 	# luz de preenchimento presa à câmera (cenas noturnas)
 	var fill := cam.get_node_or_null("Fill") as OmniLight3D
 	if sc.has("fill"):
@@ -404,6 +408,7 @@ func _play_shot(si: int, shi: int) -> void:
 	if sh.has("handoff"):
 		_handoff_dur = float(sh["handoff"])
 		_handoff_t = 0.0
+	_clear_camera_path(sh)
 	anim.play(LIB_NAME + "/" + str(sh["id"]))
 	var t := 0.0
 	while t < dur and not skipping and anim.is_playing():
@@ -413,6 +418,72 @@ func _play_shot(si: int, shi: int) -> void:
 			_handoff_t = clampf((t - (dur - _handoff_dur)) / _handoff_dur, 0.0, 1.0)
 			if _handoff_t >= 1.0:
 				break
+	_restore_camera_path()
+
+
+## Esconde árvores/postes/lixeiras (instâncias de MultiMesh dos chunks) que
+## ficariam colados na lente ao longo do trajeto da câmera desta tomada —
+## a posição dos props é procedural, então a tomada nunca "nasce" atrás de um
+## tronco. Restaurado ao fim da tomada.
+func _clear_camera_path(sh: Dictionary) -> void:
+	_restore_camera_path()
+	if world == null or str(sh.get("anchor", "")) == "caio_follow":
+		return
+	var keys: Array = sh.get("cam", [])
+	if keys.is_empty():
+		return
+	var fr := anchor.global_transform
+	var pts: Array = []
+	for i in keys.size():
+		var p: Vector3 = fr * _v(keys[i][1])
+		if bool(sh.get("ground", false)):
+			p.y += world.ground_y(p.x, p.z) - fr.origin.y
+		pts.append(p)
+		if i + 1 < keys.size():
+			var q: Vector3 = fr * _v(keys[i + 1][1])
+			pts.append(p.lerp(q, 0.5))
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for p: Vector3 in pts:
+		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.z))
+		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.z))
+	var box := Rect2(lo, hi - lo).grow(3.0)
+	for c: Vector2i in world.chunks.keys():
+		var cr := Rect2(c.x * WorldLayout.CHUNK, c.y * WorldLayout.CHUNK, WorldLayout.CHUNK, WorldLayout.CHUNK)
+		if not cr.intersects(box):
+			continue
+		for n in (world.chunks[c] as Node).get_children():
+			var mmi := n as MultiMeshInstance3D
+			if mmi == null or mmi.multimesh == null:
+				continue
+			var mm := mmi.multimesh
+			var aabb := mm.mesh.get_aabb() if mm.mesh else AABB()
+			# grama e flores ficam (baixas); só esconde o que tem altura de gente
+			if aabb.size.y < 1.2:
+				continue
+			for i in mm.instance_count:
+				var xf := mm.get_instance_transform(i)
+				var o := mmi.global_transform * xf.origin
+				if not box.has_point(Vector2(o.x, o.z)):
+					continue
+				for k in pts.size():
+					var p: Vector3 = pts[k]
+					var dmin := Vector2(o.x - p.x, o.z - p.z).length()
+					if k + 1 < pts.size():
+						dmin = minf(dmin, Util.dist_point_segment_2d(Vector2(o.x, o.z), Vector2(p.x, p.z), Vector2((pts[k + 1] as Vector3).x, (pts[k + 1] as Vector3).z)))
+					var top := o.y + aabb.end.y * xf.basis.get_scale().y
+					if dmin < 1.9 and p.y > o.y - 0.5 and p.y < top + 1.0:
+						_hidden_props.append([mm, i, xf])
+						mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ONE * 0.0001), xf.origin))
+						break
+
+
+func _restore_camera_path() -> void:
+	for e: Array in _hidden_props:
+		var mm: MultiMesh = e[0]
+		if is_instance_valid(mm):
+			mm.set_instance_transform(int(e[1]), e[2])
+	_hidden_props.clear()
 
 
 func _apply_phase(phase: int) -> void:
@@ -773,7 +844,7 @@ func _barricade(p: Vector3) -> void:
 
 func _clear_actors() -> void:
 	for id in actors.keys():
-		var n: Node = actors[id]
+		var n: Variant = actors[id]
 		if is_instance_valid(n):
 			n.queue_free()
 	actors.clear()
@@ -817,6 +888,8 @@ func _complete_handoff() -> void:
 	if game.env:
 		game.env.fog_scale = 1.0
 		game.env.exposure = 1.0
+		game.env.mood_saturation = 0.85
+		game.env.env.fog_sky_affect = 0.65
 	player.cam_rig.align_to(Transform3D(Basis(Vector3.UP, player._yaw), Vector3.ZERO))
 	player.cam_rig.cam.current = true
 	SimScheduler.camera = player.cam_rig.cam

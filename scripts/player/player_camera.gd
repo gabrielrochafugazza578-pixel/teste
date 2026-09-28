@@ -42,12 +42,12 @@ func _ready() -> void:
 	cam = Camera3D.new()
 	cam.name = "GameplayCamera"
 	cam.near = 0.08
-	cam.far = Settings.get_view_distance() + 300.0
+	cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0)
 	cam.fov = Settings.get_fov()
 	spring.add_child(cam)
 	_noise.frequency = 1.3
 	EventBus.settings_changed.connect(func() -> void:
-		cam.far = Settings.get_view_distance() + 300.0)
+		cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0))
 
 
 func set_target(t: Node3D) -> void:

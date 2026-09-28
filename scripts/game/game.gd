@@ -7,6 +7,7 @@ extends Node3D
 
 var layout: WorldLayout
 var world: World
+var far_layer: FarLayer
 var env: EnvironmentController
 var weather_fx: WeatherFX
 var player: Player
@@ -139,6 +140,10 @@ func _build_scene() -> void:
 	world.name = "World"
 	add_child(world)
 	world.setup(layout)
+	far_layer = FarLayer.new()
+	far_layer.name = "FarLayer"
+	add_child(far_layer)
+	far_layer.setup(world)
 	player = Player.new()
 	player.name = "Caio"
 	add_child(player)

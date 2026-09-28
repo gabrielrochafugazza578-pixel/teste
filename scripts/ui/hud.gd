@@ -68,6 +68,7 @@ func _ready() -> void:
 	UIKit.full_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
+	_outline_labels(self)
 	EventBus.subtitle.connect(_on_subtitle)
 	EventBus.notify.connect(_on_notify)
 	EventBus.interaction_prompt.connect(func(t: String) -> void: prompt.text = t)
@@ -103,6 +104,15 @@ func _apply_settings() -> void:
 # ---------------------------------------------------------------------------
 # Construção
 # ---------------------------------------------------------------------------
+## Contorno escuro em todo texto do HUD: legível sobre céu claro, neblina e neve.
+func _outline_labels(n: Node) -> void:
+	for c in n.get_children():
+		if c is Label and not (c as Label).has_theme_constant_override("outline_size"):
+			(c as Label).add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+			(c as Label).add_theme_constant_override("outline_size", 4)
+		_outline_labels(c)
+
+
 func _build() -> void:
 	vignette = ColorRect.new()
 	UIKit.full_rect(vignette)
@@ -225,9 +235,11 @@ func _build() -> void:
 	slots.alignment = BoxContainer.ALIGNMENT_END
 	for i in 4:
 		var sl := UIKit.panel(6)
-		sl.custom_minimum_size = Vector2(66, 44)
+		sl.custom_minimum_size = Vector2(92, 44)
 		var l := UIKit.label("%d\n" % (i + 1), 11, UITheme.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		l.clip_text = true
+		l.custom_minimum_size = Vector2(80, 0)
 		sl.add_child(l)
 		slots.add_child(sl)
 	wb.add_child(slots)
@@ -374,7 +386,7 @@ func _process(delta: float) -> void:
 	for i in 4:
 		var id: String = player.quick_slots[i]
 		var l := (slots.get_child(i) as PanelContainer).get_child(0) as Label
-		l.text = "%d\n%s" % [i + 1, (ItemDB.item_name(id).substr(0, 14) + (" ×%d" % player.inventory.count(id))) if id != "" else ""]
+		l.text = "%d  ×%d\n%s" % [i + 1, player.inventory.count(id), ItemDB.item_name(id)] if id != "" else "%d\n" % (i + 1)
 	(crosshair as HUDCrosshair).active = player.aiming
 	crosshair.queue_redraw()
 	# veículo

@@ -38,8 +38,8 @@ const SPR_LEAF := 4
 
 var surface_a: Texture2DArray
 var surface_b: Texture2DArray
-var char_a: Texture2D
-var char_b: Texture2D
+var char_a: Texture2DArray
+var char_b: Texture2DArray
 var leaf_tex: Texture2D
 var noise_tex: Texture2D
 var sprites: Array = []
@@ -130,11 +130,9 @@ func _bake_gpu(size: int) -> void:
 	surface_b.create_from_images(imgs_b)
 
 	var ca := await _render(vp, mat, 1, 0, 0, size)
-	ca.generate_mipmaps()
-	char_a = ImageTexture.create_from_image(ca)
+	char_a = _atlas_to_array(ca, false)
 	var cb := await _render(vp, mat, 1, 0, 1, size)
-	cb.generate_mipmaps(true)
-	char_b = ImageTexture.create_from_image(cb)
+	char_b = _atlas_to_array(cb, true)
 	done += 2
 	bake_progress.emit(float(done) / jobs_total, "Personagens")
 
@@ -205,10 +203,10 @@ func _make_fallback(s: int) -> void:
 	surface_b.create_from_images(imgs_b)
 	var ca := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
 	ca.fill(Color(0.9, 0.9, 0.9, 0.7))
-	char_a = ImageTexture.create_from_image(ca)
+	char_a = _atlas_to_array(ca, false)
 	var cb := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
 	cb.fill(Color(0.5, 0.5, 1.0, 0.0))
-	char_b = ImageTexture.create_from_image(cb)
+	char_b = _atlas_to_array(cb, true)
 	var lf := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
 	lf.fill(Color(0.2, 0.3, 0.1, 1.0))
 	leaf_tex = ImageTexture.create_from_image(lf)
@@ -220,6 +218,22 @@ func _make_fallback(s: int) -> void:
 	var nz := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
 	nz.fill(Color(0.5, 0.5, 0.5, 0.5))
 	noise_tex = ImageTexture.create_from_image(nz)
+
+
+## Atlas 2×2 de personagens (pele, malha, brim, couro) => Texture2DArray de 4
+## camadas: sem "vazamento" do quadrante vizinho nas bordas de repetição.
+func _atlas_to_array(img: Image, normal: bool) -> Texture2DArray:
+	if img.has_mipmaps():
+		img.clear_mipmaps()
+	var half := img.get_width() / 2
+	var layers: Array[Image] = []
+	for q in 4:
+		var part := img.get_region(Rect2i((q % 2) * half, (q / 2) * half, half, half))
+		part.generate_mipmaps(normal)
+		layers.append(part)
+	var arr := Texture2DArray.new()
+	arr.create_from_images(layers)
+	return arr
 
 
 func _refresh_materials() -> void:

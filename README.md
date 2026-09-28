@@ -52,6 +52,9 @@ Primeira execução: o jogo **gera as texturas PBR na GPU** (Texture2DArray, 16 
   Medido: 100–230 draw calls, ~80 MB de VRAM na cidade.
 * **Streaming**: anéis de LOD (0/1/2) por distância; geração em `WorkerThreadPool`; aplicação no main thread
   com orçamento em µs por quadro; interiores gerados sob demanda ao se aproximar.
+* **Camada distante** (`FarLayer`): terreno do mapa inteiro a 32 m/célula + silhueta de todos os prédios num
+  único MultiMesh (janelas procedurais que acompanham energia/apagão). Some onde o chunk real está carregado
+  (máscara 48×48 de chunks lida no shader) — dá para ver a cidade da serra por ~2 draw calls.
 * **LOD de simulação** (`SimScheduler`): perto = física + percepção 8 Hz + animação por quadro; médio =
   movimento cinemático 3 Hz; longe = interpolado 1 Hz; fora = população abstrata (dados). Orçamento de CPU
   por quadro, fatiamento de tempo, *pooling* de infectados, pathfinding limitado ao grafo viário (A*).
@@ -66,9 +69,11 @@ Primeira execução: o jogo **gera as texturas PBR na GPU** (Texture2DArray, 16 
 scripts/
   core/        EventBus, Settings (presets), GameState, SimScheduler, ShaderGlobals, Assets (bake PBR), InputSetup, Util
   world/       WorldLayout (cidade/região), TerrainGen, BuildingGen, InteriorGen, PropLib, Vegetation,
-               ChunkBuilder/Chunk/World (streaming), EnvironmentController (sol/lua/céu/neblina), Setor7
+               ChunkBuilder/Chunk/World (streaming), FarLayer (terreno/silhueta distantes),
+               EnvironmentController (sol/lua/céu/neblina), Setor7
   world/interactables/  Door, LootContainer, ItemPickup, Station (cama/bancada/fogo/coletor/baú), StoryObject, FuelPump, Elevator
-  character/   Appearance, HumanoidMeshBuilder (malha skinned 18 ossos, 1 draw call), AnimLibrary, ProceduralAnimator, HumanoidBody
+  character/   Appearance, HeadTemplate (cabeça/pescoço anatômicos via SDF), HumanoidMeshBuilder (malha skinned 18 ossos,
+               1 draw call), AnimLibrary, ProceduralAnimator, HumanoidBody
   player/      Player (Caio), PlayerCamera
   survival/    Survival (fome, sede, energia, fôlego, temperatura, sangramento, fratura, dor, infecções, doenças, peso, moral)
   inventory/   ItemDB (≈130 itens), Inventory (peso + espaços)
@@ -92,7 +97,7 @@ scripts/
                SleepDialog, DeathScreen, ReadableScreen, DebugOverlay, CinematicOverlay, EndingScreen, GameUI
   game/        Game (monta e conecta tudo)
 shaders/       bake_surface, world_surface, terrain, character, foliage, grass, water, sky, glass,
-               screen_monitor, window_light, emissive_power, post_accessibility
+               screen_monitor, window_light, emissive_power, post_accessibility, far_terrain, far_skyline
 cinematics/    opening.json (timeline editável da abertura)
 scenes/        boot, menu, game, cinematics/opening_cinematic.tscn
 tests/         parse_check, visual_test, bench_chunks, smoke_test (gameplay + abertura)
@@ -101,6 +106,21 @@ tools/         check.sh, bake_cinematic.gd
 
 Todos os assets (texturas, malhas, personagens, animações, sons, música) são **gerados pelo próprio jogo**
 a partir de código — não há arquivos de terceiros com licença restrita.
+
+### Personagens (sem cara de boneco)
+
+* **Cabeça e pescoço** vêm de um molde anatômico (`HeadTemplate`): um campo de distância com crânio, massa
+  facial, mandíbula e ângulo da mandíbula, queixo, maçãs, bucinadores, arco das sobrancelhas, órbitas
+  escavadas, nariz (dorso/ponta/asas), lábios, orelhas, pescoço com esternocleidomastoides e pomo de adão.
+  A superfície é amostrada por raios numa grade mais densa no rosto (LOD 0 ≈ 3 200 vértices, LOD 1 ≈ 350),
+  com oclusão ambiente calculada no próprio SDF. Um molde por sexo/LOD, em cache em `user://cache`.
+* Cada personagem aplica variações baratas por máscara de região (largura da mandíbula, nariz, queixo,
+  bochechas, lábios, comprimento do rosto, sobrancelha) a partir da semente — rostos distintos e estáveis.
+* Olhos com esclera mais larga que a íris, íris/pupila com bordas nítidas, pálpebras amendoadas que se
+  encontram nos cantos; cabelo acompanha a pele do molde com linha do cabelo, costeletas e fios no shader;
+  barba/bigode, sobrancelhas, lábios e olheiras por máscara.
+* Corpo: ombros em cúpula (deltoide), sobreposição nas articulações (sem frestas ao dobrar), decote em V do
+  jaleco e faixas de roupa com bordas nítidas; detalhe de pele/malha/brim/couro em `Texture2DArray`.
 
 ---
 
