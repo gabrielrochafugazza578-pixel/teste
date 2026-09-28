@@ -67,7 +67,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	letterbox = move_toward(letterbox, letterbox_target, delta * 0.6)
+	letterbox = move_toward(letterbox, letterbox_target, delta * (0.6 if letterbox_target > letterbox else 1.4))
 	var h := size.y * 0.12 * smoothstep(0.0, 1.0, letterbox)
 	top.size = Vector2(size.x, h)
 	top.position = Vector2(0, 0)

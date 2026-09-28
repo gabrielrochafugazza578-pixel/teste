@@ -78,6 +78,7 @@ func _ready() -> void:
 		await world.wait_area(layout.poi_pos("avenida_central"), 90.0, 40.0)
 	else:
 		await world.wait_area(spawn, 80.0, 40.0)
+		await world.wait_spot(spawn, 20.0)
 	loading.set_progress(0.9, "Últimos ajustes…")
 	if not new_game:
 		_apply_save(GameState.pending_save)
@@ -217,6 +218,10 @@ func _begin_gameplay(new_game: bool) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	player.control_enabled = true
 	if new_game:
+		if cinematic == null:
+			# sem abertura: Caio começa olhando para a cidade, lá embaixo
+			player.set_yaw(PI)
+			player.cam_rig.yaw = PI
 		player.give_starting_kit()
 		MissionManager.start("m1_retorno")
 		StoryManager.start_chapter(1)
@@ -284,7 +289,7 @@ func location_name() -> String:
 
 
 func is_underground() -> bool:
-	return setor7 != null and player.global_position.y < -20.0
+	return setor7 != null and player.is_inside_tree() and player.global_position.y < -20.0
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +435,7 @@ func _exit_setor7() -> void:
 	var p := layout.poi_pos("lab_nexus")
 	if ev != null:
 		p = (ev as Transform3D).origin + (ev as Transform3D).basis * Vector3(0, 0, -1.4)
+	player.set_physics_process(false)
 	player.global_position = p + Vector3(0, 0.1, 0)
 	player.velocity = Vector3.ZERO
 	# companheiros sobem junto
@@ -437,6 +443,8 @@ func _exit_setor7() -> void:
 		(n as Node3D).global_position = p + Vector3(1.0, 0.1, 0.8)
 	director.enabled = true
 	await world.wait_area(p, 40.0, 10.0)
+	await world.wait_spot(p, 10.0)
+	player.set_physics_process(true)
 	transitioning = false
 	player.control_enabled = true
 	ui.cine.fade_to(0.0, 1.2)

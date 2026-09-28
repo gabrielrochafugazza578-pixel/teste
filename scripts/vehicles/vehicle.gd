@@ -411,7 +411,8 @@ func _simulate(delta: float) -> void:
 		var r := hp - global_position
 		var pv := linear_velocity + angular_velocity.cross(r)
 		var susp_v := pv.dot(up)
-		var fz := maxf(0.0, k * comp - c * susp_v)
+		# pré-carga: com a mola na posição nominal cada roda sustenta 1/4 do peso
+		var fz := maxf(0.0, k * comp + mass * g * 0.25 - c * susp_v)
 		apply_force(up * fz, r)
 		# direções da roda
 		var fdir := -xf.basis.z
@@ -520,5 +521,5 @@ func hud_info() -> Dictionary:
 
 
 func to_dict() -> Dictionary:
-	return {"id": vehicle_id, "type": type, "color": paint, "pos": global_position, "yaw": global_rotation.y,
+	return {"id": vehicle_id, "type": type, "color": paint, "pos": global_position, "yaw": global_rotation.y, "placed": true,
 		"fuel": fuel, "engine": engine_cond, "hp": body_hp, "battery": battery, "needs": needs_repair, "storage": storage.to_data()}

@@ -158,8 +158,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	if _body.is_valid():
-		PhysicsServer3D.body_set_space(_body, RID())
+	release()
 
 
 func release() -> void:

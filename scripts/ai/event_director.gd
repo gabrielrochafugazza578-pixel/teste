@@ -48,7 +48,7 @@ func _process(delta: float) -> void:
 
 
 func _on_hour(_h: int) -> void:
-	if player == null or player.cinematic or GameState.world_phase != GameState.Phase.POST:
+	if not is_inside_tree() or player == null or not player.is_inside_tree() or player.cinematic or GameState.world_phase != GameState.Phase.POST:
 		return
 	if game and game.has_method("is_underground") and game.is_underground():
 		return

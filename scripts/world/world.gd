@@ -305,6 +305,10 @@ func _on_chunk_data(j: Job) -> void:
 	apply_queue.append(func() -> void:
 		pending.erase(c)
 		if old != null and is_instance_valid(old):
+			# interiores e camada de fase passam para o chunk novo (ninguém cai
+			# do piso de um interior durante a troca de LOD)
+			if ch.lod == 0:
+				_transfer_chunk_state(old, ch)
 			old.queue_free()
 		if desired_lod(c) > 2:
 			ch.queue_free()
@@ -317,6 +321,20 @@ func _on_chunk_data(j: Job) -> void:
 	if old != null:
 		# mantém o antigo até o novo ficar pronto
 		chunks[c] = old
+
+
+func _transfer_chunk_state(old: Chunk, ch: Chunk) -> void:
+	for bi in old.interiors.keys():
+		var it: Dictionary = old.interiors[bi]
+		var n: Node = it["node"]
+		if is_instance_valid(n):
+			n.reparent(ch, true)
+		ch.interiors[bi] = it
+	old.interiors.clear()
+	ch.story_spawned = old.story_spawned
+	for k in old.get_children():
+		if k is StoryObject or k is ItemPickup:
+			k.reparent(ch, true)
 
 
 func _apply_budgeted() -> void:
@@ -344,6 +362,30 @@ func is_area_ready(pos: Vector3, radius: float = 70.0) -> bool:
 			if not chunks.has(c) or (chunks[c] as Chunk).lod > 1:
 				return false
 	return true
+
+
+## Ponto pronto para colocar o jogador: chunk em LOD 0 e, se estiver dentro
+## de um prédio enterável, o interior já construído (em LOD 1 o prédio é um
+## bloco sólido e empurraria o jogador para fora/baixo).
+func is_spot_ready(pos: Vector3) -> bool:
+	var c := Vector2i(floori(pos.x / WorldLayout.CHUNK), floori(pos.z / WorldLayout.CHUNK))
+	if not chunks.has(c) or (chunks[c] as Chunk).lod != 0:
+		return false
+	var bi := layout.building_at(pos, 0.3)
+	if bi >= 0 and bool(layout.buildings[bi].get("enterable", false)):
+		return interior_root(bi) != null
+	return true
+
+
+func wait_spot(pos: Vector3, timeout: float = 20.0) -> void:
+	if not focus_points.has(pos):
+		focus_points.append(pos)
+	_eval_timer = 0.0
+	var t := 0.0
+	while not is_spot_ready(pos) and t < timeout:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	focus_points.erase(pos)
 
 
 ## Chunks próximos já com a camada da fase atual (carros, entulho...).

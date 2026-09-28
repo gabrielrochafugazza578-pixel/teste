@@ -114,7 +114,34 @@ func _process(delta: float) -> void:
 				_spawn(st)
 
 
+## Procura um ponto livre (sem prédios/carros estáticos) perto do desejado.
+func _free_spot(pos: Vector3, yaw: float, type: String) -> Vector3:
+	var d := VehicleMeshBuilder.dims(type)
+	var space := get_world_3d().direct_space_state
+	var sq := PhysicsShapeQueryParameters3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(float(d["W"]) + 0.3, 1.2, float(d["L"]) + 0.4)
+	sq.shape = box
+	sq.collision_mask = 1 | (1 << 4)
+	for i in 14:
+		var ang := float(i) * 2.4
+		var r := 0.0 if i == 0 else 1.5 + float(i) * 0.9
+		var p := pos + Vector3(cos(ang) * r, 0, sin(ang) * r)
+		var ray := PhysicsRayQueryParameters3D.create(p + Vector3(0, 4.0, 0), p + Vector3(0, -6.0, 0), 1)
+		var hit := space.intersect_ray(ray)
+		if hit.is_empty() or (hit["normal"] as Vector3).y < 0.85:
+			continue
+		var g: Vector3 = hit["position"]
+		sq.transform = Transform3D(Basis(Vector3.UP, yaw), g + Vector3(0, 0.95, 0))
+		if space.intersect_shape(sq, 1).is_empty():
+			return g + Vector3(0, 0.35, 0)
+	return pos
+
+
 func _spawn(st: Dictionary) -> Vehicle:
+	if not bool(st.get("placed", false)):
+		st["pos"] = _free_spot(st["pos"], float(st.get("yaw", 0.0)), str(st.get("type", "sedan")))
+		st["placed"] = true
 	var v := Vehicle.new()
 	v.name = "Vehicle_" + str(st["id"])
 	add_child(v)

@@ -110,6 +110,36 @@ func _test_opening(g: Game) -> void:
 	await _shot("apos_transicao")
 
 
+func _teleport(g: Game, pos: Vector3) -> void:
+	var p := g.player
+	p.set_physics_process(false)
+	p.global_position = pos
+	p.velocity = Vector3.ZERO
+	await g.world.wait_area(pos, 60.0, 30.0)
+	await g.world.wait_spot(pos, 20.0)
+	var q := PhysicsRayQueryParameters3D.create(pos + Vector3(0, 3, 0), pos + Vector3(0, -8, 0), 1)
+	var hit := p.get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty():
+		p.global_position = (hit["position"] as Vector3) + Vector3(0, 0.1, 0)
+	var probe: Array = []
+	var ex: Array = [p.get_rid()]
+	for k in 4:
+		var q2 := PhysicsRayQueryParameters3D.create(pos + Vector3(0, 6, 0), pos + Vector3(0, -30, 0), 1)
+		q2.exclude = ex
+		var h2 := p.get_world_3d().direct_space_state.intersect_ray(q2)
+		if h2.is_empty():
+			break
+		probe.append("%.2f(%s)" % [(h2["position"] as Vector3).y, str(h2["collider"]) if h2["collider"] else "rid"])
+		ex.append(h2["rid"])
+	_log("  sondagem: %s · altura terreno=%.2f ground_y=%.2f" % [str(probe), g.layout.height(pos.x, pos.z), g.world.ground_y(pos.x, pos.z)])
+	var c := Vector2i(floori(pos.x / WorldLayout.CHUNK), floori(pos.z / WorldLayout.CHUNK))
+	_log("  teleporte %s: chão=%s lod=%s" % [str(pos.snapped(Vector3.ONE * 0.1)), str(not hit.is_empty()), str((g.world.chunks[c] as Chunk).lod if g.world.chunks.has(c) else -9)])
+	p.set_physics_process(true)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_log("  após 2 quadros: pos=%s chão=%s" % [str(p.global_position.snapped(Vector3.ONE * 0.01)), str(p.is_on_floor())])
+
+
 func _test_gameplay(g: Game) -> void:
 	var p := g.player
 	await _wait(2.0)
@@ -153,15 +183,13 @@ func _test_gameplay(g: Game) -> void:
 	_log("Meta: %s" % str(meta))
 	# teleporta para a cidade e espera streaming
 	var cp := g.layout.poi_pos("avenida_central") + Vector3(4, 0.5, 30)
-	p.global_position = cp
-	await g.world.wait_area(cp, 60.0, 30.0)
+	await _teleport(g, cp)
 	await _wait(3.0)
 	_log("Na cidade: chunks=%d infectados=%d npcs=%d" % [g.world.chunks.size(), g.director.active.size(), g.survivors.spawned.size()])
 	await _shot("gameplay_cidade")
 	# estádio (Remanescentes)
 	var ep := g.layout.poi_pos("estadio") + Vector3(0, 0.5, 14)
-	p.global_position = ep
-	await g.world.wait_area(ep, 60.0, 30.0)
+	await _teleport(g, ep)
 	await _wait(3.0)
 	_log("Estádio: npcs=%d" % g.survivors.spawned.size())
 	for id in g.survivors.spawned.keys():
@@ -194,10 +222,48 @@ func _test_gameplay(g: Game) -> void:
 		await _wait(0.3)
 	# veículo: picape do Tonho
 	var op := g.layout.poi_pos("oficina") + Vector3(0, 0.5, 10)
-	p.global_position = op
-	await g.world.wait_area(op, 50.0, 30.0)
+	await _teleport(g, op)
 	await _wait(3.0)
 	_log("Veículos instanciados: %s" % str(g.vehicles.vehicles.keys()))
+	# dirigir um veículo
+	var av := g.layout.poi_pos("avenida_central") + Vector3(-3.5, 0.3, 90)
+	await _teleport(g, av + Vector3(-6.0, 0.3, 0))
+	var vs: Dictionary = g.vehicles._state("viatura_delegacia").duplicate(true)
+	vs["pos"] = av
+	vs["yaw"] = 0.0
+	vs["fuel"] = 20.0
+	vs["id"] = "teste_carro"
+	vs["placed"] = false
+	_log("  spawn pedido em %s" % str(vs["pos"]))
+	var car: Vehicle = g.vehicles._spawn(vs)
+	_log("  carro criado em %s" % str(car.global_position))
+	for i in 8:
+		await get_tree().physics_frame
+		_log("  carro y=%.2f vel=%s freeze=%s sleeping=%s" % [car.global_position.y, str(car.linear_velocity.snapped(Vector3.ONE * 0.01)), str(car.freeze), str(car.sleeping)])
+	car.enter(p)
+	Input.action_press("move_forward")
+	await _wait(4.0)
+	Input.action_release("move_forward")
+	_log("Dirigindo: %.1f km/h · motor=%s · combustível=%.2f L · jogador no carro=%s" % [car.speed_kmh, str(car.engine_on), car.fuel, str(p.in_vehicle == car)])
+	p.exit_vehicle()
+	await _wait(0.5)
+	_log("Saiu do carro: pos=%s" % str(p.global_position))
+	# estrutura (fogueira)
+	p.inventory.add("kit_fogueira", 1, 1.0, {}, true)
+	g.structures.setup(p, g.world)
+	g.structures.begin("kit_fogueira")
+	await _wait(0.6)
+	g.structures._valid = true
+	g.structures._confirm()
+	_log("Estruturas salvas: %d" % GameState.structures.size())
+	# Setor 7
+	g._enter_setor7(false)
+	await _wait(3.0)
+	_log("Setor 7: subterrâneo=%s npcs=%s" % [str(g.is_underground()), str(g.survivors.spawned.keys().filter(func(k): return str(k) in ["lia", "helena", "leme"]))])
+	await _shot("setor7")
+	g._exit_setor7()
+	await _wait(4.0)
+	_log("De volta: pos=%s subterrâneo=%s" % [str(p.global_position), str(g.is_underground())])
 	# evento emergente
 	g.events.trigger("viajante")
 	await _wait(1.0)
