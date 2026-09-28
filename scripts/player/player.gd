@@ -1314,7 +1314,7 @@ func exit_vehicle() -> void:
 	if v.has_method("on_driver_exit"):
 		v.on_driver_exit()
 	in_vehicle = null
-	global_position = exit_pos
+	teleport(exit_pos)
 	collision_layer = 1 << 1
 	collision_mask = 1 | (1 << 2) | (1 << 3) | (1 << 4)
 	cam_rig.mode = "follow"

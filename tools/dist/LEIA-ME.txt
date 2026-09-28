@@ -1,0 +1,40 @@
+O INÍCIO DO FIM — build de teste para Linux (x86_64)
+=====================================================
+
+COMO JOGAR (Linux Mint)
+  1. Extraia a pasta (botão direito no .tar.gz → "Extrair aqui").
+  2. Entre na pasta e dê dois cliques em "jogar.sh" → "Executar".
+     Ou, no terminal, dentro da pasta:   ./jogar.sh
+  Os dois arquivos o_inicio_do_fim.x86_64 e o_inicio_do_fim.pck
+  precisam ficar juntos na mesma pasta.
+
+PRIMEIRA EXECUÇÃO
+  Na primeira vez o jogo gera as texturas e os sons (pode levar de 30 s a
+  1 min numa tela de carregamento). Depois fica em cache e abre rápido.
+  A qualidade é escolhida sozinha pela placa (GTX 750 Ti → BAIXO) e pode
+  ser mudada em Configurações.
+
+PLACA DE VÍDEO (NVIDIA)
+  Use o driver proprietário da NVIDIA: Menu → Gerenciador de Drivers →
+  escolha o driver "nvidia-driver-XXX (recomendado)" e reinicie.
+  Com o driver aberto (nouveau) o jogo abre, mas fica bem mais lento.
+
+CONTROLES (remapeáveis em Configurações → Controles)
+  WASD andar · Shift correr · C agachar · Espaço pular/escalar
+  E interagir (segurar = ações longas)
+  Mouse esq. atacar (segurar = pesado) · Mouse dir. defender/mirar
+  Q esquivar · F empurrar · G arremessar distração
+  L lanterna · H cura rápida · 1–4 atalhos
+  Tab inventário/fabricação · M mapa · J diário
+  Esc pausa · Enter (segurar) pular cinemática
+  F5 salvar rápido · F9 carregar rápido · F3 painel de desempenho · F1 esconder HUD
+  Gamepad (Xbox/PlayStation) também funciona.
+
+OPÇÕES DE LINHA DE COMANDO
+  ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)
+  ./jogar.sh -- --skip-menu --skip-opening     novo jogo sem a abertura
+
+SAVES, CACHE E LOG
+  Ficam em ~/.local/share/o_inicio_do_fim/
+  Se algo der errado, mande o arquivo  logs/godot.log  dessa pasta.
+  Para regerar texturas/sons, apague a pasta  cache/  de lá.

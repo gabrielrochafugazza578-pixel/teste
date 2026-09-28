@@ -192,7 +192,7 @@ func _test_gameplay(g: Game) -> void:
 	var ep := g.layout.poi_pos("estadio") + Vector3(0, 0.5, 14)
 	await _teleport(g, ep)
 	await _wait(3.0)
-	_log("Estádio: npcs=%d" % g.survivors.spawned.size())
+	_log("Estádio: npcs=%d saúde=%.0f" % [g.survivors.spawned.size(), p.survival.health])
 	for id in g.survivors.spawned.keys():
 		var n: SurvivorNPC = g.survivors.spawned[id]
 		_log("  %s (%s) estado=%d pos=%s" % [n.display_name, n.faction, n.state, str(n.global_position)])
@@ -241,11 +241,13 @@ func _test_gameplay(g: Game) -> void:
 	for i in 8:
 		await get_tree().physics_frame
 		_log("  carro y=%.2f vel=%s freeze=%s sleeping=%s" % [car.global_position.y, str(car.linear_velocity.snapped(Vector3.ONE * 0.01)), str(car.freeze), str(car.sleeping)])
+	_log("  antes de entrar no carro: saúde=%.0f" % p.survival.health)
 	car.enter(p)
 	Input.action_press("move_forward")
 	await _wait(4.0)
 	Input.action_release("move_forward")
 	_log("Dirigindo: %.1f km/h · motor=%s · combustível=%.2f L · jogador no carro=%s" % [car.speed_kmh, str(car.engine_on), car.fuel, str(p.in_vehicle == car)])
+	_log("  saúde ao descer: %.0f" % p.survival.health)
 	p.exit_vehicle()
 	await _wait(0.5)
 	_log("Saiu do carro: pos=%s saúde=%.0f" % [str(p.global_position), p.survival.health])

@@ -47,6 +47,8 @@ var _head_r: SpotLight3D
 var _engine_snd: AudioStreamPlayer3D
 var _noise_t: float = 0.0
 var _impact_cd: float = 0.0
+var _last_driver: Node = null
+var _exit_grace: float = 0.0
 var _last_vel := Vector3.ZERO
 var _idle_t: float = 0.0
 var _enter_area: VehicleDoor
@@ -228,6 +230,9 @@ func try_start() -> void:
 
 
 func on_driver_exit() -> void:
+	# o carro ainda rola um pouco: não atropela quem acabou de descer
+	_last_driver = driver
+	_exit_grace = 1.5
 	driver = null
 	throttle = 0.0
 	steer = 0.0
@@ -313,6 +318,7 @@ func repair(p: Player) -> bool:
 # ---------------------------------------------------------------------------
 func _physics_process(delta: float) -> void:
 	_impact_cd = maxf(0.0, _impact_cd - delta)
+	_exit_grace = maxf(0.0, _exit_grace - delta)
 	_horn_cd = maxf(0.0, _horn_cd - delta)
 	var focus := SimScheduler.focus_position
 	var dist := global_position.distance_to(focus)
@@ -485,6 +491,8 @@ func _on_body_entered(b: Node) -> void:
 		_run_over(b as Infected, dv)
 		return
 	if b is SurvivorNPC or b is Player:
+		if b == _last_driver and _exit_grace > 0.0:
+			return
 		var info := DamageInfo.make(dv * 6.0, "heavy", driver if driver else self, _last_vel)
 		info.knockback = dv * 0.5
 		info.stagger = 1.0
