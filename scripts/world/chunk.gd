@@ -20,6 +20,7 @@ var interiors: Dictionary = {}     # building id -> {"node": Node3D, "body": RID
 var enterables: Array = []
 var lamps: Array = []
 var story_spawned: bool = false
+var cars: Array = []              # carros estáticos da camada de fase (dados)
 
 
 func _init(c: Vector2i, level: int) -> void:
@@ -311,10 +312,12 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		mmi.visibility_range_end = Settings.get_detail_distance() * 1.6
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# carros estáticos por tipo (instâncias com cor)
+	cars = []
 	var by_type := {}
 	for car in p.get("cars", []):
 		if world != null and world.has_method("is_car_claimed") and world.is_car_claimed(str(car["uid"])):
 			continue
+		cars.append(car)
 		var burned: bool = car["state"] == "burned"
 		var key := str(car["type"]) + ("_b" if burned else "")
 		if not by_type.has(key):

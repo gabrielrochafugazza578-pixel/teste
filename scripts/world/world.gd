@@ -72,6 +72,14 @@ func is_car_claimed(uid: String) -> bool:
 	return claimed_cars.has(uid)
 
 
+## Remove um carro estático do mundo (virou veículo dirigível): refaz a
+## camada de fase do chunk sem ele.
+func claim_car(uid: String, c: Vector2i) -> void:
+	claimed_cars[uid] = true
+	if chunks.has(c) and not _has_job("phase", c):
+		_start_phase_job(c)
+
+
 # ---------------------------------------------------------------------------
 # Distâncias por configuração
 # ---------------------------------------------------------------------------

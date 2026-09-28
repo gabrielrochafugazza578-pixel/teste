@@ -53,6 +53,7 @@ signal talked_to(npc_id: String, topic: String)
 signal interacted(target_id: String)
 signal vehicle_repaired(vehicle_id: String)
 signal world_event(event_id: String, text: String)
+signal ending_requested(ending_id: String)
 
 # --- Facções -----------------------------------------------------------------
 signal faction_reputation_changed(faction_id: String, value: float)

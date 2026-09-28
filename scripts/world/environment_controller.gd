@@ -14,6 +14,7 @@ var mood_saturation: float = 0.85
 var exposure: float = 1.0
 var override_fog: float = -1.0
 var flash: float = 0.0
+var underground: bool = false   # Setor 7: sem sol/céu
 var _last_sq: int = -1
 
 
@@ -160,4 +161,17 @@ func _update(delta: float) -> void:
 	env.adjustment_contrast = 1.06
 	env.adjustment_brightness = 1.0 + (1.0 - dl) * 0.06
 	env.tonemap_exposure = exposure * lerpf(1.0, 1.25, 1.0 - dl) * lerpf(1.0, 1.35, indoor)
+	if underground:
+		sun.visible = false
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color(0.01, 0.01, 0.012)
+		env.ambient_light_color = Color(0.1, 0.11, 0.13)
+		env.ambient_light_energy = 0.55
+		env.fog_density = 0.006
+		env.fog_light_color = Color(0.08, 0.08, 0.09)
+		env.tonemap_exposure = exposure * 1.25
+		dl = 0.0
+	elif not sun.visible:
+		sun.visible = true
+		env.background_mode = Environment.BG_SKY
 	ShaderGlobals.set_value("daylight", dl)

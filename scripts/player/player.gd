@@ -76,6 +76,8 @@ var _surface: String = "asphalt"
 var _rain_exposure: float = 0.0
 var _sprint_toggle: bool = false
 var _ranged_cd: float = 0.0
+var swimming: bool = false
+var _swim_noise_t: float = 0.0
 
 
 func _ready() -> void:
@@ -402,6 +404,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			grab_progress += 0.26
 			cam_rig.add_shake(0.15)
 		return
+	if swimming and (event.is_action_pressed("attack") or event.is_action_pressed("block") or event.is_action_pressed("throw") or event.is_action_pressed("crouch")):
+		return
 	if event.is_action_pressed("crouch"):
 		if bool(Settings.controls.get("toggle_crouch", true)):
 			crouching = not crouching
@@ -483,6 +487,14 @@ func _physics_process(delta: float) -> void:
 		wish = cam_rig.flat_right() * v2.x - cam_rig.flat_forward() * v2.y
 		want_sprint = (Input.is_action_pressed("sprint") or _sprint_toggle) and v2.length() > 0.3
 	var mag := wish.length()
+	var wl := _water_level()
+	swimming = wl > -100.0 and global_position.y < wl - 1.25
+	if swimming:
+		crouching = false
+		want_sprint = false
+		survival.wetness = 1.0
+		if blocking:
+			_end_block()
 	sprinting = want_sprint and not crouching and not blocking and survival.can_sprint() and _busy_t <= 0.0
 	var target_speed := RUN
 	if cinematic:
@@ -495,6 +507,8 @@ func _physics_process(delta: float) -> void:
 		target_speed = WALK
 	if _busy_t > 0.0 and not cinematic:
 		target_speed = minf(target_speed, WALK * 0.8)
+	if swimming:
+		target_speed = 1.6
 	target_speed *= survival.speed_multiplier()
 	if _stagger_t > 0.0 or state == "knockdown":
 		target_speed = 0.0
@@ -508,7 +522,19 @@ func _physics_process(delta: float) -> void:
 	_knockback = _knockback.move_toward(Vector3.ZERO, delta * 14.0)
 	velocity.x = hv.x
 	velocity.z = hv.z
-	if is_on_floor():
+	if swimming:
+		# flutua com a cabeça fora d'água; nadar cansa e faz pouco barulho
+		_air_t = 0.0
+		velocity.y = move_toward(velocity.y, clampf((wl - 1.3 - global_position.y) * 3.0, -2.0, 2.0), delta * 12.0)
+		survival.use_stamina(3.0 * delta * clampf(mag, 0.2, 1.0))
+		_swim_noise_t -= delta
+		if _swim_noise_t <= 0.0 and mag > 0.2:
+			_swim_noise_t = 0.9
+			AudioManager.play_3d("step_water", global_position + Vector3(0, 1.2, 0), -4.0, 0.8)
+			EventBus.make_noise(global_position, 6.0, self, &"swim")
+		if survival.stamina <= 1.0:
+			survival.damage(4.0 * delta, "drown")
+	elif is_on_floor():
 		_air_t = 0.0
 		if velocity.y < 0.0:
 			velocity.y = -0.5
@@ -567,6 +593,18 @@ func _physics_process(delta: float) -> void:
 	cam_rig.bob_phase = anim.phase
 	_update_flashlight(delta)
 	_update_grab(delta)
+
+
+## Nível da água sob o jogador (rio/lago) ou -INF.
+func _water_level() -> float:
+	if world == null:
+		return -INF
+	var p := global_position
+	if not world.layout.is_water(p.x, p.z):
+		return -INF
+	if ((Vector2(p.x, p.z) - WorldLayout.LAKE_CENTER) / WorldLayout.LAKE_R).length() < 1.0:
+		return WorldLayout.LAKE_LEVEL
+	return WorldLayout.RIVER_LEVEL
 
 
 func splinted_ok() -> bool:

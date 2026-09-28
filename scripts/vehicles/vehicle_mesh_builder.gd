@@ -28,13 +28,13 @@ static func dims(type: String) -> Dictionary:
 
 
 ## burned = carcaça queimada (sem vidros, sem luzes)
-static func mesh(type: String, burned: bool = false) -> ArrayMesh:
-	var key := "%s_%s" % [type, str(burned)]
+static func mesh(type: String, burned: bool = false, with_wheels: bool = true) -> ArrayMesh:
+	var key := "%s_%s_%s" % [type, str(burned), str(with_wheels)]
 	if _cache.has(key):
 		return _cache[key]
 	var t: Dictionary = dims(type)
 	var S := [MeshBuf.new(), MeshBuf.new(), MeshBuf.new(), MeshBuf.new(), MeshBuf.new()]
-	_build(t, S, burned)
+	_build(t, S, burned, with_wheels)
 	var m := ArrayMesh.new()
 	var mats := surface_materials(burned)
 	for i in S.size():
@@ -66,7 +66,33 @@ static func surface_materials(burned: bool = false) -> Array:
 	return [paint, glass, trim, chrome, lights]
 
 
-static func _build(t: Dictionary, S: Array, burned: bool) -> void:
+## Roda avulsa (eixo X), para veículos dirigíveis com rodas animadas.
+static func wheel_mesh(type: String) -> ArrayMesh:
+	var key := "wheel_" + type
+	if _cache.has(key):
+		return _cache[key]
+	var t: Dictionary = dims(type)
+	var wr: float = t["wr"]
+	var trim := MeshBuf.new()
+	var chrome := MeshBuf.new()
+	var xf := Transform3D(Basis(Vector3.BACK, -PI * 0.5), Vector3(-0.11, 0, 0))
+	trim.cylinder(xf, wr, 0.22, 14, 0.0, 0.0, Color(1, 1, 1), true)
+	chrome.cylinder(Transform3D(xf.basis, Vector3(0.115, 0, 0)), wr * 0.58, 0.01, 10, 0.0, 0.0, Color(0.8, 0.8, 0.8), true)
+	# raios da calota (tornam a rotação visível)
+	for k in 5:
+		var a := float(k) * TAU / 5.0
+		chrome.box_xf(Transform3D(Basis(Vector3.RIGHT, a), Vector3(0.118, 0, 0)), Vector3(0.012, wr * 0.9, 0.05), 0.0, 0.0, Color(0.45, 0.45, 0.47))
+	var mats := surface_materials(false)
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, trim.to_arrays())
+	m.surface_set_material(0, mats[S_TRIM])
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, chrome.to_arrays())
+	m.surface_set_material(1, mats[S_CHROME])
+	_cache[key] = m
+	return m
+
+
+static func _build(t: Dictionary, S: Array, burned: bool, with_wheels: bool = true) -> void:
 	var paint: MeshBuf = S[S_PAINT]
 	var glass: MeshBuf = S[S_GLASS]
 	var trim: MeshBuf = S[S_TRIM]
@@ -185,9 +211,10 @@ static func _build(t: Dictionary, S: Array, burned: bool) -> void:
 		for sgn: float in [-1.0, 1.0]:
 			var c := Vector3((hw - 0.12) * sgn, wr, wz)
 			var xf := Transform3D(Basis(Vector3.BACK, -PI * 0.5 * sgn), c - Vector3(0.11 * sgn, 0, 0))
-			if not burned:
-				trim.cylinder(xf, wr, 0.22, 12, 0.0, 0.0, white, true)
-			chrome.cylinder(Transform3D(xf.basis, c + Vector3(0.115 * sgn, 0, 0)), wr * 0.58, 0.01, 10, 0.0, 0.0, Color(0.8, 0.8, 0.8) if not burned else Color(0.2, 0.18, 0.16), true)
+			if with_wheels:
+				if not burned:
+					trim.cylinder(xf, wr, 0.22, 12, 0.0, 0.0, white, true)
+				chrome.cylinder(Transform3D(xf.basis, c + Vector3(0.115 * sgn, 0, 0)), wr * 0.58, 0.01, 10, 0.0, 0.0, Color(0.8, 0.8, 0.8) if not burned else Color(0.2, 0.18, 0.16), true)
 			# caixa de roda escura
 			trim.box(Vector3((hw - 0.02) * sgn, wr + 0.05, wz), Vector3(0.05, wr * 1.1, wr * 2.3), 0.0, 0.0, Color(0.02, 0.02, 0.02))
 
