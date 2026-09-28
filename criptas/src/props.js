@@ -78,8 +78,10 @@ class Builder {
     this.e.set(rx, ry, rz, 'YXZ');
     this.m.compose(this.p.set(x, y, z), this.q.setFromEuler(this.e), this.s.set(sx, sy, sz));
     g.applyMatrix4(this.m);
-    if (!this.parts.has(matKey)) this.parts.set(matKey, []);
-    this.parts.get(matKey).push(g);
+    // agrupado por material E por bloco de 16x16: o recorte de visao descarta o que esta longe
+    const key = matKey + '|' + Math.floor(x / 16) + ',' + Math.floor(z / 16);
+    if (!this.parts.has(key)) this.parts.set(key, []);
+    this.parts.get(key).push(g);
   }
   local(geo, matKey, o, lx, ly, lz, sx, sy, sz, rx = 0, ry = 0, rz = 0) {
     const c = Math.cos(o.rot), sn = Math.sin(o.rot), k = o.s || 1;
@@ -88,7 +90,8 @@ class Builder {
   }
   bake(mats) {
     const group = new THREE.Group();
-    for (const [key, list] of this.parts) {
+    for (const [pkey, list] of this.parts) {
+      const key = pkey.split('|')[0];
       for (const g of list) {
         for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
         if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
@@ -99,6 +102,7 @@ class Builder {
       mesh.castShadow = !['web', 'shroom', 'rune', 'ember'].includes(key) && !key.startsWith('banner');
       mesh.receiveShadow = true;
       mesh.userData.propKey = key;
+      merged.computeBoundingSphere();
       group.add(mesh);
       list.forEach(g => g.dispose());
     }

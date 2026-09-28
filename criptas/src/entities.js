@@ -9,6 +9,7 @@ import { propMats } from './props.js';
 
 const FWD = [-Math.SQRT1_2, -Math.SQRT1_2], RIGHT = [Math.SQRT1_2, -Math.SQRT1_2];
 const ease = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+const ICE = new THREE.Color(0x80d8ff), WHITE = new THREE.Color(0xffffff);
 
 // =============================== JOGADOR ===============================
 export class Player {
@@ -467,8 +468,8 @@ export class Enemy {
       if (Math.random() < dt * 20) g.particles.fire(this.x, this.y + 0.3 + Math.random() * 1.2, this.z, 1, 0.6);
     } else this.burnDps = 0;
     if (this.freezeT > 0) {
-      this.freezeT -= dt; rig.tint(new THREE.Color(0x80d8ff), 0.7);
-      if (this.freezeT <= 0) rig.tint(new THREE.Color(0xffffff), 0);
+      this.freezeT -= dt; rig.tint(ICE, 0.7);
+      if (this.freezeT <= 0) rig.tint(WHITE, 0);
       if (Math.random() < dt * 5) g.particles.add.emit(this.x + (Math.random() - 0.5) * 0.6, this.y + Math.random() * 1.5, this.z + (Math.random() - 0.5) * 0.6, 0, 0.2, 0, 0.6, 0.12, 0.02, 0.6, 0.9, 1, 1, 0, 0);
       this.applyKnock(dt);
       return;

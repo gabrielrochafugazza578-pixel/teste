@@ -51,10 +51,10 @@ game.mirror = mirror;
 
 const QUALITIES = ['Ultra', 'Alta', 'Média', 'Baixa'];
 const Q = {
-  Ultra: { pr: 2, msaa: 4, bloom: true, mirror: 0.6, env: 256, envEvery: 2, pool: 20, shadows: 4, sun: 4096 },
-  Alta: { pr: 1.5, msaa: 4, bloom: true, mirror: 0.45, env: 128, envEvery: 5, pool: 16, shadows: 2, sun: 2048 },
-  Média: { pr: 1, msaa: 2, bloom: true, mirror: 0.33, env: 64, envEvery: 15, pool: 12, shadows: 0, sun: 1024 },
-  Baixa: { pr: 0.75, msaa: 0, bloom: false, mirror: 0, env: 0, envEvery: 0, pool: 8, shadows: 0, sun: 512 },
+  Ultra: { pr: 2, msaa: 4, bloom: true, mirror: 0.6, env: 256, envEvery: 3, pool: 16, shadows: 4, sun: 4096 },
+  Alta: { pr: 1.5, msaa: 4, bloom: true, mirror: 0.45, env: 128, envEvery: 5, pool: 12, shadows: 2, sun: 2048 },
+  Média: { pr: 1, msaa: 2, bloom: true, mirror: 0.33, env: 64, envEvery: 15, pool: 10, shadows: 0, sun: 1024 },
+  Baixa: { pr: 0.75, msaa: 0, bloom: false, mirror: 0, env: 0, envEvery: 0, pool: 6, shadows: 0, sun: 512 },
 };
 let quality = 'Ultra';
 try { quality = localStorage.getItem('criptas-quality-v2') || 'Ultra'; } catch (e) { /* ignora */ }
@@ -107,20 +107,25 @@ let bestFloor = 1;
 function toTitle() {
   game.mode = 'hub';
   game.loadLevel(generateHub(1234), true);
-  game.player.rig.root.visible = false;
+  game.setupTitleScene();
   game.state = 'title';
   ui.setBoss(null);
-  bestFloor = 1;
-  try { const s = JSON.parse(localStorage.getItem('criptas-save-v2')); if (s) bestFloor = s.depth || 1; } catch (e) { /* ignora */ }
-  ui.showTitle(bestFloor, Game.hasSave());
+  ui.showTitle(saveSummary(), Game.hasSave(), quality);
+}
+function saveSummary() {
+  try { const s = JSON.parse(localStorage.getItem('criptas-save-v2')); return (s && s.summary) || { depth: s ? s.depth : 1 }; } catch (e) { return {}; }
 }
 let perf = null;
 const st = (role, opt = {}) => ui.openStation(game, role, opt);
 const act = (role, fn, extra = {}) => (b) => { const msg = fn(b); st(role, { ...extra(b), msg: msg || '' }); };
 ui.on = {
-  play: () => { audio.init(); ui.hidePanels(); game.newGame(); perf = { t: 0, frames: 0 }; },
+  play: (b) => {
+    if (Game.hasSave() && b && !b.dataset.ok) { b.dataset.ok = '1'; b.classList.add('warn'); b.textContent = 'Começar do zero? O progresso salvo será apagado'; return; }
+    audio.init(); ui.hidePanels(); game.newGame(); perf = { t: 0, frames: 0 };
+  },
+  tquality: () => { setQuality(QUALITIES[(QUALITIES.indexOf(quality) + 1) % QUALITIES.length]); ui.showTitle(saveSummary(), Game.hasSave(), quality); },
   continue: () => { audio.init(); ui.hidePanels(); if (!game.loadSave()) game.newGame(); perf = { t: 0, frames: 0 }; },
-  controls: () => ui.showControls(() => ui.showTitle(bestFloor, Game.hasSave())),
+  controls: () => ui.showControls(() => ui.showTitle(saveSummary(), Game.hasSave(), quality)),
   controlsP: () => ui.showControls(() => ui.showPause(game)),
   resume: () => { game.state = 'play'; ui.hidePanels(); },
   mute: () => { audio.setMuted(!audio.muted); ui.showPause(game); },
@@ -169,11 +174,16 @@ function frame(now) {
   input.poll();
   game.update(dt);
   renderer.shadowMap.needsUpdate = true;
+  const P = window.__perf;
+  if (P) { renderer.info.autoReset = false; renderer.info.reset(); }
   mirror.render(game.scene, game.camera, 0);
+  if (P) { P.mirror += renderer.info.render.calls; renderer.info.reset(); }
   if (game.liveEnv) { const p = game.player; game.liveEnv.update(game.scene, p.x, p.y + 1.3, p.z, p.rig.root); }
+  if (P) { P.env += renderer.info.render.calls; renderer.info.reset(); }
   renderPass.scene = game.scene;
   grade.uniforms.uTime.value = now * 0.001 % 100;
   composer.render();
+  if (P) { P.main += renderer.info.render.calls; P.tris += renderer.info.render.triangles; P.frames++; renderer.info.autoReset = true; }
   // ajuste automatico de qualidade nos primeiros segundos de jogo
   if (perf && game.state === 'play') {
     perf.t += dt; perf.frames++;

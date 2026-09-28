@@ -128,14 +128,14 @@ export class Brazier {
     this.flame.visible = true;
     if (this.coal.material.emissiveIntensity !== undefined) { this.coal.material = this.coal.material.clone(); this.coal.material.emissive = new THREE.Color(this.col); this.coal.material.emissiveIntensity = 4; }
     this.game.audio.play('brazier');
-    const c = new THREE.Color(this.col);
+    const c = this._c || (this._c = new THREE.Color(this.col));
     this.game.particles.burst(this.x, this.mesh.position.y + 1.3, this.z, 60, [c.r, c.g, c.b], 6, 0.9, 0.4);
     this.game.onBrazierLit(this);
   }
   update(dt, time) {
     this.rune.material.opacity = this.lit ? 0.7 : 0.25 + Math.sin(time * 2) * 0.1;
     if (this.spin) { this.spin.rotation.y += dt * (this.lit ? 2 : 0.4); this.spin.position.y = 1.5 + Math.sin(time * 1.5) * 0.08; }
-    const c = new THREE.Color(this.col);
+    const c = this._c || (this._c = new THREE.Color(this.col));
     if (!this.lit) { if (Math.random() < dt * 4) this.game.particles.ember(this.x + (Math.random() - 0.5) * 0.6, this.mesh.position.y + 1.15, this.z + (Math.random() - 0.5) * 0.6, [c.r, c.g, c.b]); return; }
     this.t += dt;
     this.light.intensity = Math.min(30, this.t * 40) * (0.9 + Math.sin(time * 13) * 0.05 + Math.sin(time * 7.3) * 0.05);

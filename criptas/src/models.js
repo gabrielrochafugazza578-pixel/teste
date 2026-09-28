@@ -59,7 +59,7 @@ function face(b, head, m, D) {
   if (D.hair === 'short') b.mesh(head, GEO.hemiShell, m.hair, [0, 0.155, -0.01], [0.105, 0.126, 0.116], [-0.45, 0, 0]);
   if (D.hair === 'long') { b.mesh(head, GEO.hemiShell, m.hair, [0, 0.155, -0.01], [0.107, 0.128, 0.117], [-0.45, 0, 0]); b.mesh(head, limb(0.07, 0.05, 0.22), m.hair, [0, 0.16, -0.06], [1.1, 1, 0.7], [0.15, 0, 0]); }
   if (D.hair === 'bun') { b.mesh(head, GEO.hemiShell, m.hair, [0, 0.155, -0.01], [0.105, 0.127, 0.116], [-0.45, 0, 0]); b.ball(head, m.hair, [0, 0.2, -0.09], [0.05, 0.05, 0.05]); }
-  if (D.beard) { b.ball(head, m.hair, [0, 0.07, 0.035], [0.082, D.beard === 'long' ? 0.085 : 0.058, 0.08]); b.ball(head, m.hair, [0, 0.1, 0.09], [0.04, 0.012, 0.015]); }
+  if (D.beard) { b.ball(head, m.hair, [0, D.beard === 'long' ? 0.045 : 0.06, 0.04], [0.074, D.beard === 'long' ? 0.07 : 0.05, 0.072]); b.ball(head, m.hair, [0, 0.1, 0.09], [0.04, 0.012, 0.015]); }
 }
 
 // capa de tecido (vertices animados por instancia)

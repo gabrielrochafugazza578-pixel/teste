@@ -63,6 +63,8 @@ export class UI {
         <div class="tb small" data-act="store" style="right:104px;bottom:236px;width:48px;height:48px;font-size:15px">G</div>
         <div class="tb" data-act="pause" style="right:16px;top:230px;width:44px;height:44px">❚❚</div>
       </div>
+      <div id="cine" class="hidden"><div class="cbar t"></div><div class="cbar b"></div><div class="cfade"></div><div class="cflash"></div>
+        <div class="cname"><b></b><em></em></div><div class="csub"><span class="csp"></span><p></p></div><div class="cskip" data-act="skip">Pular ▸</div></div>
       <div id="panel" class="hidden"></div>`;
     this.hud = $('#hud'); this.panel = $('#panel'); this.floats = $('#floats');
     this.mm = $('#minimap'); this.mctx = this.mm.getContext('2d');
@@ -72,27 +74,85 @@ export class UI {
       const on = (e) => { e.preventDefault(); input.setTouch(a, true); el.classList.add('down'); };
       const off = (e) => { e.preventDefault(); input.setTouch(a, false); el.classList.remove('down'); };
       el.addEventListener('touchstart', on, { passive: false }); el.addEventListener('touchend', off); el.addEventListener('touchcancel', off);
-      el.addEventListener('mousedown', (e) => { if (el.classList.contains('slot') || el.classList.contains('hb')) { input.setTouch(a, true); setTimeout(() => input.setTouch(a, false), 60); e.stopPropagation(); } });
+      el.addEventListener('mousedown', (e) => { if (el.classList.contains('slot') || el.classList.contains('hb') || el.classList.contains('cskip')) { input.setTouch(a, true); setTimeout(() => input.setTouch(a, false), 60); e.stopPropagation(); } });
     }
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) $('#touch').classList.remove('hidden');
   }
 
   // ---------------- menus ----------------
   showPanel(html, cls = '') {
-    this.panel.className = cls; this.panel.innerHTML = `<div class="card">${html}</div>`;
+    this.panel.className = cls; this.panel.innerHTML = cls === 'title2' ? html : `<div class="card">${html}</div>`;
     for (const b of this.panel.querySelectorAll('[data-go]')) b.addEventListener('click', (e) => { e.stopPropagation(); if (this.on[b.dataset.go]) this.on[b.dataset.go](b); });
   }
   hidePanels() { this.panel.className = 'hidden'; this.panel.innerHTML = ''; }
-  showTitle(best, hasSave) {
+  showTitle(sum, hasSave, quality) {
     this.hud.classList.add('hidden');
-    this.showPanel(`
-      <div class="logo"><span>Criptas</span><small>de</small><span>Valdor</span></div>
-      <p class="sub">Desça às profundezas, cumpra contratos do Refúgio, atravesse dimensões<br>e derrote os guardiões que dormem sob a pedra.</p>
-      ${hasSave ? '<button data-go="continue" class="primary">Continuar</button>' : ''}
-      <button data-go="play" class="${hasSave ? '' : 'primary'}">Novo jogo</button>
-      <button data-go="controls">Controles</button>
-      ${best > 1 ? `<p class="best">Andar mais profundo alcançado: <b>${best}</b></p>` : ''}
-      <p class="tiny">Tudo neste jogo — texturas, modelos, música e efeitos — é gerado por código.</p>`, 'title');
+    const embers = Array.from({ length: 34 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;animation-delay:${(-Math.random() * 9).toFixed(2)}s;animation-duration:${(6 + Math.random() * 6).toFixed(2)}s;--dx:${((Math.random() - 0.5) * 120).toFixed(0)}px;--s:${(0.5 + Math.random()).toFixed(2)}"></i>`).join('');
+    this.showPanel(`<div class="tscreen">
+      <div class="embers">${embers}</div>
+      <div class="tleft">
+        <div class="teyebrow">Um conto das profundezas</div>
+        <h1 class="tlogo"><span class="t1">Criptas</span><span class="t2">de Valdor</span></h1>
+        <svg class="torn" viewBox="0 0 320 16" aria-hidden="true"><path d="M0 8H140M180 8H320" stroke="#c9a14e" stroke-width="1"/><path d="M160 1l7 7-7 7-7-7z" fill="#e3b95c"/><circle cx="140" cy="8" r="2" fill="#c9a14e"/><circle cx="180" cy="8" r="2" fill="#c9a14e"/></svg>
+        <p class="tsub">Desça às Criptas, cumpra os contratos do Refúgio e atravesse o véu para mundos que não deveriam existir.</p>
+        <nav class="tmenu">
+          ${hasSave ? `<button data-go="continue" class="tmain">Continuar<small>Nível ${sum.level || 1} · Andar ${sum.depth || 1} · ${sum.gold || 0} de ouro</small></button>` : ''}
+          <button data-go="play" class="${hasSave ? '' : 'tmain'}">Novo jogo</button>
+          <button data-go="controls">Controles</button>
+          <button data-go="tquality">Gráficos: ${quality}</button>
+        </nav>
+        <p class="thint">↑ ↓ para escolher · Enter para confirmar</p>
+      </div>
+      <div class="tfoot">Texturas, modelos, música e efeitos gerados inteiramente por código</div>
+    </div>`, 'title2');
+    const btns = [...this.panel.querySelectorAll('.tmenu button')];
+    if (btns[0]) btns[0].focus({ preventScroll: true });
+    if (!this._titleKeys) {
+      this._titleKeys = true;
+      addEventListener('keydown', (e) => {
+        if (this.panel.className !== 'title2') return;
+        const list = [...this.panel.querySelectorAll('.tmenu button')];
+        const i = list.indexOf(document.activeElement);
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') { list[(i + 1) % list.length].focus(); e.preventDefault(); }
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') { list[(i - 1 + list.length) % list.length].focus(); e.preventDefault(); }
+      });
+    }
+  }
+
+  // ---------------- cutscenes ----------------
+  cineStart(opt = {}) {
+    const c = this.cineEl || (this.cineEl = $('#cine'));
+    clearTimeout(this._cineHide);
+    c.classList.remove('hidden'); c.classList.toggle('short', !!opt.short);
+    void c.offsetWidth; c.classList.add('on');
+    this.hud.classList.add('cinehide'); $('#toasts').classList.add('cinehide');
+    c.querySelector('.csub').classList.remove('show'); c.querySelector('.cname').classList.remove('show');
+  }
+  cineShot(s) {
+    const c = this.cineEl;
+    c.querySelector('.cfade').style.opacity = s.black ? 1 : 0;
+    if (s.flash) { const f = c.querySelector('.cflash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+    const nm = c.querySelector('.cname');
+    if (s.name) { nm.querySelector('b').textContent = s.name; nm.querySelector('em').textContent = s.sub || ''; nm.classList.remove('show'); void nm.offsetWidth; nm.classList.add('show'); }
+    else if (!s.toGame) nm.classList.remove('show');
+    const sub = c.querySelector('.csub'), p = sub.querySelector('p');
+    clearInterval(this._type);
+    if (s.text) {
+      sub.querySelector('.csp').textContent = s.speaker || '';
+      sub.classList.add('show'); p.textContent = '';
+      let n = 0;
+      this._type = setInterval(() => { n += 1; p.textContent = s.text.slice(0, n); if (n >= s.text.length) clearInterval(this._type); }, 32);
+    } else sub.classList.remove('show');
+  }
+  cineEnd() {
+    const c = this.cineEl; if (!c) return;
+    clearInterval(this._type);
+    c.classList.remove('on');
+    c.querySelector('.cfade').style.opacity = 0;
+    c.querySelector('.csub').classList.remove('show');
+    setTimeout(() => c.querySelector('.cname').classList.remove('show'), 400);
+    this.hud.classList.remove('cinehide'); $('#toasts').classList.remove('cinehide');
+    this._cineHide = setTimeout(() => c.classList.add('hidden'), 700);
   }
   controlsHtml() {
     return `<h2>Controles</h2>
@@ -232,10 +292,10 @@ export class UI {
   }
 
   // ---------------- HUD ----------------
-  floorTitle(label, name) {
+  floorTitle(label, name, noBig) {
     this.hud.classList.remove('hidden');
     $('#floorname').textContent = `${label} · ${name}`;
-    this.bigTitle(label, name);
+    if (!noBig) this.bigTitle(label, name);
   }
   bigTitle(a, b) {
     const el = h('div', 'bigtitle', `<small>${a}</small>${b}`);
@@ -288,7 +348,8 @@ export class UI {
     const near = g.near;
     const key = near ? (near.kind === 'item' ? 'i' + near.data.id + ':' + g.player.equip.arts.map(a => a && a.id).join() : near.prompt) : '';
     this.set('prompt', key, () => this.renderPrompt(g, near));
-    this.drawMinimap(g);
+    this.mmT = (this.mmT || 0) + 1;
+    if (this.mmT % 2 === 0 || this.minimapDirty) this.drawMinimap(g); // minimapa a 30 Hz
     this.enemyBars(g);
   }
   enemyBars(g) {

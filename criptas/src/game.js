@@ -5,11 +5,14 @@ import { buildWorld } from './voxmesh.js';
 import { buildStaticProps, propMats, makeFlame } from './props.js';
 import { THEMES, themeFor, DIMENSIONS } from './themes.js';
 import { Particles } from './particles.js';
-import { Player, Enemy, Boss, Projectile, makeBannerMesh, ENEMY } from './entities.js';
+import { Player, Enemy, Boss, Projectile, makeBannerMesh, ENEMY, BOSS } from './entities.js';
+import { makeModel } from './models.js';
 import { Chest, Pot, Brazier, Gates, Portal, Altar, Loot, Npc, Station, Prisoner, Relic, lightning } from './objects.js';
 import { makeItem, scoreOf, cdOf, upgradeItem, upgradeCost, priceOf, sellPrice, MAX_UP } from './items.js';
 import { makeQuestOffers, rewardText } from './quests.js';
 import { MIRROR } from './reflect.js';
+import { Cine } from './cine.js';
+import { animateWalk, updateCloth } from './models.js';
 import { RNG, clamp, damp } from './util.js';
 
 const POOL_MAX = 24;
@@ -51,6 +54,8 @@ export class Game {
   // ------------------------------------------------------------ luzes (qualidade)
   setLightQuality(poolSize, shadows) {
     this.poolSize = Math.min(POOL_MAX, poolSize);
+    // so as luzes usadas entram na cena: cada luz presente custa em todo pixel, mesmo apagada
+    if (this.scene) this.pool.forEach((l, i) => { if (i < this.poolSize) this.scene.add(l); else this.scene.remove(l); });
     if (shadows !== this.shadowLights) {
       this.shadowLights = shadows;
       this.pool.forEach((l, i) => {
@@ -71,9 +76,12 @@ export class Game {
     p.setEquip('armor', makeItem(rng, 1, { cat: 'armor', kind: 'couro', rarity: 'comum' }));
     p.equip.arts[0] = makeItem(rng, 1, { cat: 'artifact', kind: 'chamas', rarity: 'comum' });
     p.hp = p.maxHp;
+    this.seen = {};
     this.toHub(true);
-    this.after(2.5, () => this.ui.toast('Bem-vindo ao Refúgio. Fale com Oren (missões), Ilsa (loja) e Brom (ferreiro).', '#e8dcc0'));
-    this.after(7, () => this.ui.toast(this.input.isTouch ? 'Quando estiver pronto, vá até o portal azul à direita para descer.' : 'WASD move · E interage · I abre a bolsa · O abre as missões. O portal azul leva às Criptas.', '#d8ccb0'));
+    this.cineIntro(() => {
+      this.after(0.8, () => this.ui.toast('Bem-vindo ao Refúgio. Fale com Oren (missões), Ilsa (loja) e Brom (ferreiro).', '#e8dcc0'));
+      this.after(5, () => this.ui.toast(this.input.isTouch ? 'Quando estiver pronto, vá até o portal azul à direita para descer.' : 'WASD move · E interage · I abre a bolsa · O abre as missões. O portal azul leva às Criptas.', '#d8ccb0'));
+    });
   }
   snap() {
     const p = this.player;
@@ -89,7 +97,7 @@ export class Game {
     if (d.quests) this.quests = d.quests;
   }
   save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 2, snap: this.snap(), depth: this.depth, dimsDone: this.dimsDone, offers: this.offers, stats: this.stats })); } catch (e) { /* sem armazenamento */ }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 2, snap: this.snap(), depth: this.depth, dimsDone: this.dimsDone, offers: this.offers, stats: this.stats, seen: this.seen || {}, summary: { level: this.player.level, gold: this.player.gold, depth: this.depth } })); } catch (e) { /* sem armazenamento */ }
   }
   static hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
   loadSave() {
@@ -97,7 +105,7 @@ export class Game {
     try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { s = null; }
     if (!s) return false;
     this.restore(s.snap);
-    this.depth = s.depth || 1; this.dimsDone = s.dimsDone || {}; this.offers = s.offers || []; this.stats = s.stats || this.stats;
+    this.depth = s.depth || 1; this.dimsDone = s.dimsDone || {}; this.offers = s.offers || []; this.stats = s.stats || this.stats; this.seen = s.seen || {};
     this.toHub(false);
     return true;
   }
@@ -128,9 +136,12 @@ export class Game {
   }
   deathToHub() { this.restore(this.snapshot); this.toHub(false); }
   levelComplete() {
+    const epilogue = this.mode === 'floor' && this.floorNum === 3 && !(this.seen || {}).epilogue;
     if (this.mode === 'floor' && this.floorNum >= this.depth) this.depth = this.floorNum + 1;
     if (this.mode === 'dim') this.dimsDone[this.dimKey] = (this.dimsDone[this.dimKey] || 0) + 1;
+    if (epilogue) this.seen.epilogue = true;
     this.toHub(false);
+    if (epilogue) this.cineEpilogue();
   }
 
   // ------------------------------------------------------------ carregamento de nivel
@@ -147,7 +158,7 @@ export class Game {
     scene.add(this.hemi, this.moon, this.moon.target, this.playerLight);
     this.hemi.color.set(theme.hemiSky); this.hemi.groundColor.set(theme.hemiGround); this.hemi.intensity = theme.hemi;
     this.moon.color.set(theme.moon); this.moon.intensity = theme.moonI;
-    for (const l of this.pool) scene.add(l);
+    for (let i = 0; i < this.poolSize; i++) scene.add(this.pool[i]);
     MIRROR.uWet.value = theme.wet || 0; MIRROR.uGloss.value = theme.gloss || 0;
     this.particles.clear(); this.particles.attach(scene);
     this.world = buildWorld(dg); scene.add(this.world.group);
@@ -191,10 +202,24 @@ export class Game {
     this.ui.setBoss(null);
     this.audio.setBoss(false);
     this.ui.buildMinimap(this);
+    this.warmup(theme);
     if (silent) return;
-    this.ui.floorTitle(this.levelLabel(), theme.name);
+    this.seen = this.seen || {};
+    const key = this.mode === 'dim' ? 'd:' + this.dimKey : 'f:' + this.floorNum;
+    const cine = !dg.hub && !window.__skipCine;
+    this.ui.floorTitle(this.levelLabel(), theme.name, cine);
+    if (cine) { this.cineEntry(this.levelLabel(), theme.name, !this.seen[key]); this.seen[key] = true; }
     if (this.mode === 'floor' && this.floorNum === 1) this.after(5, () => this.ui.toast(`Acenda os 3 ${theme.obj.plural} — eles aparecem em laranja no minimapa.`, '#ffb45a'));
     if (this.mode === 'dim') this.after(5, () => this.ui.toast(`${theme.obj.verb} os 3 ${theme.obj.plural} para abrir a arena do guardião.`, '#c9a0ff'));
+  }
+  // pre-constroi os modelos que podem surgir (invocacoes) e compila os shaders em segundo plano: sem engasgos
+  warmup(theme) {
+    const types = new Set(theme.enemies.map(e => e[0]));
+    for (const t of [...types]) { const s = ENEMY[t]; if (s && s.summon) types.add(s.summon); }
+    if (theme.boss && BOSS[theme.boss]) types.add(BOSS[theme.boss].summon);
+    for (const t of types) if (ENEMY[t]) makeModel(ENEMY[t].model || t).dispose();
+    if (this.renderer.extensions.has('KHR_parallel_shader_compile')) this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+    else this.renderer.compile(this.scene, this.camera);
   }
   levelLabel() { return this.mode === 'hub' ? 'Refúgio' : this.mode === 'dim' ? 'Dimensão' : `Andar ${this.floorNum}`; }
   buildHub(dg) {
@@ -249,12 +274,13 @@ export class Game {
   }
   removeLight(l) { const i = this.lights.indexOf(l); if (i >= 0) this.lights.splice(i, 1); }
   updateLights() {
+    this.frameN = (this.frameN || 0) + 1;
     const t = this.time, cx = this.camTarget.x, cz = this.camTarget.z;
     const list = [];
     for (const l of this.lights) {
       if (l.intensity <= 0.01) continue;
       const d = Math.hypot(l.x - cx, l.z - cz);
-      if (d > 32) continue;
+      if (d > 32 || d - l.dist > 20) continue;
       list.push([d - (l.priority ? 8 : 0), l]);
     }
     list.sort((a, b) => a[0] - b[0]);
@@ -274,7 +300,8 @@ export class Game {
         const fade = clamp((32 - e[0]) / 6, 0, 1);
         pl.intensity = l.intensity * f * fade;
         pl.distance = l.dist;
-        if (pl.castShadow) pl.shadow.autoUpdate = true;
+        // sombras das tochas: metade atualiza em cada quadro (alternando), o que corta o custo pela metade
+        if (pl.castShadow) { const moved = pl.userData.lx !== l.x || pl.userData.lz !== l.z; pl.shadow.autoUpdate = moved || ((i + this.frameN) % 2 === 0); pl.userData.lx = l.x; pl.userData.lz = l.z; }
       } else { pl.intensity = 0; if (pl.castShadow) pl.shadow.autoUpdate = false; }
     }
     const p = this.player;
@@ -638,6 +665,7 @@ export class Game {
   }
   onBossDead(boss) {
     this.bossDead = true; this.bossActive = false;
+    if (!window.__skipCine) this.cineBossDeath(boss);
     this.audio.setBoss(false);
     this.ui.toast(`${boss.B.name} foi derrotado!`, '#ffd76a');
     const frags = this.mode === 'dim' ? 2 : 1;
@@ -820,6 +848,7 @@ export class Game {
     this.time += dtReal;
     MIRROR.uTime.value = this.time;
     if (this.state === 'title') { this.titleCam(dtReal); this.world && this.world.update(this.time); for (const n of this.npcs) n.update(dtReal); this.updateLights(); this.particles.update(dtReal); this.animateFlames(dtReal); this.ambient(dtReal); return; }
+    if (this.state === 'cine') { this.updateCine(dtReal); input.endFrame(); return; }
     if (this.state === 'menu') {
       if (input.pressed('pause') || input.pressed('bag') || input.pressed('journal')) this.closeMenu();
       this.world.update(this.time); this.animateFlames(dtReal); this.particles.update(dtReal * 0.2);
@@ -870,15 +899,15 @@ export class Game {
       this.bossActive = true;
       this.gates.close();
       this.boss.awake = true;
-      this.audio.play('roar'); this.audio.setBoss(true);
-      this.ui.setBoss(this.boss);
-      this.ui.toast(this.boss.B.name, '#ff6a4a', true);
-      this.shake(0.4);
+      this.audio.setBoss(true);
+      if (window.__skipCine) { this.audio.play('roar'); this.ui.setBoss(this.boss); this.ui.toast(this.boss.B.name, '#ff6a4a', true); this.shake(0.4); }
+      else this.cineBossIntro();
     }
 
     for (const e of this.enemies) {
-      if (!e.awake && !e.dead && Math.abs(e.x - p.x) + Math.abs(e.z - p.z) > 40) { e.rig.root.visible = false; continue; }
-      e.rig.root.visible = (!e.dead || e.deadT < 1.5) && !e.hidden;
+      const far = Math.hypot(e.x - this.camTarget.x, e.z - this.camTarget.z) > 30;
+      if (!e.awake && !e.dead && far) { e.rig.root.visible = false; continue; }
+      e.rig.root.visible = (!e.dead || e.deadT < 1.5) && !e.hidden && !far;
       e.update(dt, this.time);
     }
     this.enemies = this.enemies.filter(e => !e.removed);
@@ -956,23 +985,128 @@ export class Game {
     const sx = (Math.random() - 0.5) * s * 0.6, sy = (Math.random() - 0.5) * s * 0.6;
     this.camera.position.set(this.camTarget.x + CAM_OFF.x * this.zoom + sx, this.camTarget.y + CAM_OFF.y * this.zoom + sy, this.camTarget.z + CAM_OFF.z * this.zoom - sx);
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.8, this.camTarget.z);
-    const snap = 48 / this.moon.shadow.mapSize.x;
+    const half = Math.round(20 * Math.max(1, this.zoom)), sc = this.moon.shadow.camera;
+    if (sc.right !== half) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); }
+    const snap = (half * 2) / this.moon.shadow.mapSize.x;
     const mx = Math.round(this.camTarget.x / snap) * snap, mz = Math.round(this.camTarget.z / snap) * snap;
     this.moon.position.set(mx - 12, 26, mz + 4);
     this.moon.target.position.set(mx, 0, mz);
   }
-  titleCam() {
-    if (!this.dg) return;
-    const s = this.dg.start;
-    const a = this.time * 0.05;
-    const r = 17;
-    const cx = s.cx, cz = s.cz - 5;
-    this.camera.position.set(cx + Math.cos(a) * r, 12, cz + Math.sin(a) * r);
-    this.camera.lookAt(cx, 0.5, cz);
-    this.camTarget.set(cx, 0, cz);
-    this.moon.position.set(cx - 12, 26, cz + 4); this.moon.target.position.set(cx, 0, cz);
+  // ------------------------------------------------------------ cutscenes
+  gameCamPose() {
+    const p = this.player, z = this.zoom;
+    return { pos: new THREE.Vector3(p.x + CAM_OFF.x * z, p.y + CAM_OFF.y * z, p.z + CAM_OFF.z * z), look: new THREE.Vector3(p.x, p.y + 0.8, p.z) };
+  }
+  playCine(shots, opt = {}) {
+    if (this.cine && !this.cine.done) this.cine.finish();
+    this.cineResume = this.state === 'cine' ? (this.cineResume || 'play') : this.state;
+    this.state = 'cine';
+    this.ui.cineStart(opt);
+    this.cine = new Cine(this, shots, { ...opt, onEnd: () => { this.state = this.cineResume || 'play'; this.cineResume = null; this.camTarget.set(this.player.x, this.player.y, this.player.z); if (opt.onEnd) opt.onEnd(); } });
+  }
+  updateCine(dtReal) {
+    const input = this.input, c = this.cine;
+    if (!c || c.done) { this.state = 'play'; return; }
+    const skip = ['interact', 'pause', 'roll', 'attack', 'skip'].some(a => input.pressed(a));
+    const dt = dtReal * (c.shots[c.i]?.slow || 1);
+    if (skip && c.opt.skippable !== false) c.skip(); else c.update(dt);
     const p = this.player;
-    p.rig.root.position.set(p.x, p.y, p.z);
+    animateWalk(p.rig, p.phase, 0, this.time); updateCloth(p.rig, 0, this.time);
+    p.rig.root.position.set(p.x, p.y, p.z); p.rig.root.rotation.y = p.rot;
+    for (const e of this.enemies) {
+      if (e.dead) { if (!e.removed) e.update(dt, this.time); continue; }
+      if (!e.rig.root.visible) continue;
+      animateWalk(e.rig, e.phase, 0, this.time);
+      if (e.isBoss && e.atk) e.bossPose();
+    }
+    this.enemies = this.enemies.filter(e => !e.removed);
+    for (const n of this.npcs) n.update(dt);
+    for (const pt of this.portals) pt.update(dt);
+    for (const b of this.braziers) b.update(dt, this.time);
+    for (const l of this.loot) l.update(dt, this.time);
+    if (this.portal) this.portal.update(dt);
+    const fx = this.effects; this.effects = [];
+    const keep = fx.filter(e => e.update(dt));
+    this.effects = keep.concat(this.effects);
+    this.world.update(this.time); this.animateFlames(dt); this.ambient(dt); this.particles.update(dt);
+    this.updateLights(); this.updateFloats(dtReal);
+  }
+  cineIntro(onEnd) {
+    const c = this.campfire, o = this.npcs.find(n => n.role === 'quests') || { x: c.x, z: c.z - 10 }, p = this.player;
+    p.rot = 0.5;
+    this.playCine([
+      { dur: 6.5, black: true, from: [c.x + 15, 17, c.z + 15], to: [c.x + 11, 14, c.z + 12], lookFrom: [c.x, 0, c.z], lookTo: [c.x, 0, c.z], text: 'Há mil anos, a Última Chama selou as Criptas de Valdor sob a montanha.' },
+      { dur: 7, from: [c.x + 11, 14, c.z + 12], to: [c.x + 5, 3.6, c.z + 6.5], lookFrom: [c.x, 0, c.z], lookTo: [c.x, 0.9, c.z], text: 'Agora os selos racham. Criaturas sem nome sobem das profundezas, e o véu entre os mundos se desfaz.' },
+      { dur: 5.5, from: [o.x + 2.4, 2.0, o.z + 3.4], to: [o.x + 1.4, 1.75, o.z + 2.3], lookFrom: [o.x, 1.5, o.z], lookTo: [o.x, 1.58, o.z], speaker: 'Oren, o Escriba', text: 'Mais um que ouviu o chamado... Aqueça-se perto do fogo. Depois, desça.' },
+      { dur: 4.2, from: [p.x + 2.8, 1.5, p.z + 3.4], to: [p.x + 1.7, 1.75, p.z + 2.3], lookFrom: [p.x, 1.3, p.z], lookTo: [p.x, 1.5, p.z], name: 'Você', sub: 'o último guardião da chama' },
+      { dur: 1.4, toGame: true },
+    ], { onEnd });
+  }
+  cineEntry(label, name, full) {
+    const p = this.player, dim = this.mode === 'dim';
+    const subs = { geleira: 'onde tudo reflete e nada aquece', pantano: 'as ruínas que a água engoliu', vazio: 'ilhas de cristal sobre o nada' };
+    const shots = [];
+    if (full) shots.push({ dur: 3.2, from: [p.x - 6, 24, p.z + 10], to: [p.x + 5, 20, p.z + 12], lookFrom: [p.x, 0, p.z], lookTo: [p.x, 0, p.z], name, sub: dim ? subs[this.dimKey] : label, flash: dim });
+    shots.push({ dur: full ? 1.2 : 1.6, from: [p.x + 4, full ? 20 : 26, p.z + 12], lookFrom: [p.x, 0.4, p.z], toGame: true, name: full ? undefined : name, sub: full ? undefined : label, flash: dim && !full });
+    this.playCine(shots, { short: !full });
+  }
+  cineBossIntro() {
+    const b = this.boss, p = this.player, s = b.rig.root.scale.y;
+    const d = Math.hypot(p.x - b.x, p.z - b.z) || 1, fx = (p.x - b.x) / d, fz = (p.z - b.z) / d;
+    const [short, epi] = b.B.name.includes(',') ? b.B.name.split(', ') : [b.B.name, this.mode === 'dim' ? 'guardião da dimensão' : 'guardião das Criptas'];
+    const h = b.rig.anim === 'serpent' ? 1.0 : b.rig.anim === 'flower' ? 2.4 : 1.1 * s;
+    const pose = this.gameCamPose();
+    b.rot = Math.atan2(fx, fz);
+    this.playCine([
+      { dur: 1.6, from: pose.pos.toArray(), to: [b.x + fx * 9 + 3, 5.5, b.z + fz * 9 + 3], lookFrom: pose.look.toArray(), lookTo: [b.x, h, b.z] },
+      { dur: 2.6, from: [b.x + fx * 5.5 + fz * 2, h * 0.55, b.z + fz * 5.5 - fx * 2], to: [b.x + fx * 4.2 + fz * 1.4, h * 0.5, b.z + fz * 4.2 - fx * 1.4], lookFrom: [b.x, h * 1.1, b.z], lookTo: [b.x, h * 1.2, b.z], name: short, sub: epi, shake: 0.22,
+        onStart: () => { this.audio.play('roar'); this.shake(0.5); b.atk = { name: 'summon', t: 0.6, did: 1 }; this.particles.dust(b.x, b.y + 0.2, b.z, 30, [0.5, 0.45, 0.4], 3, 1.5); } },
+      { dur: 0.9, toGame: true },
+    ], { onEnd: () => { b.atk = null; b.cd = 1.2; this.ui.setBoss(b); } });
+  }
+  cineBossDeath(b) {
+    const a = Math.atan2(this.camera.position.z - b.z, this.camera.position.x - b.x);
+    const short = b.B.name.split(',')[0];
+    this.playCine([
+      { dur: 2.4, slow: 0.4, orbit: { c: [b.x, b.y, b.z], r: 8, h: 4, a0: a, a1: a + 0.9, ly: 1.2 }, name: `${short} caiu`, sub: this.mode === 'dim' ? 'a dimensão se aquieta' : 'o caminho de volta se abre', flash: true },
+      { dur: 1, toGame: true },
+    ], { short: true });
+  }
+  cineEpilogue() {
+    const c = this.campfire;
+    this.playCine([
+      { dur: 5, black: true, from: [c.x + 9, 8, c.z + 9], to: [c.x + 8, 7, c.z + 8], lookFrom: [c.x, 0, c.z], lookTo: [c.x, 0, c.z], text: 'O coração da Forja Profunda se apagou, e as Criptas voltam a dormir... por enquanto.' },
+      { dur: 5.5, black: true, text: 'Mas cada selo rompido abriu uma fenda. Do outro lado, outros mundos observam.' },
+      { dur: 4.5, from: [c.x - 6, 3, c.z + 8], to: [c.x - 9, 2.4, c.z + 5], lookFrom: this.portals[1] ? [this.portals[1].x, 1.5, this.portals[1].z] : [c.x, 1, c.z], lookTo: this.portals[1] ? [this.portals[1].x, 1.5, this.portals[1].z] : [c.x, 1, c.z], name: 'O Portal das Dimensões', sub: 'desperta', flash: true },
+      { dur: 1.2, toGame: true },
+    ]);
+  }
+  setupTitleScene() {
+    const c = this.campfire, p = this.player;
+    // heroi ao lado da fogueira, meio de frente para a camera (que fica a sudeste)
+    p.x = c.x - 0.9; p.z = c.z + 1.9; p.y = this.floorAt(p.x, p.z);
+    p.rot = 1.25;
+    p.rig.root.visible = true;
+    p.rig.root.position.set(p.x, p.y, p.z); p.rig.root.rotation.y = p.rot;
+  }
+  titleCam(dt) {
+    if (!this.campfire) return;
+    const c = this.campfire, p = this.player;
+    const a = 0.72 + Math.sin(this.time * 0.06) * 0.22;
+    const portrait = innerWidth < innerHeight;
+    const r = (portrait ? 8.5 : 6.6) + Math.sin(this.time * 0.05) * 0.5;
+    const fx = p.x + 0.3, fz = p.z - 0.4;
+    this.camera.position.set(fx + Math.cos(a) * r, 2.0 + Math.sin(this.time * 0.09) * 0.25, fz + Math.sin(a) * r);
+    // olha um pouco a esquerda do heroi: ele fica a direita da tela, longe do menu
+    const off = portrait ? 0 : 1.9;
+    const lx = fx - Math.sin(a) * off, lz = fz + Math.cos(a) * off;
+    this.camera.lookAt(lx, portrait ? 0.4 : 1.15, lz);
+    this.camTarget.set(fx, 0, fz);
+    this.moon.position.set(fx - 12, 26, fz + 4); this.moon.target.position.set(fx, 0, fz);
+    animateWalk(p.rig, 0, 0, this.time); updateCloth(p.rig, 0.15, this.time);
+    p.rig.head.rotation.y = -0.35 + Math.sin(this.time * 0.3) * 0.25;
+    p.rig.root.position.set(p.x, p.y, p.z); p.rig.root.rotation.y = p.rot;
+    void dt; void c;
   }
   updateExplored() {
     this.expT = (this.expT || 0) - this.dtLogic;
@@ -991,7 +1125,7 @@ export class Game {
     if (changed) this.ui.minimapDirty = true;
   }
   updateFloats(dt) {
-    const v = new THREE.Vector3(), w = innerWidth, h = innerHeight;
+    const v = this._fv || (this._fv = new THREE.Vector3()), w = innerWidth, h = innerHeight;
     this.floatTexts = this.floatTexts.filter(f => { f.t += dt; if (f.t > 0.9) { f.el.remove(); return false; } return true; });
     for (const f of this.floatTexts) {
       v.set(f.wx, f.y + f.t * 1.4, f.wz).project(this.camera);

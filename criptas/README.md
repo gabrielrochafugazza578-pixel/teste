@@ -14,6 +14,17 @@ No Linux, também dá para usar:
 ./jogar.sh
 ```
 
+## Abertura e cutscenes
+
+A tela inicial mostra o herói junto à fogueira do Refúgio, com a câmera em movimento lento. O jogo tem cenas cinematográficas (barras de cinema, legendas e cartões de nome):
+
+- **Introdução**, ao começar um jogo novo: a história da Última Chama e o primeiro encontro com Oren.
+- **Entrada** em cada andar e em cada dimensão (voo de câmera com o nome do lugar; mais curta nas visitas seguintes).
+- **Aparição de cada chefe**, com close e rugido, e **queda do chefe** em câmera lenta.
+- **Epílogo** ao vencer a Forja Profunda pela primeira vez, quando o Portal das Dimensões desperta.
+
+Qualquer cena pode ser pulada com **Esc**, **E**, **Espaço**, um clique ou o botão **Pular**.
+
 ## O Refúgio
 
 O jogo começa no **Refúgio da Última Chama**, um acampamento subterrâneo. Lá você encontra:
@@ -125,6 +136,7 @@ src/
   geo.js         geometrias suaves (membros, torno, lâminas, tubos, rochas)
   reflect.js     espelho do chão/água e mapa de ambiente dinâmico
   quests.js      contratos do quadro de missões
+  cine.js        cutscenes (tomadas de câmera, legendas e cartões de nome)
   entities.js    jogador, inimigos, chefes e projéteis
   objects.js     baús, vasos, objetivos, portões, portais, altar, NPCs, prisioneiro, relíquia, saques
   props.js       objetos de cenário (tochas, barris, caixas, ossos, teias, estandartes...)

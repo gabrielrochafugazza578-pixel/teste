@@ -68,7 +68,7 @@ export class Mirror {
     this.cam = new THREE.PerspectiveCamera();
     this.cam.layers.set(0);
     this.rt = null; this.scale = 0.5; this.enabled = false;
-    this._v = new THREE.Vector3(); this._t = new THREE.Vector3(); this._q = new THREE.Vector4(); this._p = new THREE.Plane(); this._c = new THREE.Vector4();
+    this._v = new THREE.Vector3(); this._t = new THREE.Vector3(); this._p = new THREE.Plane(); this._up = new THREE.Vector3(0, 1, 0); this._planes = [this._p]; this._none = []; this._m3 = new THREE.Matrix3(); this._cc = new THREE.Color();
   }
   setup(enabled, scale) {
     this.enabled = enabled; this.scale = scale;
@@ -89,7 +89,7 @@ export class Mirror {
     const r = this.renderer, cam = this.cam;
     camera.updateMatrixWorld();
     const cp = this._v.setFromMatrixPosition(camera.matrixWorld);
-    const look = this._t.set(0, 0, -1).applyMatrix3(new THREE.Matrix3().setFromMatrix4(camera.matrixWorld)).add(cp);
+    const look = this._t.set(0, 0, -1).applyMatrix3(this._m3.setFromMatrix4(camera.matrixWorld)).add(cp);
     cam.position.set(cp.x, 2 * planeY - cp.y, cp.z);
     cam.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
     cam.up.y = -cam.up.y;
@@ -100,25 +100,19 @@ export class Mirror {
     MIRROR.uMirrorMat.value.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1)
       .multiply(cam.projectionMatrix).multiply(cam.matrixWorldInverse);
     MIRROR.uPlaneY.value = planeY;
-    // plano de corte obliquo (so o que esta acima do chao aparece no reflexo)
-    const plane = this._p.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, planeY + 0.02, 0));
-    plane.applyMatrix4(cam.matrixWorldInverse);
-    const c = this._c.set(plane.normal.x, plane.normal.y, plane.normal.z, plane.constant);
-    const pm = cam.projectionMatrix, q = this._q;
-    q.x = (Math.sign(c.x) + pm.elements[8]) / pm.elements[0];
-    q.y = (Math.sign(c.y) + pm.elements[9]) / pm.elements[5];
-    q.z = -1; q.w = (1 + pm.elements[10]) / pm.elements[14];
-    c.multiplyScalar(2 / c.dot(q));
-    pm.elements[2] = c.x; pm.elements[6] = c.y; pm.elements[10] = c.z + 1; pm.elements[14] = c.w;
+    // corte por plano de recorte global: mantem o recorte de visao da camera (a projecao obliqua o desfazia)
+    this._p.set(this._up, -(planeY + 0.02));
     const on = MIRROR.uMirrorOn.value;
     MIRROR.uMirrorOn.value = 0; // o chao nao reflete a si mesmo dentro do reflexo
     MIRROR.tMirror.value = null; // evita ler a textura em que se esta desenhando
-    const bg = scene.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
+    const bg = scene.background, cc = r.getClearColor(this._cc), ca = r.getClearAlpha();
     scene.background = null;
     r.setClearColor(0x000000, 0);
     r.setRenderTarget(this.rt);
     r.clear();
+    r.clippingPlanes = this._planes;
     r.render(scene, cam);
+    r.clippingPlanes = this._none;
     r.setRenderTarget(null);
     r.setClearColor(cc, ca);
     scene.background = bg;
@@ -132,7 +126,7 @@ export class LiveEnv {
   constructor(renderer, size = 128) {
     this.renderer = renderer;
     this.rt = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-    this.cam = new THREE.CubeCamera(0.3, 45, this.rt);
+    this.cam = new THREE.CubeCamera(0.3, 24, this.rt);
     this.cam.layers.set(0);
     this.every = 4; this.n = 0; this.enabled = true;
   }
