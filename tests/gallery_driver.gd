@@ -93,6 +93,26 @@ func _go(pos: Vector3, look: Vector3, hour: float, weather: int, pitch: float = 
 	await _wait(2.5)
 
 
+## Ponto na frente da fachada principal do prédio do POI (lado da porta),
+## a `dist` metros, e um alvo de olhar no meio da fachada.
+func _front_of(poi: String, dist: float, side: float = 0.0) -> Array:
+	var door := g.layout.poi_pos(poi)
+	var bi := g.world.building_for_poi(poi)
+	if bi < 0:
+		return [door + Vector3(0, 0, dist), door]
+	var b: Dictionary = g.layout.buildings[bi]
+	var r: Rect2 = b["rect"]
+	var c := r.get_center()
+	var o := Vector2(door.x - c.x, door.z - c.y)
+	if absf(o.x) / maxf(r.size.x, 0.1) > absf(o.y) / maxf(r.size.y, 0.1):
+		o = Vector2(signf(o.x), 0.0)
+	else:
+		o = Vector2(0.0, signf(o.y))
+	var lat := Vector2(-o.y, o.x) * side
+	var stand := door + Vector3(o.x * dist + lat.x, 0, o.y * dist + lat.y)
+	return [stand, Vector3(c.x, door.y, c.y)]
+
+
 func _street_near(poi: String, radius: float = 26.0) -> Vector3:
 	var c := g.layout.poi_pos(poi)
 	var r := Util.rng(hash(poi))
@@ -127,27 +147,32 @@ func _gallery() -> void:
 	await _go(av + Vector3(-3, 0, -150), av + Vector3(-3, 0, -220), 15.0, W.CLOUDY)
 	await _shot("centro_tarde")
 	# 5. hospital
-	var hp := L.poi_pos("hospital")
-	await _go(_street_near("hospital"), hp, 11.0, W.OVERCAST)
+	var hf := _front_of("hospital", 24.0, 6.0)
+	await _go(hf[0], hf[1], 11.0, W.OVERCAST, 0.02)
 	await _shot("hospital")
 	# 6. mercado
-	var mk := L.poi_pos("mercado")
-	await _go(_street_near("mercado"), mk, 13.0, W.CLEAR)
+	var mf := _front_of("mercado", 18.0, 4.0)
+	await _go(mf[0], mf[1], 13.0, W.CLEAR, 0.0)
 	await _shot("mercado")
 	# 7. delegacia
-	var dl := L.poi_pos("delegacia")
-	await _go(_street_near("delegacia"), dl, 16.2, W.CLOUDY)
+	var df := _front_of("delegacia", 16.0, -5.0)
+	await _go(df[0], df[1], 16.2, W.CLOUDY, 0.0)
 	await _shot("delegacia")
 	# 8. posto da serra
 	var ps := L.poi_pos("posto_norte")
 	await _go(ps + Vector3(-18, 0, 14), ps, 10.0, W.CLEAR)
 	await _shot("posto_serra")
 	# 9. acampamento do estádio (Remanescentes)
-	var es := L.poi_pos("estadio")
-	await _go(es + Vector3(0, 0, 16), es, 17.4, W.CLEAR)
-	await _shot("estadio_remanescentes")
-	# 10. diálogo com a Marta
+	var ef := _front_of("estadio", 30.0, 8.0)
+	await _go(ef[0], ef[1], 17.4, W.CLEAR, 0.05)
+	await _shot("estadio_fachada")
+	# 10. acampamento dentro do estádio e diálogo com a Marta
 	var marta := g.survivors.get_npc("marta")
+	if marta:
+		var mp2 := marta.global_position
+		await _go(mp2 + Vector3(4.5, 0, 5.0), mp2 + Vector3(0, 1.2, 0), 17.4, W.CLEAR)
+		await _shot("acampamento_remanescentes")
+		marta = g.survivors.get_npc("marta")
 	if marta:
 		EventBus.dialogue_requested.emit(marta)
 		await _wait(1.0)
@@ -160,8 +185,8 @@ func _gallery() -> void:
 	await _go(Vector3(-600, 0, -420), Vector3(-600, 0, -500), 9.0, W.CLEAR)
 	await _shot("jardim_das_acacias")
 	# 12. distrito industrial / Corvalis com neblina
-	var cv := L.poi_pos("corvalis")
-	await _go(_street_near("corvalis", 60.0), cv, 7.2, W.FOG)
+	var cf := _front_of("corvalis_hq", 30.0, 10.0)
+	await _go(cf[0], cf[1], 7.2, W.FOG, 0.04)
 	await _shot("corvalis_neblina")
 	# 13. rio e ponte velha
 	var pv := L.poi_pos("ponte_velha")
@@ -190,9 +215,10 @@ func _gallery() -> void:
 	await _shot("tempestade_centro_sul")
 	# 19. noite na avenida com a lanterna
 	await _go(av + Vector3(-4, 0, 60), av + Vector3(-4, 0, 0), 22.5, W.CLEAR)
-	g.player.flashlight_on = true
-	g.player.flashlight.visible = true
-	await _wait(1.0)
+	g.player.equipment["light"] = Inventory.make_stack("lanterna", 1, 1.0, {"battery": 100.0})
+	if not g.player.flashlight_on:
+		g.player.toggle_flashlight()
+	await _wait(1.5)
 	await _shot("noite_lanterna")
 	g.player.flashlight_on = false
 	g.player.flashlight.visible = false
@@ -244,10 +270,12 @@ func _gallery() -> void:
 	g._exit_setor7()
 	await _wait(4.0)
 	# 24–26. telas
+	g.player.survival.health = 100.0
 	g.ui.open_inventory(null, "", null, "")
 	await _wait(0.8)
 	await _shot("tela_inventario")
-	g.ui.current.queue_free()
+	if g.ui.current:
+		g.ui.current.queue_free()
 	await _wait(0.4)
 	var m := MapScreen.new()
 	m.game = g

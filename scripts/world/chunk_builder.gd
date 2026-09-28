@@ -172,9 +172,11 @@ static func _bridge_or_tunnel_piece(out: MeshBuf, kind: String, p0: Vector2, p1:
 		if lod <= 1 and fposmod(mid.x + mid.y, 18.0) < ROAD_STEP:
 			out.box(Vector3(mid.x, ym - 3.6, mid.y), Vector3(1.4, 6.0, 1.4), CON, 0.1, Color(0.6, 0.6, 0.58))
 	else:
-		# túnel: paredes, teto, calçadas, luminárias
+		# túnel: piso, paredes, teto, calçadas, luminárias
 		var H := WorldLayout.TUNNEL_HEIGHT
 		var w2 := WorldLayout.TUNNEL_HW
+		# o terreno não é rebaixado sob a serra: o piso da pista precisa de colisão própria
+		out.add_collider(Transform3D(basis, Vector3(mid.x, ym - 0.3, mid.y)), Vector3(w2 * 2.0 + 1.0, 0.6, len + 0.05))
 		for sgn: float in [-1.0, 1.0]:
 			var wp := Vector3(mid.x + side.x * w2 * sgn, ym + H * 0.5, mid.y + side.y * w2 * sgn)
 			var skip_room := sgn < 0.0 and (p0.y + 1150.0) * (p1.y + 1150.0) <= 0.0

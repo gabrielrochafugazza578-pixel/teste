@@ -260,10 +260,20 @@ func _test_gameplay(g: Game) -> void:
 	g._enter_setor7(false)
 	await _wait(3.0)
 	_log("Setor 7: subterrâneo=%s npcs=%s" % [str(g.is_underground()), str(g.survivors.spawned.keys().filter(func(k): return str(k) in ["lia", "helena", "leme"]))])
+	_log("Setor 7: chão=%s y=%.2f (piso esperado ≈ %.2f)" % [str(p.is_on_floor()), p.global_position.y, g.setor7.global_position.y])
+	if not p.is_on_floor() or absf(p.global_position.y - g.setor7.global_position.y) > 1.0:
+		_log("FALHA: Caio não está no piso do Setor 7")
 	await _shot("setor7")
 	g._exit_setor7()
 	await _wait(4.0)
 	_log("De volta: pos=%s subterrâneo=%s" % [str(p.global_position), str(g.is_underground())])
+	# túnel da serra: piso dentro do túnel
+	var tp := Vector3(0.0, WorldLayout.TUNNEL_Y + 0.5, -1150.0)
+	await _teleport(g, tp)
+	await _wait(1.5)
+	_log("Túnel: chão=%s y=%.2f (pista em %.1f)" % [str(p.is_on_floor()), p.global_position.y, WorldLayout.TUNNEL_Y])
+	if p.global_position.y < WorldLayout.TUNNEL_Y - 1.0:
+		_log("FALHA: Caio caiu pelo piso do túnel")
 	# evento emergente
 	g.events.trigger("viajante")
 	await _wait(1.0)

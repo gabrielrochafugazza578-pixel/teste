@@ -77,6 +77,15 @@ func build(g: Node) -> void:
 	_lights()
 	_interactables()
 	built = true
+	# o corpo de colisão nasce aqui (depois de _ready): precisa entrar no espaço
+	# de física e receber a posição do Setor 7, senão o piso não existe
+	_sync_body()
+
+
+func _sync_body() -> void:
+	if _body.is_valid() and is_inside_tree():
+		PhysicsServer3D.body_set_space(_body, get_world_3d().space)
+		PhysicsServer3D.body_set_state(_body, PhysicsServer3D.BODY_STATE_TRANSFORM, global_transform)
 
 
 func _room_wall(rn: String, r: Rect2, side: String, code: float, tint: Color) -> void:
@@ -152,9 +161,13 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
-	if _body.is_valid():
-		PhysicsServer3D.body_set_space(_body, get_world_3d().space)
-		PhysicsServer3D.body_set_state(_body, PhysicsServer3D.BODY_STATE_TRANSFORM, global_transform)
+	_sync_body()
+	set_notify_transform(true)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSFORM_CHANGED:
+		_sync_body()
 
 
 func _exit_tree() -> void:
