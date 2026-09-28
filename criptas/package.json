@@ -1,0 +1,14 @@
+{
+  "name": "criptas-de-valdor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dungeon crawler isométrico de blocos com visual realista (Three.js).",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/jogo.js",
+    "dev": "esbuild src/main.js --bundle --format=iife --target=es2020 --sourcemap --outfile=dist/jogo.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.186.1"
+  }
+}

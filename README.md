@@ -1,5 +1,7 @@
 # Ecos do Abismo
 
+> **Novo:** este repositório também tem o **[Criptas de Valdor](criptas/)**, um *dungeon crawler* 3D isométrico de blocos com visual realista, no estilo de *Minecraft Dungeons*. Para jogar, abra `criptas/index.html` no navegador.
+
 Um metroidvania 2D em Java inspirado em *Hollow Knight*: cavernas sombrias com várias camadas de fundo, iluminação dinâmica, um pequeno andarilho mascarado, combate com ferrão, alma para curar e lançar feitiços, habilidades que abrem novos caminhos e um chefe no final.
 
 Toda a arte, a música e os efeitos sonoros são gerados por código. Não há nenhum arquivo externo nem biblioteca extra: basta ter o Java instalado.
