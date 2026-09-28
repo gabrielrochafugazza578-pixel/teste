@@ -113,6 +113,8 @@ func _process(delta: float) -> void:
 	var pp := player.global_position
 	# NPCs nomeados
 	for id in NPCDB.NAMED.keys():
+		if (NPCDB.named(id).get("present", {}) as Dictionary).get("setor7", false):
+			continue   # Lia e Helena: controladas pela localização do Setor 7
 		var want := _named_present(id)
 		var h := home_of(id) if want else Vector3.ZERO
 		var near := want and Vector2(h.x - pp.x, h.z - pp.z).length() < SPAWN_R

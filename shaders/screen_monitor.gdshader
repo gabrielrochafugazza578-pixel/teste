@@ -1,5 +1,6 @@
 // Telas de computador/equipamentos (laboratório NEXUS, delegacia, hospital).
-// style: 0 código/terminal, 1 gráfico + hélice, 2 alerta de contenção, 3 monitor cardíaco
+// style: 0 código/terminal, 1 gráfico + hélice, 2 alerta de contenção, 3 monitor cardíaco,
+//        4 telejornal (plantão com tarja e letreiro)
 shader_type spatial;
 render_mode unshaded, cull_back;
 
@@ -48,6 +49,20 @@ void fragment() {
 		float bandy = step(0.35, uv.y) * step(uv.y, 0.65);
 		col = mix(col, red * (0.4 + stripes * 0.6), (1.0 - bandy) * 0.4);
 		col += red * bandy * step(0.2, uv.x) * step(uv.x, 0.8) * step(0.4, fract(uv.x * 30.0)) * 0.7 * blink;
+	} else if (style == 4) {
+		// telejornal: fundo azul, apresentador em silhueta, tarja "URGENTE" e letreiro correndo
+		col = mix(vec3(0.02, 0.06, 0.16), vec3(0.08, 0.2, 0.42), uv.y);
+		col += vec3(0.1, 0.18, 0.3) * step(0.5, fract(uv.x * 8.0 + uv.y * 3.0)) * 0.12;
+		vec2 hc = vec2(0.5, 0.62);
+		float head = smoothstep(0.1, 0.095, length((uv - hc) * vec2(1.0, 0.8)));
+		float body = smoothstep(0.0, 0.01, 0.35 - abs(uv.x - 0.5) - (uv.y - 0.1) * 0.9) * step(0.12, uv.y) * step(uv.y, 0.5);
+		col = mix(col, vec3(0.05, 0.05, 0.07), max(head, body) * 0.9);
+		float band = step(0.14, uv.y) * step(uv.y, 0.27);
+		col = mix(col, vec3(0.78, 0.06, 0.05), band);
+		float ticker = step(0.5, h11(floor((uv.x + t * 0.25) * 40.0))) * step(0.45, fract((uv.x + t * 0.25) * 40.0));
+		col = mix(col, vec3(0.95), band * ticker * step(0.17, uv.y) * step(uv.y, 0.24) * 0.9);
+		float top = step(0.84, uv.y) * step(uv.y, 0.92) * step(0.06, uv.x) * step(uv.x, 0.34);
+		col = mix(col, vec3(0.95, 0.85, 0.2), top * (0.6 + 0.4 * step(0.5, fract(t))));
 	} else {
 		// monitor cardíaco
 		float x = fract(uv.x - t * 0.25);

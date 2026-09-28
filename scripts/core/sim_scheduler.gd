@@ -126,7 +126,7 @@ func _process(delta: float) -> void:
 	for i in slice:
 		_retier_cursor = (_retier_cursor + 1) % n
 		var a: Agent = agents[_retier_cursor]
-		if not a.alive or not is_instance_valid(a.node):
+		if not a.alive or not is_instance_valid(a.node) or not a.node.is_inside_tree():
 			a.alive = false
 			_dirty = true
 			continue
@@ -151,7 +151,7 @@ func _process(delta: float) -> void:
 		counts[a.tier] += 1
 		if _now < a.next_time:
 			continue
-		if not is_instance_valid(a.node):
+		if not is_instance_valid(a.node) or not a.node.is_inside_tree():
 			a.alive = false
 			_dirty = true
 			continue

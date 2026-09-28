@@ -94,6 +94,7 @@ var gameplay := {
 	"autosave_minutes": 8.0,
 	"show_objective_markers": true,
 	"day_length_minutes": 48.0,
+	"pause_in_menus": true,
 }
 
 var first_run := true

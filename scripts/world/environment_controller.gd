@@ -15,6 +15,7 @@ var exposure: float = 1.0
 var override_fog: float = -1.0
 var flash: float = 0.0
 var underground: bool = false   # Setor 7: sem sol/céu
+var fog_scale: float = 1.0      # cinemática: neblina de distância mais leve
 var _last_sq: int = -1
 
 
@@ -148,7 +149,7 @@ func _update(delta: float) -> void:
 	env.ambient_light_sky_contribution = 0.0
 	# --- neblina ------------------------------------------------------------
 	var vd := Settings.get_view_distance()
-	var base_fog := 2.2 / vd
+	var base_fog := 2.2 / (vd * fog_scale)
 	var fog_d := base_fog + wm.fog * 0.0085 + wm.rain * 0.0022
 	if override_fog >= 0.0:
 		fog_d = override_fog

@@ -134,10 +134,12 @@ func load_game(slot: String) -> bool:
 # JSON não guarda Vector3/Color: converte recursivamente.
 func _encode(v: Variant) -> Variant:
 	match typeof(v):
+		TYPE_FLOAT:
+			return _enc_f(v)
 		TYPE_VECTOR3:
-			return {"__v3": [v.x, v.y, v.z]}
+			return {"__v3": [_enc_f(v.x), _enc_f(v.y), _enc_f(v.z)]}
 		TYPE_VECTOR2:
-			return {"__v2": [v.x, v.y]}
+			return {"__v2": [_enc_f(v.x), _enc_f(v.y)]}
 		TYPE_COLOR:
 			return {"__c": [v.r, v.g, v.b, v.a]}
 		TYPE_DICTIONARY:
@@ -153,13 +155,33 @@ func _encode(v: Variant) -> Variant:
 	return v
 
 
+## JSON não representa INF/NaN (ex.: Vector3.INF = "sem destino").
+func _enc_f(f: float) -> Variant:
+	if is_inf(f):
+		return {"__f": "inf" if f > 0.0 else "-inf"}
+	if is_nan(f):
+		return {"__f": "nan"}
+	return f
+
+
+func _dec_f(v: Variant) -> float:
+	if typeof(v) == TYPE_DICTIONARY and (v as Dictionary).has("__f"):
+		match str(v["__f"]):
+			"inf": return INF
+			"-inf": return -INF
+		return NAN
+	return float(v)
+
+
 func _decode(v: Variant) -> Variant:
 	match typeof(v):
 		TYPE_DICTIONARY:
+			if v.has("__f"):
+				return _dec_f(v)
 			if v.has("__v3"):
-				return Vector3(v["__v3"][0], v["__v3"][1], v["__v3"][2])
+				return Vector3(_dec_f(v["__v3"][0]), _dec_f(v["__v3"][1]), _dec_f(v["__v3"][2]))
 			if v.has("__v2"):
-				return Vector2(v["__v2"][0], v["__v2"][1])
+				return Vector2(_dec_f(v["__v2"][0]), _dec_f(v["__v2"][1]))
 			if v.has("__c"):
 				return Color(v["__c"][0], v["__c"][1], v["__c"][2], v["__c"][3])
 			var o := {}

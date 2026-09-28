@@ -159,10 +159,11 @@ void surface(int id, vec2 uv, out vec3 alb, out float h, out float rough, out fl
 		float fine = vnoise(uv, vec2(180.0));
 		vec3 cr = voronoi(uv + n * 0.1, 3.0);
 		float crack = (1.0 - smoothstep(0.0, 0.012, cr.y)) * smoothstep(0.6, 0.7, fbm(uv + 7.0, 2.0, 3));
-		float peel = smoothstep(0.7, 0.72, fbm(uv + 2.0, 4.0, 5));
+		// descascado raro e sutil: a sujeira pesada vem da deterioração (world_decay)
+		float peel = smoothstep(0.79, 0.81, fbm(uv + 2.0, 4.0, 5));
 		float g = 0.8 + n * 0.1 + fine * 0.05;
 		alb = vec3(g);
-		alb = mix(alb, vec3(0.55, 0.52, 0.48), peel);
+		alb = mix(alb, vec3(0.7, 0.68, 0.64), peel);
 		alb *= 1.0 - crack * 0.5;
 		h = 0.5 + n * 0.3 + fine * 0.1 - peel * 0.3 - crack * 0.4;
 		rough = 0.85;

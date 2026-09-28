@@ -1,0 +1,193 @@
+extends Node
+## Dirige um teste de fumaça do jogo completo: abre a cena Game, espera o
+## mundo, anda com o Caio, abre as telas, fabrica, salva e carrega.
+## Uso: godot --path . res://tests/smoke_test.tscn -- --no-audio [--opening] [--shots=dir]
+
+var mode := "gameplay"
+var shots := ""
+var errors: Array = []
+var t0 := 0
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	for a in OS.get_cmdline_user_args():
+		if a == "--opening":
+			mode = "opening"
+		elif a.begins_with("--shots="):
+			shots = a.substr(8)
+	if shots != "":
+		DirAccess.make_dir_recursive_absolute(shots)
+	t0 = Time.get_ticks_msec()
+	_run()
+
+
+func _log(s: String) -> void:
+	print("[%6.1fs] %s" % [(Time.get_ticks_msec() - t0) / 1000.0, s])
+
+
+func _shot(name: String) -> void:
+	if shots == "" or DisplayServer.get_name() == "headless":
+		return
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	if img:
+		img.save_png(shots + "/" + name + ".png")
+		_log("screenshot " + name)
+
+
+func _wait(sec: float) -> void:
+	await get_tree().create_timer(sec, true, false, true).timeout
+
+
+func _run() -> void:
+	await Assets.bake_all()
+	AudioManager.generate_async()
+	while AudioManager.generating:
+		await get_tree().process_frame
+	GameState.start_mode = "new"
+	GameState.skip_opening = mode != "opening"
+	get_tree().change_scene_to_file("res://scenes/game/game.tscn")
+	var g: Game = null
+	var t := 0.0
+	while t < 120.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		g = SaveManager.game as Game
+		if g != null and g.ready_to_play:
+			break
+	if g == null or not g.ready_to_play:
+		_log("FALHA: Game não ficou pronto")
+		get_tree().quit(1)
+		return
+	_log("Game pronto. chunks=%d pos=%s" % [g.world.chunks.size(), str(g.player.global_position)])
+	if mode == "opening":
+		await _test_opening(g)
+	else:
+		await _test_gameplay(g)
+	_log("FIM")
+	get_tree().quit(0)
+
+
+func _test_opening(g: Game) -> void:
+	Engine.time_scale = 1.0
+	var last_shot := ""
+	g.cinematic.shot_started.connect(func(id: String) -> void:
+		last_shot = id
+		_log("tomada " + id)
+		(func() -> void: await _wait(2.0); await _shot("cine_" + id)).call())
+	var t := 0.0
+	while g.cinematic != null and t < 600.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	var p := g.player
+	_log("Cinemática terminou em %.1fs. última=%s controle=%s cam_gameplay=%s pos=%s" % [t, last_shot, str(p.control_enabled), str(p.cam_rig.cam.current), str(p.global_position)])
+	var ip := g.layout.poi_pos("inicio_gameplay")
+	_log("distância até inicio_gameplay: %.1f m · missão: %s" % [Vector2(p.global_position.x, p.global_position.z).distance_to(Vector2(ip.x, ip.z)), MissionManager.tracked])
+	await _wait(2.0)
+	await _shot("apos_transicao")
+
+
+func _test_gameplay(g: Game) -> void:
+	var p := g.player
+	await _wait(2.0)
+	await _shot("gameplay_inicio")
+	_log("Missão rastreada: %s · objetivo: %s" % [MissionManager.tracked, str(MissionManager.current_objective(MissionManager.tracked).get("text", ""))])
+	# anda para frente
+	Input.action_press("move_forward")
+	await _wait(3.0)
+	Input.action_release("move_forward")
+	_log("Após andar: pos=%s vel=%.2f chão=%s" % [str(p.global_position), p.velocity.length(), str(p.is_on_floor())])
+	# telas
+	g.ui.open_inventory(null, "", null, "")
+	await _wait(0.5)
+	await _shot("ui_inventario")
+	g.ui.current.queue_free()
+	await _wait(0.3)
+	var m := MapScreen.new()
+	m.game = g
+	m.player = p
+	g.ui.open(m, true)
+	await _wait(0.5)
+	await _shot("ui_mapa")
+	m.queue_free()
+	await _wait(0.3)
+	var j := JournalScreen.new()
+	j.game = g
+	g.ui.open(j, true)
+	await _wait(0.4)
+	await _shot("ui_diario")
+	j.queue_free()
+	await _wait(0.3)
+	# fabricação
+	p.inventory.add("pano", 4, 1.0, {}, true)
+	p.inventory.add("alcool", 2, 1.0, {}, true)
+	var ok := Crafting.craft("r_pano_limpo", p, "")
+	_log("Fabricar pano limpo: %s (tem %d)" % [str(ok), p.inventory.count("pano_limpo")])
+	# save / load
+	var saved := SaveManager.save_game("3")
+	_log("Salvar slot 3: %s" % str(saved))
+	var meta := SaveManager.read_meta("3")
+	_log("Meta: %s" % str(meta))
+	# teleporta para a cidade e espera streaming
+	var cp := g.layout.poi_pos("avenida_central") + Vector3(4, 0.5, 30)
+	p.global_position = cp
+	await g.world.wait_area(cp, 60.0, 30.0)
+	await _wait(3.0)
+	_log("Na cidade: chunks=%d infectados=%d npcs=%d" % [g.world.chunks.size(), g.director.active.size(), g.survivors.spawned.size()])
+	await _shot("gameplay_cidade")
+	# estádio (Remanescentes)
+	var ep := g.layout.poi_pos("estadio") + Vector3(0, 0.5, 14)
+	p.global_position = ep
+	await g.world.wait_area(ep, 60.0, 30.0)
+	await _wait(3.0)
+	_log("Estádio: npcs=%d" % g.survivors.spawned.size())
+	for id in g.survivors.spawned.keys():
+		var n: SurvivorNPC = g.survivors.spawned[id]
+		_log("  %s (%s) estado=%d pos=%s" % [n.display_name, n.faction, n.state, str(n.global_position)])
+		break
+	await _shot("gameplay_estadio")
+	# diálogo e troca
+	var marta := g.survivors.get_npc("marta")
+	if marta:
+		EventBus.dialogue_requested.emit(marta)
+		await _wait(0.6)
+		var ds := g.ui.current as DialogueScreen
+		_log("Diálogo com Marta aberto: %s" % str(ds != null))
+		await _shot("ui_dialogo")
+		if ds:
+			ds.runner.choose(0)
+			await _wait(0.3)
+			if is_instance_valid(ds):
+				ds.runner.end()
+		await _wait(0.3)
+	var zilda := g.survivors.get_npc("zilda")
+	if zilda:
+		EventBus.trade_requested.emit(zilda)
+		await _wait(0.6)
+		_log("Troca com Zilda: %s itens" % str(zilda.trade_inv.stacks.size() if zilda.trade_inv else -1))
+		await _shot("ui_troca")
+		if g.ui.current:
+			g.ui.current.queue_free()
+		await _wait(0.3)
+	# veículo: picape do Tonho
+	var op := g.layout.poi_pos("oficina") + Vector3(0, 0.5, 10)
+	p.global_position = op
+	await g.world.wait_area(op, 50.0, 30.0)
+	await _wait(3.0)
+	_log("Veículos instanciados: %s" % str(g.vehicles.vehicles.keys()))
+	# evento emergente
+	g.events.trigger("viajante")
+	await _wait(1.0)
+	_log("Evento viajante: eventos ativos=%d" % g.events.active_events.size())
+	# carrega o save
+	SaveManager.load_game("3")
+	var t := 0.0
+	while t < 60.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		var ng := SaveManager.game as Game
+		if ng != null and ng != g and ng.ready_to_play:
+			_log("Carregado: pos=%s pano_limpo=%d" % [str(ng.player.global_position), ng.player.inventory.count("pano_limpo")])
+			break
+	SaveManager.delete_slot("3")

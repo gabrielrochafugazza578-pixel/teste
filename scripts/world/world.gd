@@ -24,6 +24,7 @@ class Job:
 	var task: int = -1
 	var result: Dictionary = {}
 	var opts: Dictionary = {}
+	var gen: int = 0
 
 var layout: WorldLayout
 var chunks: Dictionary = {}
@@ -40,6 +41,9 @@ var _last_focus := Vector3(INF, 0, INF)
 var _light_timer: float = 0.0
 var _phase_applied: int = -1
 var stat_apply_usec: int = 0
+var _gen: int = 0                   # incrementa em rebuild_all (descarta jobs antigos)
+## Cinemática: amplia a distância de visão/streaming (tomadas aéreas).
+var view_boost: float = 1.0
 
 
 func _ready() -> void:
@@ -88,11 +92,11 @@ func _r0() -> float:
 
 
 func _r1() -> float:
-	return clampf(Settings.get_view_distance() * 0.55, 180.0, 380.0)
+	return clampf(Settings.get_view_distance() * 0.55 * view_boost, 180.0, 380.0 * view_boost)
 
 
 func _rv() -> float:
-	return Settings.get_view_distance() + 40.0
+	return (Settings.get_view_distance() + 40.0) * view_boost
 
 
 func desired_lod(c: Vector2i) -> int:
@@ -155,8 +159,9 @@ func _evaluate() -> void:
 	for p in focus_points:
 		var fp: Vector3 = p
 		var pc := Vector2i(floori(fp.x / WorldLayout.CHUNK), floori(fp.z / WorldLayout.CHUNK))
-		for dz in range(-3, 4):
-			for dx in range(-3, 4):
+		var ring := 3 if view_boost <= 1.0 else 5
+		for dz in range(-ring, ring + 1):
+			for dx in range(-ring, ring + 1):
 				coords.append(pc + Vector2i(dx, dz))
 	var seen := {}
 	for c in coords:
@@ -229,6 +234,7 @@ func _start_chunk_job(c: Vector2i, lod: int) -> void:
 	j.lod = lod
 	j.opts = _opts()
 	j.opts["decay"] = 1.0 if GameState.world_phase == GameState.Phase.POST else 0.0
+	j.gen = _gen
 	var lay := layout
 	j.task = WorkerThreadPool.add_task(func() -> void: j.result = ChunkBuilder.build(lay, c, lod, j.opts), false, "chunk")
 	jobs.append(j)
@@ -263,6 +269,8 @@ func _poll_jobs() -> void:
 			continue
 		WorkerThreadPool.wait_for_task_completion(j.task)
 		jobs.remove_at(i)
+		if j.kind == "chunk" and j.gen != _gen:
+			continue
 		match j.kind:
 			"chunk":
 				_on_chunk_data(j)
@@ -338,15 +346,41 @@ func is_area_ready(pos: Vector3, radius: float = 70.0) -> bool:
 	return true
 
 
+## Chunks próximos já com a camada da fase atual (carros, entulho...).
+func is_phase_ready(pos: Vector3, radius: float = 50.0) -> bool:
+	for c in chunks.keys():
+		var ch: Chunk = chunks[c]
+		if ch.lod != 0:
+			continue
+		var center := Vector2((c.x + 0.5) * WorldLayout.CHUNK, (c.y + 0.5) * WorldLayout.CHUNK)
+		if center.distance_to(Vector2(pos.x, pos.z)) < radius + 46.0 and ch.phase_built != GameState.world_phase:
+			return false
+	return true
+
+
 ## Aguarda a região estar carregada (usado na cinemática e no carregamento).
 func wait_area(pos: Vector3, radius: float = 70.0, timeout: float = 20.0) -> void:
 	if not focus_points.has(pos):
 		focus_points.append(pos)
 	_eval_timer = 0.0
 	var t := 0.0
-	while not is_area_ready(pos, radius) and t < timeout:
+	while (not is_area_ready(pos, radius) or not is_phase_ready(pos, radius * 0.7)) and t < timeout:
 		await get_tree().process_frame
 		t += get_process_delta_time()
+
+
+## Descarta todos os chunks e regenera (troca de fase com a tela preta da
+## cinemática: a geometria base também depende da fase).
+func rebuild_all() -> void:
+	for c in chunks.keys():
+		(chunks[c] as Chunk).queue_free()
+	chunks.clear()
+	pending.clear()
+	apply_queue.clear()
+	_gen += 1
+	_phase_applied = -1
+	_eval_timer = 0.0
+	_last_focus = Vector3(INF, 0, INF)
 
 
 func clear_focus_points() -> void:
@@ -474,7 +508,7 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		q.size = s["size"]
 		var mi := MeshInstance3D.new()
 		mi.mesh = q
-		var mat := Assets.screen_material(int(s["style"]) if int(s["style"]) < 4 else 0, randf() * 10.0)
+		var mat := Assets.screen_material(int(s["style"]), randf() * 10.0)
 		mat.set_shader_parameter("power", 1.0 if powered else 0.0)
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

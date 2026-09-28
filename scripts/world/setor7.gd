@@ -321,8 +321,8 @@ func _interactables() -> void:
 	wb.setup("workbench", (markers["security"] as Transform3D).origin + Vector3(-2.5, 0, -2.5), 0.0, "s7_wb")
 
 
-## Popula NPCs (Lia, Helena, Leme, seguranças) e o espécime de contenção.
-func populate(sm: SurvivorManager, director: Node) -> void:
+## Popula NPCs (Lia, Helena, Leme, seguranças).
+func populate(sm: SurvivorManager) -> void:
 	var lia := sm.spawn_named_at("lia", to_global((markers["lia"] as Transform3D).origin), 0.0)
 	if GameState.has_flag("lia_found"):
 		sm.set_following("lia", true)
@@ -354,6 +354,10 @@ func populate(sm: SurvivorManager, director: Node) -> void:
 			sm.add_child(gn)
 			gn.setup(gd, sm, sm.world)
 			sm.spawned[gd["id"]] = gn
+
+
+## Espécime de contenção (Colosso adormecido no laboratório).
+func populate_specimen(director: Node) -> void:
 	if director and not GameState.has_flag("s7_specimen_dead"):
 		var inf: Infected = director.spawn_scripted("colosso", to_global((markers["containment"] as Transform3D).origin), 0.0, Infected.S.DORMANT, 77)
 		inf.home = inf.global_position
