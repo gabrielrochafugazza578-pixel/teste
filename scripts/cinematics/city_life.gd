@@ -93,7 +93,7 @@ func set_crowd(m: String, at: Vector3, frame: Transform3D = Transform3D.IDENTITY
 	anchor = at
 	if m == "off":
 		return
-	var n := 26 if m != "hospital" else 18
+	var n := (26 if m != "panic" else 32) if m != "hospital" else 18
 	for i in n:
 		var a := CineActor.new()
 		add_child(a)
@@ -109,7 +109,8 @@ func set_crowd(m: String, at: Vector3, frame: Transform3D = Transform3D.IDENTITY
 		var spd := _rng.randf_range(1.1, 1.6)
 		match m:
 			"panic":
-				dir = 1.0 if _rng.randf() < 0.8 else -1.0
+				# fogem em direção à câmera, vindos da barricada
+				dir = -1.0 if _rng.randf() < 0.85 else 1.0
 				spd = _rng.randf_range(3.8, 5.6)
 				a.style = "human"
 				x = anchor.x + _rng.randf_range(-AV_HW - 3.0, AV_HW + 3.0)

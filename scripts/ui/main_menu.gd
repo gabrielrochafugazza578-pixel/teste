@@ -27,10 +27,17 @@ void fragment(){
 	// fumaça e neblina
 	float fog = fbm(vec2(uv.x * 3.0 + t * 0.02, uv.y * 4.0 - t * 0.015));
 	col += vec3(0.11, 0.1, 0.09) * fog * smoothstep(0.2, 0.9, uv.y) * 0.8;
-	// brasas subindo
-	vec2 ep = vec2(uv.x * 60.0, uv.y * 30.0 + t * 1.2);
-	float emb = step(0.992, h(floor(ep))) * smoothstep(0.3, 1.0, uv.y);
-	col += vec3(1.0, 0.45, 0.15) * emb * 0.6;
+	// clarão de incêndios no horizonte, atrás dos prédios
+	float glow = exp(-abs((1.0 - uv.y) - 0.34) * 9.0) * (0.55 + 0.45 * fbm(vec2(uv.x * 5.0, t * 0.08)));
+	col += vec3(0.28, 0.1, 0.03) * glow * (1.0 - city * 0.85);
+	// brasas subindo: pontos pequenos e suaves (não quadrados), com deriva lateral
+	vec2 ep = vec2(uv.x * 48.0 * (16.0 / 9.0), uv.y * 48.0 + t * 0.9);
+	vec2 cell = floor(ep);
+	float r = h(cell);
+	vec2 c = vec2(0.5 + 0.35 * sin(t * 0.6 + r * 40.0), 0.5);
+	float d = length(fract(ep) - c);
+	float emb = step(0.975, r) * smoothstep(0.09, 0.0, d) * smoothstep(0.35, 1.0, uv.y) * (0.5 + 0.5 * sin(t * 3.0 + r * 60.0));
+	col += vec3(1.0, 0.5, 0.18) * emb * 0.9;
 	// vinheta
 	float vig = smoothstep(1.2, 0.35, length(uv - vec2(0.5, 0.55)));
 	COLOR = vec4(col * vig, 1.0);
@@ -63,6 +70,7 @@ func _ready() -> void:
 	root.add_theme_constant_override("margin_top", 120)
 	add_child(root)
 	var v := UIKit.vbox(6)
+	v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	root.add_child(v)
 	var t1 := UIKit.label("O INÍCIO", 64, Color(0.92, 0.9, 0.86))
 	var t2 := UIKit.label("DO FIM", 64, UITheme.ACCENT)
@@ -71,6 +79,8 @@ func _ready() -> void:
 	v.add_child(UIKit.label("Santa Aurora, algumas semanas depois.", 18, UITheme.TEXT_DIM))
 	v.add_child(UIKit.spacer(40))
 	_buttons = UIKit.vbox(8)
+	_buttons.custom_minimum_size.x = 380.0
+	_buttons.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(_buttons)
 	var latest := SaveManager.latest_slot()
 	if latest != "":
@@ -82,11 +92,14 @@ func _ready() -> void:
 	_buttons.add_child(UIKit.button("Configurações", _open_settings))
 	_buttons.add_child(UIKit.button("Créditos", _open_credits))
 	_buttons.add_child(UIKit.button("Sair", func() -> void: get_tree().quit()))
+	for b in _buttons.get_children():
+		if b is Button:
+			(b as Button).alignment = HORIZONTAL_ALIGNMENT_LEFT
 	var ver := UIKit.label("v%s · Godot %s · Compatibility (OpenGL 3.3)" % [ProjectSettings.get_setting("application/config/version", "0.9"), Engine.get_version_info()["string"]], 13, Color(0.45, 0.45, 0.43))
-	ver.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	ver.position = Vector2(-420, -34)
-	ver.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(ver)
+	ver.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 18)
+	ver.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	ver.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	(_buttons.get_child(0) as Control).grab_focus()
 	if AudioManager.is_ready:
 		AudioManager.music.play_cue("mus_title", 0.8)

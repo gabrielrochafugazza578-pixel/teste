@@ -303,6 +303,7 @@ func _enter_scene(si: int) -> void:
 		_phase_now = phase
 	if game.env:
 		game.env.exposure = float(sc.get("exposure", 1.0))
+		game.env.fog_scale = float(sc.get("fog_scale", 1.7))
 	# luz de preenchimento presa à câmera (cenas noturnas)
 	var fill := cam.get_node_or_null("Fill") as OmniLight3D
 	if sc.has("fill"):
@@ -351,6 +352,11 @@ func _enter_scene(si: int) -> void:
 			continue
 		var p := world.poi_pos(spec.split(":")[1]) if spec.split(":").size() > 1 else Vector3.ZERO
 		await world.wait_area(p, 55.0, 14.0)
+	if sc.has("preload") and not shots.is_empty():
+		# tomadas aéreas: a cidade inteira à vista precisa existir (LOD distante)
+		var spec0: String = (shots[0] as Dictionary).get("anchor", "world")
+		if not spec0.begins_with("caio") and not skipping:
+			await world.wait_loaded(_anchor_pos(spec0), float(sc["preload"]), 25.0)
 	if _interior_bi >= 0:
 		var t := 0.0
 		while world.interior_root(_interior_bi) == null and t < 15.0 and not skipping:

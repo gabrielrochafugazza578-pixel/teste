@@ -12,7 +12,7 @@
 		"Ao salvar, rode 'tools/bake_cinematic.gd' para gerar cinematics/opening_library.tres (editável no editor)."
 	],
 	"scenes": [
-		{"id": "1_cidade", "phase": "PRE", "hour": 9.4, "weather": "CLEAR", "music": "mus_opening_calm",
+		{"id": "1_cidade", "phase": "PRE", "hour": 9.4, "weather": "CLEAR", "music": "mus_opening_calm", "fog_scale": 3.5, "preload": 260,
 		 "setup": [["traffic", true, "poi:avenida_central"], ["crowd", "normal", "poi:avenida_central"], ["ambience", "city"]],
 		 "shots": [
 			{"id": "1a_aereo", "anchor": "poi:avenida_central", "dur": 13.0, "ground": false,
@@ -75,8 +75,8 @@
 			 "cam": [[0.0, [-10.5, 1.6, -30], [-4, 1.8, -5], 55], [8.0, [-10, 1.7, -24], [0, 1.8, 0], 55]],
 			 "events": [[0.0, "crowd", "normal", "poi:avenida_central"], [1.0, "anim_crowd", "cough"], [3.0, "sound", "cough", -8.0], [5.0, "sound", "siren", -10.0]]}
 		 ]},
-		{"id": "6_colapso", "phase": "PRE", "hour": 19.4, "weather": "CLOUDY", "music": "mus_opening_dark", "exposure": 1.4, "fill": [0.7, 30.0],
-		 "setup": [["traffic", "panic", "poi:avenida_central"], ["crowd", "panic", "poi:avenida_central"], ["ambience", "panic"], ["barricade", "poi:avenida_central", [0, 0, -60]]],
+		{"id": "6_colapso", "phase": "PRE", "hour": 19.4, "weather": "CLOUDY", "music": "mus_opening_dark", "exposure": 1.4, "fill": [0.7, 30.0], "fog_scale": 2.5, "preload": 220,
+		 "setup": [["traffic", "panic", "poi:avenida_central"], ["crowd", "panic", "poi:avenida_central"], ["ambience", "panic"], ["barricade", "poi:avenida_central", [0, 0, 32]]],
 		 "shots": [
 			{"id": "6a_panico", "anchor": "poi:avenida_central", "dur": 7.0, "ground": true,
 			 "cam": [[0.0, [-9.0, 1.4, -40], [-2, 1.6, -8], 66], [7.0, [-8.6, 1.3, -46], [-1, 1.6, -18], 70]],
@@ -105,7 +105,7 @@
 			 "cam": [[0.0, [-3, 0.5, 8], [0, 0.4, -10], 62], [7.0, [-3.5, 0.9, 4], [0, 1.2, -16], 62]],
 			 "events": [[0.0, "papers", "poi:avenida_central", [0, 0.2, -6]]]}
 		 ]},
-		{"id": "8_semanas", "phase": "POST", "hour": 15.8, "weather": "CLOUDY", "music": "mus_opening_dark", "exposure": 1.2, "card": ["ALGUMAS SEMANAS DEPOIS", "", 3.5],
+		{"id": "8_semanas", "phase": "POST", "hour": 15.8, "weather": "CLOUDY", "music": "mus_opening_dark", "exposure": 1.2, "fog_scale": 2.2, "preload": 200, "card": ["ALGUMAS SEMANAS DEPOIS", "", 3.5],
 		 "setup": [["actors_clear"], ["ambience", "post"],
 			["infected", "errante", "poi:avenida_central", [2, 0, 18], 190], ["infected", "errante", "poi:avenida_central", [-4, 0, 6], 20],
 			["infected", "febril", "poi:avenida_central", [5, 0, -12], 250], ["infected", "errante", "poi:avenida_central", [9.5, 0, 26], 100]],

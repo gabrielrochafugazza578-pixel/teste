@@ -353,15 +353,26 @@ func _apply_budgeted() -> void:
 		area_ready.emit()
 
 
-func is_area_ready(pos: Vector3, radius: float = 70.0) -> bool:
+func is_area_ready(pos: Vector3, radius: float = 70.0, max_lod: int = 1) -> bool:
 	var c0 := Vector2i(floori((pos.x - radius) / WorldLayout.CHUNK), floori((pos.z - radius) / WorldLayout.CHUNK))
 	var c1 := Vector2i(floori((pos.x + radius) / WorldLayout.CHUNK), floori((pos.z + radius) / WorldLayout.CHUNK))
 	for cx in range(c0.x, c1.x + 1):
 		for cz in range(c0.y, c1.y + 1):
 			var c := Vector2i(cx, cz)
-			if not chunks.has(c) or (chunks[c] as Chunk).lod > 1:
+			if desired_lod(c) > 2:
+				continue
+			if not chunks.has(c) or (chunks[c] as Chunk).lod > max_lod:
 				return false
 	return true
+
+
+## Espera a região distante existir (qualquer LOD) — tomadas aéreas.
+func wait_loaded(pos: Vector3, radius: float, timeout: float = 25.0) -> void:
+	_eval_timer = 0.0
+	var t := 0.0
+	while not is_area_ready(pos, radius, 2) and t < timeout:
+		await get_tree().process_frame
+		t += get_process_delta_time()
 
 
 ## Ponto pronto para colocar o jogador: chunk em LOD 0 e, se estiver dentro
