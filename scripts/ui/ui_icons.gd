@@ -8,6 +8,9 @@ extends RefCounted
 ## Símbolo do item: primeiro por palavra-chave do id, depois pela categoria.
 static func glyph_for_item(id: String) -> String:
 	var keys := [
+		["chave_roda", "tireiron"], ["canivete", "knife"], ["cutelo", "cleaver"], ["soco_ingles", "knuckles"], ["bastao", "bat"],
+		["golfe", "golf"], ["machadinha", "axe"], ["picareta", "pickaxe"], ["foice", "sickle"], ["enxada", "hoe"], ["katana", "katana"],
+		["submetralhadora", "smg"], ["carabina", "rifle"], ["fuzil", "rifle"], ["virote", "arrow"], ["besta", "crossbow"],
 		["kit_ferramentas", "wrench"], ["kit_barricada", "crate"], ["kit_fogueira", "flame"], ["fragmento", "key"],
 		["luvas", "glove"], ["botas", "boot"], ["chocolate", "bar"], ["macarrao", "bowl"], ["pao", "bar"], ["mel", "flask"],
 		["racao", "can"], ["energetico", "can"], ["cachaca", "bottle"], ["ervas", "fruit"], ["lenha", "plank"], ["lona", "cloth"],
@@ -237,6 +240,40 @@ static func draw_glyph(ci: CanvasItem, g: String, r: Rect2, col: Color) -> void:
 			for x in [0.26, 0.5, 0.74]:
 				_rect(ci, r, x - 0.08, 0.4, x + 0.08, 0.86, col)
 				_circ(ci, r, x, 0.4, 0.08, col.lightened(0.3))
+		"cleaver":
+			_poly(ci, r, [0.3, 0.18, 0.86, 0.18, 0.86, 0.5, 0.3, 0.56], col.lightened(0.25))
+			_circ(ci, r, 0.76, 0.28, 0.04, dk)
+			_line(ci, r, 0.14, 0.86, 0.34, 0.5, dk.lightened(0.4), 0.12)
+		"knuckles":
+			for x in [0.26, 0.42, 0.58, 0.74]:
+				_ring(ci, r, x, 0.42, 0.08, col, 0.05)
+			_poly(ci, r, [0.18, 0.54, 0.82, 0.54, 0.72, 0.8, 0.28, 0.8], col)
+		"pickaxe":
+			_line(ci, r, 0.5, 0.2, 0.5, 0.9, dk.lightened(0.5), 0.08)
+			_poly(ci, r, [0.08, 0.34, 0.5, 0.14, 0.92, 0.34, 0.5, 0.24], col)
+		"sickle":
+			_ring(ci, r, 0.46, 0.44, 0.3, col, 0.08, PI * 1.05, PI * 2.2)
+			_line(ci, r, 0.76, 0.52, 0.66, 0.9, dk.lightened(0.5), 0.1)
+		"hoe":
+			_line(ci, r, 0.2, 0.9, 0.7, 0.2, dk.lightened(0.5), 0.07)
+			_poly(ci, r, [0.62, 0.14, 0.9, 0.2, 0.84, 0.44, 0.66, 0.28], col)
+		"katana":
+			_line(ci, r, 0.3, 0.72, 0.9, 0.1, col.lightened(0.3), 0.05)
+			_line(ci, r, 0.12, 0.9, 0.3, 0.72, dk.lightened(0.3), 0.08)
+			_line(ci, r, 0.22, 0.66, 0.36, 0.8, col, 0.06)
+		"smg":
+			_poly(ci, r, [0.1, 0.34, 0.9, 0.34, 0.9, 0.48, 0.56, 0.48, 0.52, 0.86, 0.4, 0.86, 0.44, 0.48, 0.1, 0.48], col)
+			_rect(ci, r, 0.62, 0.48, 0.72, 0.78, col)
+		"golf":
+			_line(ci, r, 0.3, 0.1, 0.62, 0.8, col.lightened(0.3), 0.04)
+			_poly(ci, r, [0.56, 0.78, 0.86, 0.78, 0.86, 0.9, 0.56, 0.9], col)
+		"tireiron":
+			_line(ci, r, 0.5, 0.12, 0.5, 0.88, col, 0.08)
+			_line(ci, r, 0.12, 0.5, 0.88, 0.5, col, 0.08)
+		"crossbow":
+			_line(ci, r, 0.5, 0.16, 0.5, 0.9, dk.lightened(0.5), 0.08)
+			_ring(ci, r, 0.5, 0.52, 0.34, col, 0.06, PI * 1.15, PI * 1.85)
+			_line(ci, r, 0.2, 0.36, 0.8, 0.36, col.lightened(0.4), 0.02)
 		"rock":
 			_poly(ci, r, [0.2, 0.62, 0.3, 0.34, 0.54, 0.22, 0.78, 0.36, 0.84, 0.64, 0.62, 0.8, 0.34, 0.8], col)
 		"molotov":

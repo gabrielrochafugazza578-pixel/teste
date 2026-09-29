@@ -106,6 +106,11 @@ static func _build() -> void:
 		[0.72, {"hr": _v(0.10, -0.26, -0.34), "hl": _v(-0.06, -0.28, -0.32), "spine": _v(-32), "chest": _v(-10), "p": Vector3(0, -0.14, -0.10)}],
 		[1.05, {}]], {"events": [[0.52, "hit_start"], [0.67, "hit_end"]]})
 	_add("block", 0.18, [[0.0, {}], [0.18, {"hr": _v(0.15, 0.12, -0.34), "hl": _v(-0.10, 0.06, -0.32), "chest": _v(0, 10, 0), "spine": _v(-8), "head": _v(-5)}]], {"hold": true, "blend_out": 0.15})
+	# mira: pistola com os dois braços estendidos; arma longa com a coronha no ombro direito
+	_add("aim_pistol", 0.2, [[0.0, {}], [0.2, {"hr": _v(0.1, 0.2, -0.54), "hl": _v(0.03, 0.16, -0.47), "chest": _v(0, 6, 0), "spine": _v(-4), "head": _v(-3, -4, 0)}]],
+		{"hold": true, "blend_out": 0.15})
+	_add("aim_rifle", 0.22, [[0.0, {}], [0.22, {"hr": _v(0.15, 0.1, -0.2), "hl": _v(0.08, 0.08, -0.5), "spine": _v(-4), "head": _v(-8, 0, 10)}]],
+		{"hold": true, "blend_out": 0.15})
 	_add("parry", 0.4, [[0.0, {}], [0.1, {"hr": _v(0.06, 0.10, -0.50), "hl": _v(-0.10, 0.06, -0.32), "chest": _v(0, 14, 0), "spine": _v(-12)}], [0.4, {}]])
 	_add("dodge", 0.55, [
 		[0.0, {}],

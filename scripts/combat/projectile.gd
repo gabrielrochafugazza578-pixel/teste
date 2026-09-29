@@ -28,8 +28,8 @@ func launch(id: String, from: Vector3, vel: Vector3, by: Node) -> void:
 	cs.shape = sp
 	add_child(cs)
 	var mi := MeshInstance3D.new()
-	mi.mesh = ItemPickup._mesh_for(ItemDB.category(id))
-	mi.scale = Vector3.ONE * 0.8
+	mi.mesh = ItemModels.mesh(id)
+	mi.position = -mi.mesh.get_aabb().get_center()
 	add_child(mi)
 	linear_velocity = vel
 	angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))

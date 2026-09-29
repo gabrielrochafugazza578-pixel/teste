@@ -546,15 +546,24 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 	for p in data["pickups"]:
 		k += 1
 		var uid := "%d_p%d" % [bi, k]
-		if GameState.has_flag("picked_" + uid):
-			continue
-		var stacks := LootTables.roll(str(p["context"]), "_floor", uid, dist, Settings.loot_multiplier())
+		var kind := str(p.get("kind", "_floor"))
+		var stacks := LootTables.roll_one(str(p["context"]), kind, uid, dist, Settings.loot_multiplier())
 		if stacks.is_empty():
 			continue
-		var ip := ItemPickup.new()
-		ip.uid = uid
-		root.add_child(ip)
-		ip.setup(stacks[0], p["pos"])
+		var yaw := float(p.get("yaw", randf() * TAU))
+		if not GameState.has_flag("picked_" + uid):
+			var ip := ItemPickup.new()
+			ip.uid = uid
+			root.add_child(ip)
+			ip.setup(stacks[0], p["pos"], false, yaw)
+		# arma de fogo achada vem com um pouco de munição do lado
+		var ammo := LootTables.ammo_for(stacks[0], uid)
+		if not ammo.is_empty() and not GameState.has_flag("picked_" + uid + "a"):
+			var ia := ItemPickup.new()
+			ia.uid = uid + "a"
+			root.add_child(ia)
+			var side := Vector3(cos(yaw), 0, -sin(yaw)) * 0.28
+			ia.setup(ammo, (p["pos"] as Vector3) + side, false, yaw + 0.7)
 	var beds: Array = data["beds"]
 	if not beds.is_empty():
 		var st := Station.new()
@@ -732,8 +741,20 @@ func district_at(pos: Vector3) -> String:
 	return layout.district_at(pos.x, pos.z)
 
 
-func _on_phase_changed(_p: int) -> void:
+func _on_phase_changed(p: int) -> void:
 	_eval_timer = 0.0
+	# interiores gerados na outra fase (arrumados x abandonados) são refeitos,
+	# menos o prédio onde o jogador está agora
+	var f := SimScheduler.focus_position
+	for c in chunks.keys():
+		var ch: Chunk = chunks[c]
+		for bi in ch.interiors.keys():
+			var d: Dictionary = ch.interiors[bi].get("data", {})
+			if int(d.get("phase", p)) == p:
+				continue
+			var r: Rect2 = (layout.buildings[bi]["rect"] as Rect2).grow(2.0)
+			if not r.has_point(Vector2(f.x, f.z)):
+				ch.remove_interior(bi)
 
 
 # ---------------------------------------------------------------------------

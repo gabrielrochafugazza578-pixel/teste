@@ -39,6 +39,8 @@ const SPR_LEAF := 4
 var surface_a: Texture2DArray
 var surface_b: Texture2DArray
 var char_a: Texture2DArray
+var weapon_a: Texture2DArray
+var weapon_b: Texture2DArray
 var char_b: Texture2DArray
 var leaf_tex: Texture2D
 var noise_tex: Texture2D
@@ -133,6 +135,10 @@ func _bake_gpu(size: int) -> void:
 	char_a = _atlas_to_array(ca, false)
 	var cb := await _render(vp, mat, 1, 0, 1, size)
 	char_b = _atlas_to_array(cb, true)
+	var wa := await _render(vp, mat, 5, 0, 0, size)
+	weapon_a = _atlas_to_array(wa, false)
+	var wb := await _render(vp, mat, 5, 0, 1, size)
+	weapon_b = _atlas_to_array(wb, true)
 	done += 2
 	bake_progress.emit(float(done) / jobs_total, "Personagens")
 
@@ -207,6 +213,10 @@ func _make_fallback(s: int) -> void:
 	var cb := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
 	cb.fill(Color(0.5, 0.5, 1.0, 0.0))
 	char_b = _atlas_to_array(cb, true)
+	var wa := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
+	wa.fill(Color(0.5, 0.5, 0.5, 0.5))
+	weapon_a = _atlas_to_array(wa, false)
+	weapon_b = _atlas_to_array(cb, true)
 	var lf := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
 	lf.fill(Color(0.2, 0.3, 0.1, 1.0))
 	leaf_tex = ImageTexture.create_from_image(lf)
@@ -252,6 +262,8 @@ func _assign_textures(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("detail_a", char_a)
 	m.set_shader_parameter("detail_b", char_b)
 	m.set_shader_parameter("leaf_tex", leaf_tex)
+	m.set_shader_parameter("weapon_a", weapon_a)
+	m.set_shader_parameter("weapon_b", weapon_b)
 
 
 func _track(m: ShaderMaterial) -> ShaderMaterial:
@@ -278,6 +290,7 @@ func world_material(kind: String = "exterior") -> ShaderMaterial:
 			m.set_shader_parameter("enable_windows", false)
 			m.set_shader_parameter("enable_puddles", false)
 			m.set_shader_parameter("grime", 0.55)
+			m.set_shader_parameter("interior_fill", 0.2)
 		"props":
 			m.set_shader_parameter("use_instance_tint", true)
 			m.set_shader_parameter("enable_windows", false)
@@ -287,6 +300,7 @@ func world_material(kind: String = "exterior") -> ShaderMaterial:
 			m.set_shader_parameter("enable_windows", false)
 			m.set_shader_parameter("enable_puddles", false)
 			m.set_shader_parameter("grime", 0.5)
+			m.set_shader_parameter("interior_fill", 0.16)
 		"roads":
 			m.set_shader_parameter("enable_windows", false)
 		_:
@@ -403,6 +417,27 @@ func power_emitter(mode: int, color: Color = Color(1.0, 0.82, 0.55), energy: flo
 	m.set_shader_parameter("color", color)
 	m.set_shader_parameter("energy", energy)
 	_mats[key] = m
+	return m
+
+
+## Material das armas (atlas nogueira/aço/polímero/borracha, UV2.x = camada).
+func weapon_material() -> ShaderMaterial:
+	if _mats.has("weapon"):
+		return _mats["weapon"]
+	var m := ShaderMaterial.new()
+	m.shader = shader("res://shaders/weapon.gdshader")
+	_mats["weapon"] = _track(m)
+	return m
+
+
+## Itens soltos no mundo: mesmo atlas das armas, com a luz indireta dos interiores.
+func item_material() -> ShaderMaterial:
+	if _mats.has("item"):
+		return _mats["item"]
+	var m := ShaderMaterial.new()
+	m.shader = shader("res://shaders/weapon.gdshader")
+	m.set_shader_parameter("fill", 0.16)
+	_mats["item"] = _track(m)
 	return m
 
 

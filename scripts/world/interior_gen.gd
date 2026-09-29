@@ -15,26 +15,57 @@ const CONTAINER_KIND := {
 	"fridge": "fridge", "kitchen_counter": "kitchen_cabinet", "cabinet_low": "drawer", "nightstand": "nightstand",
 	"wardrobe": "wardrobe", "shelf": "shelf", "bookshelf": "bookshelf", "counter": "counter", "locker": "locker",
 	"filing_cabinet": "filing", "med_cart": "med_cart", "tool_cabinet": "toolbox", "workbench": "workbench",
-	"desk": "desk", "freezer": "freezer", "crate": "crate", "gondola": "shelf", "rack": "rack", "barrel": "barrel",
+	"desk": "desk", "freezer": "freezer", "crate": "crate", "gondola": "shelf", "gondola_hw": "shelf", "gondola_ph": "shelf", "rack": "rack", "barrel": "barrel",
 	"tv_stand": "drawer", "cardboard": "box", "lab_bench": "lab_cabinet", "fume_hood": "lab_cabinet", "checkout": "counter",
 	"server_rack": "server", "stove": "stove",
 }
 
+## Tampos onde itens podem ficar apoiados: [altura, meia-largura X, meia-prof. Z, desloc. Z]
+const SURFACES := {
+	"table": [0.765, 0.6, 0.33, 0.0], "table_small": [0.765, 0.32, 0.32, 0.0], "desk": [0.76, 0.62, 0.28, 0.0],
+	"kitchen_counter": [0.92, 1.1, 0.25, 0.0], "counter": [0.92, 1.1, 0.25, 0.0], "cabinet_low": [0.9, 0.42, 0.18, 0.0],
+	"nightstand": [0.55, 0.17, 0.17, 0.0], "workbench": [0.9, 0.9, 0.3, 0.0], "school_desk": [0.715, 0.24, 0.16, -0.15],
+	"lab_bench": [0.93, 1.35, 0.3, 0.0], "checkout": [0.92, 0.45, 0.18, 0.0], "med_cart": [0.94, 0.25, 0.18, 0.0],
+	"tool_cabinet": [1.05, 0.34, 0.2, 0.0], "crate": [0.8, 0.3, 0.3, 0.0], "barrel": [0.905, 0.16, 0.16, 0.0],
+	"bed": [0.525, 0.55, 0.6, 0.25], "bed_single": [0.525, 0.32, 0.6, 0.25], "sofa": [0.49, 0.7, 0.22, 0.02],
+	"freezer": [0.86, 0.85, 0.3, 0.0], "stove": [0.92, 0.2, 0.2, 0.0], "washing_machine": [0.9, 0.22, 0.22, 0.0],
+	"bench": [0.47, 0.75, 0.1, 0.0], "pallet": [0.145, 0.5, 0.5, 0.0], "hospital_bed": [0.74, 0.34, 0.5, 0.3],
+	"filing_cabinet": [1.3, 0.18, 0.2, 0.0], "tv_stand": [0.5, 0.62, 0.08, -0.13], "pew": [0.475, 1.3, 0.14, 0.0],
+	"altar": [1.04, 0.9, 0.35, 0.0], "armchair": [0.37, 0.25, 0.2, -0.05],
+}
+
+## Chance de haver uma arma largada no prédio (além do loot comum).
+const WEAPON_CHANCE := {"house": 0.35, "apartment": 0.35, "farmhouse": 0.5, "cabin": 0.55, "police": 0.85, "bunker": 0.9,
+	"hardware": 0.6, "workshop": 0.5, "barn": 0.6, "bar": 0.4, "warehouse": 0.35, "factory": 0.35, "gas_station": 0.3,
+	"grocery": 0.25, "shop": 0.25, "market": 0.3, "office": 0.25, "school": 0.3, "hospital": 0.25, "clinic": 0.2,
+	"camp": 0.5, "church": 0.2, "lab": 0.3, "radio": 0.5, "pharmacy": 0.15, "terminal": 0.3}
+
+const RESIDENTIAL := ["living", "kitchen", "bedroom", "kids", "bathroom", "hall"]
+const VERT_BUDGET := 150000
+## Cômodos que enchem todas as paredes (lojas, depósitos); os demais param após uma volta na lista.
+const FILL_WALLS := ["sales", "pharmacy", "hardware", "storage", "hall_big", "market_hall", "garage", "bar", "terminal", "bunker"]
+## Só para medição (tests/bench_chunks): vértices por tipo de prop.
+static var debug_counts = null
+
+const GRAFFITI := ["SOCORRO", "NÃO ENTRE", "INFECTADOS LÁ DENTRO", "NÃO FAÇA BARULHO", "ELES OUVEM TUDO", "SEM COMIDA",
+	"SAQUEADO", "FOMOS PRO ESTÁDIO", "DEUS NOS PERDOE", "CORVALIS MENTIU", "ONDE ESTÁ O EXÉRCITO?", "FUJA", "NÃO ABRA",
+	"X", "LIMPO", "3 MORTOS", "|||| |||| ||", "ESTAMOS VIVOS", "NÃO CONFIE EM NINGUÉM", "RÁDIO 98.3", "AQUI NÃO", "FIM"]
+
 const ROOM_SPECS := {
-	"living": {"floor": 6, "wall": ["sofa", "tv_stand", "bookshelf", "armchair", "cabinet_low"], "center": ["rug", "table_small"]},
+	"living": {"floor": 6, "wall": ["sofa", "tv_stand", "bookshelf", "armchair", "plant_pot", "cabinet_low", "floor_lamp"], "center": ["rug", "table_small"]},
 	"kitchen": {"floor": 10, "wall": ["kitchen_counter", "fridge", "stove", "cabinet_low", "washing_machine"], "center": ["table"], "chairs": true},
 	"bedroom": {"floor": 6, "wall": ["bed", "wardrobe", "nightstand", "cabinet_low"], "center": ["rug"]},
 	"kids": {"floor": 6, "wall": ["bed_single", "wardrobe", "crib", "bookshelf"], "center": []},
 	"bathroom": {"floor": 10, "wall": ["toilet", "sink_bath", "bathtub"], "center": []},
-	"hall": {"floor": 6, "wall": ["cabinet_low"], "center": []},
-	"sales": {"floor": 10, "wall": ["shelf", "shelf", "counter", "shelf", "freezer"], "center": ["gondola"]},
+	"hall": {"floor": 6, "wall": ["cabinet_low", "coat_rack", "plant_pot"], "center": []},
+	"sales": {"floor": 10, "wall": ["shelf", "shelf", "counter", "shelf", "freezer", "vending_machine", "shelf"], "center": ["gondola"], "grid": "gondola"},
 	"storage": {"floor": 1, "wall": ["shelf", "crate", "cardboard", "barrel", "crate"], "center": ["pallet"]},
-	"pharmacy": {"floor": 10, "wall": ["shelf", "shelf", "counter", "shelf"], "center": ["gondola"]},
-	"hardware": {"floor": 1, "wall": ["shelf", "tool_cabinet", "shelf", "counter", "barrel"], "center": ["gondola"]},
-	"bar": {"floor": 6, "wall": ["counter", "shelf", "fridge", "bench"], "center": ["table_small"], "chairs": true},
+	"pharmacy": {"floor": 10, "wall": ["shelf", "shelf", "counter", "shelf", "plant_pot"], "center": ["gondola_ph"], "grid": "gondola_ph"},
+	"hardware": {"floor": 1, "wall": ["shelf", "tool_cabinet", "shelf", "counter", "barrel", "shelf", "workbench"], "center": ["gondola_hw"], "grid": "gondola_hw"},
+	"bar": {"floor": 6, "wall": ["counter", "shelf", "fridge", "bench", "vending_machine", "bench"], "center": ["table_small"], "chairs": true, "grid": "table_small"},
 	"ward": {"floor": 15, "wall": ["hospital_bed", "curtain", "hospital_bed", "med_cart", "cabinet_low", "hospital_bed"], "center": []},
-	"reception": {"floor": 15, "wall": ["counter", "bench", "filing_cabinet", "bench", "med_cart"], "center": []},
-	"office": {"floor": 15, "wall": ["desk", "filing_cabinet", "bookshelf", "locker"], "center": ["desk"]},
+	"reception": {"floor": 15, "wall": ["counter", "bench", "filing_cabinet", "bench", "plant_pot", "vending_machine", "water_cooler"], "center": [], "grid": "lounge"},
+	"office": {"floor": 15, "wall": ["desk", "filing_cabinet", "bookshelf", "locker", "water_cooler", "plant_pot", "filing_cabinet"], "center": ["desk"], "grid": "desk"},
 	"med_storage": {"floor": 15, "wall": ["shelf", "shelf", "med_cart", "locker", "fridge"], "center": []},
 	"classroom": {"floor": 15, "wall": ["blackboard", "bookshelf", "desk"], "center": [], "grid": "school_desk"},
 	"hall_big": {"floor": 1, "wall": ["rack", "rack", "barrel", "crate", "pallet"], "center": [], "grid": "rack"},
@@ -45,9 +76,9 @@ const ROOM_SPECS := {
 	"bunker": {"floor": 1, "wall": ["bunk", "shelf", "radio_set", "generator", "crate", "shelf"], "center": ["table"]},
 	"barn": {"floor": 8, "wall": ["hay_bale", "crate", "workbench", "hay_bale", "barrel"], "center": ["hay_bale"]},
 	"radio": {"floor": 1, "wall": ["desk", "radio_set", "shelf", "generator"], "center": []},
-	"terminal": {"floor": 10, "wall": ["counter", "bench", "bench", "trash_bin", "bench"], "center": [], "grid": "bench"},
+	"terminal": {"floor": 10, "wall": ["counter", "bench", "vending_machine", "bench", "trash_bin", "bench"], "center": [], "grid": "bench"},
 	"market_hall": {"floor": 10, "wall": ["freezer", "freezer", "shelf", "freezer", "shelf"], "center": [], "grid": "gondola"},
-	"lobby": {"floor": 11, "wall": ["counter", "bench", "planter", "bench"], "center": []},
+	"lobby": {"floor": 11, "wall": ["counter", "bench", "planter", "bench", "vending_machine"], "center": []},
 	"lab_room": {"floor": 15, "wall": ["lab_bench", "fume_hood", "shelf", "locker"], "center": []},
 	"server": {"floor": 1, "wall": ["server_rack", "server_rack", "server_rack"], "center": [], "grid": "server_rack"},
 }
@@ -126,6 +157,13 @@ var fh: float = 2.9
 var context: String = "house"
 var _cont_i: int = 0
 var _door_i: int = 0
+## Prédio abandonado (depois do surto): sujeira, entulho, móveis tombados.
+var ruined: bool = true
+var _room_surf: Array = []
+var _room_props: Array = []
+var _col0: int = 0
+var _door_u: float = -100.0
+var _graffiti_n: int = 0
 
 
 func _build(b: Dictionary) -> Dictionary:
@@ -138,6 +176,8 @@ func _build(b: Dictionary) -> Dictionary:
 	fr = make_frame(b)
 	rng = Util.rng(int(b["seed"]) * 31 + 17)
 	context = str(b.get("interior", b["type"]))
+	ruined = GameState.world_phase != GameState.Phase.PRE
+	out["phase"] = GameState.world_phase
 	fh = BuildingGen.floor_h(b)
 	var t: String = b["type"]
 	if t in ["warehouse", "workshop", "barn", "factory", "market", "terminal", "church", "gas_station"]:
@@ -149,6 +189,7 @@ func _build(b: Dictionary) -> Dictionary:
 	var door_u := (Vector2(door_world.x, door_world.z) - fr.origin).dot(fr.U)
 	var door_w: float = di[2]
 	var dh := BuildingGen.door_height(b)
+	_door_u = door_u
 	var layout: Dictionary
 	match context:
 		"lab":
@@ -171,6 +212,25 @@ func _build(b: Dictionary) -> Dictionary:
 		_upper_floor(layout)
 	else:
 		_ceiling(Rect2(), 0.0)
+	# limite de itens soltos por prédio (cada um é um nó; prédios enormes teriam centenas)
+	var pk0: Array = out["pickups"]
+	var cap := clampi(int(fr.width * fr.depth / 14.0), 10, 40)
+	if pk0.size() > cap:
+		for i in range(pk0.size() - 1, 0, -1):
+			var j := rng.randi() % (i + 1)
+			var tmp = pk0[i]
+			pk0[i] = pk0[j]
+			pk0[j] = tmp
+		pk0.resize(cap)
+	# arma largada em algum canto (chão ou em cima de um móvel)
+	if ruined:
+		var pk: Array = out["pickups"]
+		var tries := 2 if context in ["police", "bunker", "hardware", "farmhouse", "cabin"] else 1
+		for wt in tries:
+			if not pk.is_empty() and rng.randf() < float(WEAPON_CHANCE.get(context, 0.3)) * (1.0 if wt == 0 else 0.5):
+				var i := rng.randi() % pk.size()
+				if str(pk[i].get("kind", "")) != "_weapon":
+					pk[i]["kind"] = "_weapon"
 	return out
 
 
@@ -394,6 +454,8 @@ func _emit_shell_inner(door_u: float, door_w: float, dh: float) -> void:
 					var p1 := fr.p(pb.x, pb.y, 0.0) + n * 0.01
 					panes.quad(p0 + Vector3(0, 1.0, 0), p1 + Vector3(0, 1.0, 0), p1 + Vector3(0, 2.2, 0), p0 + Vector3(0, 2.2, 0), n,
 						Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1), 0.0, rng.randf(), Color(1, 1, 1))
+					if ruined:
+						_window_decay(fr.p(c2.x, c2.y, 0.0), fr.d3(dir.x, dir.y).normalized(), n)
 				u += step
 
 
@@ -657,21 +719,29 @@ func _furnish(room: Dictionary, doors: Array, y_off: float) -> void:
 	var rr: Rect2 = room["rect"]
 	var tp: String = room["type"]
 	var name_: String = room.get("name", "")
+	_room_surf = []
+	_room_props = []
+	_col0 = mesh.colliders.size()
 	match tp:
 		"lab_main":
 			_furnish_lab_main(rr, y_off)
+			_after_room(rr, tp, y_off, doors)
 			return
 		"observation":
 			_furnish_observation(rr, y_off)
+			_after_room(rr, tp, y_off, doors)
 			return
 		"isolation":
 			_furnish_isolation(rr, y_off)
+			_after_room(rr, tp, y_off, doors)
 			return
 		"office_helena":
 			_furnish_helena(rr, y_off)
+			_after_room(rr, tp, y_off, doors)
 			return
 		"cold_storage":
 			_place_wall_props(rr, ["freezer", "freezer", "rack", "shelf", "freezer", "locker"], doors, y_off)
+			_after_room(rr, tp, y_off, doors)
 			return
 		"corridor":
 			out["npc_spots"].append(fr.p(rr.get_center().x, rr.get_center().y, y_off))
@@ -681,6 +751,7 @@ func _furnish(room: Dictionary, doors: Array, y_off: float) -> void:
 			mesh.box(fr.p(rr.end.x - 0.25, rr.get_center().y, y_off + 1.2), Vector3(0.3, 2.4, 2.2) if absf(fr.U.x) > 0.5 else Vector3(2.2, 2.4, 0.3), Assets.uv2_code(Assets.L_METAL), 0.0, Color(0.6, 0.62, 0.64))
 			for i in 4:
 				out["lights"].append({"pos": fr.p(rr.size.x * (0.15 + i * 0.23), rr.get_center().y, y_off + fh - 0.1), "range": 7.0, "room": "corridor", "type": "emergency"})
+			_after_room(rr, tp, y_off, doors)
 			return
 		"lobby":
 			_place_wall_props(rr, ["planter", "bench", "planter"], doors, y_off)
@@ -689,27 +760,35 @@ func _furnish(room: Dictionary, doors: Array, y_off: float) -> void:
 			out["labels"].append({"xf": Transform3D(Basis(Vector3.UP, fr.yaw_for(0, -1)), fr.p(rr.get_center().x, rr.end.y - 0.08, y_off + 2.6)),
 				"text": "CORVALIS BIOTECNOLOGIA", "size": 0.35, "color": Color(0.2, 0.3, 0.4)})
 			out["markers"]["lobby"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(0, 1)), fr.p(rr.get_center().x, rr.get_center().y, y_off))
+			_after_room(rr, tp, y_off, doors)
 			return
 	var spec: Dictionary = ROOM_SPECS.get(tp, {})
 	var wall_list: Array = spec.get("wall", [])
-	_place_wall_props(rr, wall_list, doors, y_off)
+	_place_wall_props(rr, wall_list, doors, y_off, tp not in FILL_WALLS)
+	var grid: String = spec.get("grid", "")
+	var has_grid := grid != "" and _grid_fits(rr, grid)
 	# centro
 	var center: Array = spec.get("center", [])
 	var cp := fr.p(rr.get_center().x, rr.get_center().y, y_off)
 	for i in center.size():
 		var pn: String = center[i]
 		var cs := PropLib.collision_size(pn)
+		if has_grid and pn != "rug":
+			continue
 		if pn == "rug" or (rr.size.x > cs.x + 2.2 and rr.size.y > cs.z + 2.2):
-			_place(PropLib.buf(pn), pn, cp + Vector3(0, 0.0, 0), fr.yaw_for(0, 1) + (PI * 0.5 if rr.size.x > rr.size.y else 0.0), pn != "rug")
+			var cyaw := fr.yaw_for(0, 1) + (PI * 0.5 if rr.size.x > rr.size.y else 0.0)
+			if ruined and pn in ["table", "table_small"] and rng.randf() < 0.22:
+				_place_tipped(pn, cp, cyaw, Basis(Vector3.RIGHT, PI * 0.5 * (1.0 if rng.randf() < 0.5 else -1.0)), true)
+			else:
+				_place(PropLib.buf(pn), pn, cp, cyaw, pn != "rug")
 			if spec.get("chairs", false) and pn != "rug":
 				for s: float in [-1.0, 1.0]:
 					var off := fr.d3(0, s * (cs.z * 0.5 + 0.35))
 					if rr.size.x > rr.size.y:
 						off = fr.d3(s * (cs.x * 0.5 + 0.35), 0)
-					_place(PropLib.buf("chair"), "chair", cp + off, Util.dir_to_yaw(-off), false)
-	# grade (salas de aula, galpões, mercados, capela)
-	var grid: String = spec.get("grid", "")
-	if grid != "":
+					_place_chair(cp + off, Util.dir_to_yaw(-off))
+	# grade (salas de aula, galpões, mercados, capela, escritórios, bares)
+	if has_grid:
 		_grid(rr, grid, y_off)
 	# pontos para NPCs/infectados
 	out["spawns"].append(cp)
@@ -717,13 +796,10 @@ func _furnish(room: Dictionary, doors: Array, y_off: float) -> void:
 		out["beds"].append(cp)
 	if tp == "garage" or tp == "hardware":
 		out["workbenches"].append(cp)
-	# itens soltos em cômodos
-	if rng.randf() < 0.55:
-		out["pickups"].append({"pos": fr.p(rr.position.x + rr.size.x * rng.randf_range(0.3, 0.7), rr.position.y + rr.size.y * rng.randf_range(0.3, 0.7), y_off + 0.05),
-			"context": context, "room": tp})
+	_after_room(rr, tp, y_off, doors)
 
 
-func _place_wall_props(rr: Rect2, list: Array, doors: Array, y_off: float) -> void:
+func _place_wall_props(rr: Rect2, list: Array, doors: Array, y_off: float, cap: bool = true) -> void:
 	if list.is_empty():
 		return
 	# lados: [início, direção ao longo, normal para dentro, comprimento]
@@ -776,32 +852,141 @@ func _place_wall_props(rr: Rect2, list: Array, doors: Array, y_off: float) -> vo
 			cursor += w + rng.randf_range(0.1, 0.6)
 			li += 1
 			placed += 1
-			if placed >= list.size() + 2:
+			if cap and placed >= list.size() + 2:
 				return
 
 
-func _grid(rr: Rect2, pn: String, y_off: float) -> void:
+func _grid_dims(rr: Rect2, pn: String) -> Vector4:
 	var cs := PropLib.collision_size(pn)
 	if cs == Vector3.ZERO:
 		cs = Vector3(0.7, 1.0, 0.7)
-	var sx := cs.x + (1.8 if pn in ["gondola", "rack"] else 0.9)
-	var sz := cs.z + (1.8 if pn in ["gondola", "rack", "pew"] else 0.8)
-	if pn == "school_desk":
-		sx = 1.2
-		sz = 1.3
+	if pn == "lounge":
+		var lx := int((rr.size.x - 3.0) / 5.0)
+		var lz := int((rr.size.y - 4.0) / 4.6)
+		while lx * lz > 6:
+			if lx >= lz:
+				lx -= 1
+			else:
+				lz -= 1
+		return Vector4(5.0, 4.6, lx, lz)
+	var sx := cs.x + (1.8 if pn in ["gondola", "gondola_hw", "gondola_ph", "rack"] else 0.9)
+	var sz := cs.z + (1.8 if pn in ["gondola", "gondola_hw", "gondola_ph", "rack", "pew"] else 0.8)
+	if pn == "bench":
+		sx = cs.x + 1.6
+		sz = 2.2
+	match pn:
+		"school_desk":
+			sx = 1.2
+			sz = 1.3
+		"desk":
+			sx = cs.x + 1.2
+			sz = cs.z + 1.5
+		"table_small":
+			sx = 2.2
+			sz = 2.2
 	var nx := int((rr.size.x - 2.0) / sx)
 	var nz := int((rr.size.y - 3.0) / sz)
+	# teto de peças por cômodo (malha única do interior)
+	var cap := 12 if pn in ["server_rack", "rack"] else 24
+	while nx * nz > cap:
+		if nx >= nz:
+			nx -= 1
+		else:
+			nz -= 1
+	return Vector4(sx, sz, nx, nz)
+
+
+func _grid_fits(rr: Rect2, pn: String) -> bool:
+	var d := _grid_dims(rr, pn)
+	return d.z >= 1 and d.w >= 1
+
+
+func _grid(rr: Rect2, pn: String, y_off: float) -> void:
+	var dm := _grid_dims(rr, pn)
+	var sx := dm.x
+	var sz := dm.y
+	var nx := int(dm.z)
+	var nz := int(dm.w)
+	var yaw := fr.yaw_for(0, -1)
 	for ix in nx:
 		for iz in nz:
 			var u := rr.position.x + 1.0 + sx * (ix + 0.5) + (rr.size.x - 2.0 - nx * sx) * 0.5
 			var w := rr.position.y + 2.0 + sz * (iz + 0.5)
-			_place(PropLib.buf(pn), pn, fr.p(u, w, y_off), fr.yaw_for(0, -1), true)
+			var pos := fr.p(u, w, y_off)
+			if pn == "lounge":
+				_lounge(pos, yaw + (PI * 0.5 if (ix + iz) % 2 == 1 else 0.0))
+				continue
+			var shelfy := pn.begins_with("gondola")
+			if ruined and (shelfy or pn in ["desk", "table_small", "school_desk"]) and rng.randf() < (0.12 if shelfy else 0.15):
+				_place_tipped(pn, pos, yaw + rng.randf_range(-0.4, 0.4), Basis(Vector3.RIGHT, PI * 0.5 * (1.0 if rng.randf() < 0.5 else -1.0)), true)
+				if shelfy:
+					_spill_products(pos, 1.4)
+				continue
+			var gy := yaw + (rng.randf_range(-0.12, 0.12) if ruined and not shelfy and pn != "rack" else 0.0)
+			_place(PropLib.buf(pn), pn, pos, gy, true)
+			var bs := Basis(Vector3.UP, gy)
+			match pn:
+				"desk":
+					_place_office_chair(pos + bs * Vector3(rng.randf_range(-0.2, 0.2), 0, -0.65), gy + PI + rng.randf_range(-0.6, 0.6))
+					if not ruined or rng.randf() < 0.8:
+						_place(PropLib.buf("computer"), "computer", pos + bs * Vector3(-0.15, 0.76, 0.12), gy, false)
+					else:
+						_place_tipped("computer", pos + bs * Vector3(0.4, 0, -0.9), gy + rng.randf_range(-1, 1), Basis(Vector3.RIGHT, -PI * 0.5), false)
+				"table_small":
+					for sd: float in [-1.0, 1.0]:
+						_place_chair(pos + bs * Vector3(0, 0, sd * 0.62), gy + (0.0 if sd > 0 else PI))
+				"gondola", "gondola_hw", "gondola_ph":
+					if ruined and rng.randf() < 0.35:
+						_spill_products(pos + bs * Vector3(0, 0, 0.8 * (1.0 if rng.randf() < 0.5 else -1.0)), 0.9)
+
+
+## Área de espera: sofá, poltronas, mesinha de centro e planta.
+func _lounge(pos: Vector3, yaw: float) -> void:
+	var bs := Basis(Vector3.UP, yaw)
+	_place(PropLib.buf("rug"), "rug", pos, yaw, false)
+	if ruined and rng.randf() < 0.3:
+		_place_tipped("table_small", pos + bs * Vector3(0.3, 0, 0.2), yaw + 0.5, Basis(Vector3.RIGHT, PI * 0.5), true)
+	else:
+		_place(PropLib.buf("table_small"), "table_small", pos, yaw, true)
+	_place(PropLib.buf("sofa"), "sofa", pos + bs * Vector3(0, 0, 1.25), yaw + PI, true)
+	for sd: float in [-1.0, 1.0]:
+		var ay := yaw + sd * PI * 0.5 + (rng.randf_range(-0.5, 0.5) if ruined else 0.0)
+		_place(PropLib.buf("armchair"), "armchair", pos + bs * Vector3(sd * 1.3, 0, 0.1), ay, true)
+	_place(PropLib.buf("plant_pot"), "plant_pot", pos + bs * Vector3(1.6, 0, 1.4), yaw, true)
+
+
+func _place_office_chair(pos: Vector3, yaw: float) -> void:
+	if ruined and rng.randf() < 0.3:
+		_place_tipped("office_chair", pos, yaw, Basis(Vector3.BACK, PI * 0.5), false)
+	else:
+		_place(PropLib.buf("office_chair"), "office_chair", pos, yaw, false)
+
+
+## Produtos caídos das prateleiras (caixinhas coloridas espalhadas).
+func _spill_products(c: Vector3, r: float) -> void:
+	var PLA := Assets.uv2_code(Assets.L_PLASTER)
+	for i in rng.randi_range(6, 14):
+		var o := c + Vector3(rng.randf_range(-r, r), 0, rng.randf_range(-r * 0.6, r * 0.6))
+		var sz := Vector3(rng.randf_range(0.07, 0.18), rng.randf_range(0.05, 0.22), rng.randf_range(0.05, 0.14))
+		var lying := rng.randf() < 0.6
+		var bs := Basis(Vector3.UP, rng.randf() * TAU)
+		if lying:
+			bs = bs * Basis(Vector3.BACK, PI * 0.5)
+		var h := (sz.x if lying else sz.y) * 0.5
+		mesh.box_xf(Transform3D(bs, o + Vector3(0, h + 0.018, 0)), sz, PLA, rng.randf(), Color.from_hsv(rng.randf(), rng.randf_range(0.5, 0.9), rng.randf_range(0.5, 0.95)))
 
 
 ## Registra um prop: mescla geometria, colisão e contêiner (se aplicável).
 func _place(pb: MeshBuf, pn: String, pos: Vector3, yaw: float, collide: bool) -> void:
 	var xf := Transform3D(Basis(Vector3.UP, yaw), pos)
 	mesh.append(pb, xf)
+	if debug_counts != null:
+		debug_counts[pn] = int(debug_counts.get(pn, 0)) + pb.vertex_count()
+	_room_props.append([pn, xf])
+	if SURFACES.has(pn):
+		var sd: Array = SURFACES[pn]
+		_room_surf.append({"xf": xf, "h": float(sd[0]), "ext": Vector2(float(sd[1]), float(sd[2])), "zoff": float(sd[3]), "prop": pn,
+			"kind": CONTAINER_KIND.get(pn, "")})
 	var cs := PropLib.collision_size(pn)
 	if collide and cs != Vector3.ZERO:
 		mesh.add_collider(Transform3D(xf.basis, pos + Vector3(0, cs.y * 0.5, 0)), cs)
@@ -915,3 +1100,819 @@ func _furnish_helena(rr: Rect2, y_off: float) -> void:
 	_place(PropLib.buf("chair"), "chair", dp + fr.d3(0, -0.8), fr.yaw_for(0, 1), false)
 	_place_wall_props(Rect2(rr.position.x, rr.position.y, rr.size.x, rr.size.y * 0.6), ["bookshelf", "filing_cabinet", "bookshelf", "cabinet_low"], [], y_off)
 	out["markers"]["helena_office_desk"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(0, 1)), dp + fr.d3(0, -0.2) + Vector3(0, 0.8, 0))
+
+
+# ---------------------------------------------------------------------------
+# Itens soltos (em cima de móveis e no chão)
+# ---------------------------------------------------------------------------
+func _after_room(rr: Rect2, tp: String, y_off: float, doors: Array) -> void:
+	if not out.has("room_views"):
+		out["room_views"] = []
+	out["room_views"].append({"type": tp, "area": rr.get_area(), "a": fr.p(rr.position.x + 0.45, rr.position.y + 0.45, y_off),
+		"b": fr.p(rr.end.x - 0.45, rr.end.y - 0.45, y_off)})
+	# orçamento de vértices por interior (malha única; GPUs antigas e subida da malha no quadro)
+	var left := VERT_BUDGET - mesh.vertex_count()
+	_room_fixtures(rr, tp, y_off, doors, left > 25000)
+	if left > 40000:
+		for sd in _room_surf:
+			if rng.randf() < 0.7:
+				_surface_decor(sd, tp)
+	_scatter_items(rr, tp, y_off)
+	if ruined:
+		_decay(rr, tp, y_off, doors, clampf(float(left) / 60000.0, 0.25, 1.0))
+
+
+# ---------------------------------------------------------------------------
+# Acabamentos: rodapé, luminárias, quadros, relógios, cartazes
+# ---------------------------------------------------------------------------
+const WALL_DECOR := {
+	"living": ["picture", "picture", "wall_clock", "wall_shelf", "picture"], "kitchen": ["wall_clock", "wall_shelf"],
+	"bedroom": ["picture", "mirror", "picture"], "kids": ["poster", "picture", "poster"], "bathroom": ["mirror"],
+	"hall": ["picture", "mirror"], "office": ["notice_board", "wall_clock", "poster", "picture"], "reception": ["notice_board", "wall_clock", "poster"],
+	"classroom": ["notice_board", "wall_clock", "poster"], "sales": ["poster", "poster", "wall_clock"], "pharmacy": ["poster", "wall_clock"],
+	"hardware": ["poster", "notice_board"], "bar": ["poster", "picture", "wall_clock", "poster"], "ward": ["wall_clock", "notice_board"],
+	"med_storage": ["notice_board"], "garage": ["poster", "notice_board", "wall_shelf"], "storage": ["notice_board"],
+	"armory": ["notice_board"], "radio": ["notice_board", "poster"], "lobby": ["poster", "wall_clock"], "terminal": ["poster", "wall_clock", "poster"],
+	"market_hall": ["poster", "poster"], "lab_room": ["notice_board"], "chapel": ["picture"], "bunker": ["poster"],
+}
+const NO_BASEBOARD := ["storage", "hall_big", "barn", "garage", "cell", "bunker", "server", "armory", "radio", "market_hall"]
+
+
+func _room_fixtures(rr: Rect2, tp: String, y_off: float, doors: Array, rich: bool = true) -> void:
+	var walls := _room_walls(rr)
+	# rodapé (quebra nas portas)
+	if tp not in NO_BASEBOARD:
+		var bcol := Color(0.42, 0.32, 0.24) if tp in RESIDENTIAL else Color(0.55, 0.55, 0.53)
+		var bcode := Assets.uv2_code(Assets.L_WOOD if tp in RESIDENTIAL else Assets.L_PANELS)
+		for wd in walls:
+			for seg in _wall_segments(wd, doors):
+				var a: float = seg[0]
+				var b: float = seg[1]
+				if b - a < 0.15:
+					continue
+				var o: Vector2 = wd["o"]
+				var dir: Vector2 = wd["dir"]
+				var n2: Vector2 = wd["n"]
+				var mid := o + dir * ((a + b) * 0.5) + n2 * 0.009
+				var sz := fr.d3(dir.x * (b - a), dir.y * (b - a)).abs() + fr.d3(n2.x * 0.018, n2.y * 0.018).abs()
+				mesh.box(fr.p(mid.x, mid.y, y_off + 0.055), Vector3(maxf(sz.x, 0.018), 0.09, maxf(sz.z, 0.018)), bcode, 0.2, bcol)
+	# luminárias de teto (desligadas ou penduradas depois do surto)
+	var top := y_off + fh - 0.012
+	if not rich:
+		_ceiling_lamp("pendant_lamp" if tp in RESIDENTIAL else "fluoro_lamp", rr.get_center(), top, y_off)
+		return
+	if tp in RESIDENTIAL:
+		_ceiling_lamp("pendant_lamp", rr.get_center(), top, y_off)
+	elif tp not in ["corridor", "isolation", "observation"]:
+		var nx := clampi(int(rr.size.x / 3.6), 1, 4)
+		var nz := clampi(int(rr.size.y / 3.6), 1, 4)
+		for ix in nx:
+			for iz in nz:
+				_ceiling_lamp("fluoro_lamp", Vector2(rr.position.x + rr.size.x * (ix + 0.5) / nx, rr.position.y + rr.size.y * (iz + 0.5) / nz), top, y_off)
+	# quadros, relógios, cartazes, espelhos
+	var deco: Array = WALL_DECOR.get(tp, [])
+	if deco.is_empty():
+		return
+	var want := mini(deco.size(), 1 + int(rr.get_area() / 10.0))
+	var placed := 0
+	for t in want * 3:
+		if placed >= want:
+			break
+		var wd: Dictionary = walls[rng.randi() % walls.size()]
+		var len: float = wd["len"]
+		if len < 1.2:
+			continue
+		var pn: String = deco[placed % deco.size()]
+		var s := rng.randf_range(0.6, len - 0.6)
+		if _wall_has_door(wd, s, 0.5, doors):
+			continue
+		var h := 1.55 if pn != "notice_board" else 1.45
+		if pn == "mirror":
+			h = 1.5
+		if pn == "wall_clock":
+			h = 2.1
+		var o: Vector2 = wd["o"]
+		var dir: Vector2 = wd["dir"]
+		var n2: Vector2 = wd["n"]
+		var q := o + dir * s
+		var front := fr.p(q.x + n2.x * 0.3, q.y + n2.y * 0.3, y_off)
+		if not _wall_front_free(front, h):
+			continue
+		var yaw := fr.yaw_for(n2.x, n2.y)
+		var bs := Basis(Vector3.UP, yaw)
+		if ruined and pn in ["picture", "poster", "mirror"] and rng.randf() < 0.25:
+			# caiu da parede: deitado no chão, com cacos
+			var fp := fr.p(q.x + n2.x * 0.35, q.y + n2.y * 0.35, y_off + 0.03)
+			mesh.append(PropLib.buf(pn), Transform3D(bs * Basis(Vector3.RIGHT, -PI * 0.5 + rng.randf_range(-0.1, 0.1)), fp))
+			if pn != "poster":
+				_glass_shards(fp, 0.25, fr.d3(dir.x, dir.y).normalized(), fr.d3(n2.x, n2.y).normalized())
+		else:
+			var roll := rng.randf_range(-0.22, 0.22) if ruined and pn != "notice_board" else rng.randf_range(-0.02, 0.02)
+			var wp := fr.p(q.x + n2.x * 0.017, q.y + n2.y * 0.017, y_off + h)
+			mesh.append(PropLib.buf(pn), Transform3D(bs * Basis(Vector3.BACK, roll), wp))
+		placed += 1
+
+
+## Trechos contínuos de parede (sem portas): [[a, b], ...] ao longo do lado.
+func _wall_segments(wd: Dictionary, doors: Array) -> Array:
+	var len: float = wd["len"]
+	var o: Vector2 = wd["o"]
+	var dir: Vector2 = wd["dir"]
+	var n: Vector2 = wd["n"]
+	var cuts: Array = []
+	for d in doors:
+		var rel: Vector2 = (d["a"] as Vector2) - o
+		if absf(rel.dot(n)) < 0.4:
+			var al := rel.dot(dir)
+			var hw := float(d.get("w", DOOR_W)) * 0.5 + 0.03
+			cuts.append([al - hw, al + hw])
+	if bool(wd["ext"]) and n.y > 0.5:
+		var al2 := _door_u - o.x
+		cuts.append([al2 - 0.85, al2 + 0.85])
+	cuts.sort_custom(func(x, y): return float(x[0]) < float(y[0]))
+	var segs: Array = []
+	var u := 0.0
+	for c in cuts:
+		var c0: float = clampf(c[0], 0.0, len)
+		var c1: float = clampf(c[1], 0.0, len)
+		if c0 > u:
+			segs.append([u, c0])
+		u = maxf(u, c1)
+	if u < len:
+		segs.append([u, len])
+	return segs
+
+
+## Nada alto (armário, estante) encostado na parede neste ponto?
+func _wall_front_free(wp: Vector3, h: float) -> bool:
+	var cols: Array = mesh.colliders
+	for ci in range(_col0, cols.size()):
+		var xf: Transform3D = cols[ci][0]
+		var sz: Vector3 = cols[ci][1]
+		if xf.origin.y + sz.y * 0.5 < h - 0.35:
+			continue
+		var lp := xf.affine_inverse() * Vector3(wp.x, xf.origin.y, wp.z)
+		if absf(lp.x) < sz.x * 0.5 + 0.35 and absf(lp.z) < sz.z * 0.5 + 0.35:
+			return false
+	return true
+
+
+func _ceiling_lamp(pn: String, q: Vector2, top: float, y_off: float) -> void:
+	var yaw := fr.yaw_for(1, 0)
+	var p := fr.p(q.x, q.y, 0.0)
+	p.y = top
+	if ruined and rng.randf() < 0.1:
+		# caiu no chão
+		var fp := fr.p(q.x + rng.randf_range(-0.4, 0.4), q.y + rng.randf_range(-0.4, 0.4), y_off)
+		var src := PropLib.buf(pn)
+		mesh.append(src, Transform3D(Basis(Vector3.UP, yaw + rng.randf_range(-1, 1)), fp + Vector3(0, 0.07 if pn == "fluoro_lamp" else 0.75, 0)))
+		if pn == "fluoro_lamp":
+			_glass_shards(fp, 0.35, fr.d3(1, 0).normalized(), fr.d3(0, 1).normalized())
+		return
+	var tilt := Basis.IDENTITY
+	if ruined and pn == "fluoro_lamp" and rng.randf() < 0.18:
+		# pendurada por uma ponta
+		var ta := rng.randf_range(0.5, 0.9) * (1.0 if rng.randf() < 0.5 else -1.0)
+		tilt = Basis(Vector3.BACK, ta)
+		p.y -= 0.62 * absf(sin(ta))
+	mesh.append(PropLib.buf(pn), Transform3D(Basis(Vector3.UP, yaw) * tilt, p))
+
+
+func _scatter_items(rr: Rect2, tp: String, y_off: float) -> void:
+	var max_items := 2 if rr.get_area() < 12.0 else (3 if rr.get_area() < 35.0 else 5)
+	var n := 0
+	# embaralha de forma determinística (mesmo prédio = mesmos pontos)
+	var surf := _room_surf.duplicate()
+	for i in range(surf.size() - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var t = surf[i]
+		surf[i] = surf[j]
+		surf[j] = t
+	for sd in surf:
+		if n >= max_items:
+			break
+		if rng.randf() > 0.5:
+			continue
+		var ext: Vector2 = sd["ext"]
+		var lp := Vector3(rng.randf_range(-ext.x, ext.x) * 0.75, float(sd["h"]) + 0.004, float(sd["zoff"]) + rng.randf_range(-ext.y, ext.y) * 0.7)
+		var xf: Transform3D = sd["xf"]
+		out["pickups"].append({"pos": xf * lp, "context": context, "room": tp, "kind": _surface_kind(sd, tp), "yaw": rng.randf() * TAU})
+		n += 1
+	var nf := 1 + (1 if rng.randf() < 0.4 else 0) + (1 if rr.get_area() > 40.0 else 0)
+	for i in nf:
+		var p2 := _free_floor_spot(rr)
+		if p2.x == INF:
+			continue
+		out["pickups"].append({"pos": fr.p(p2.x, p2.y, y_off + 0.02), "context": context, "room": tp, "kind": "_floor", "yaw": rng.randf() * TAU})
+
+
+## Que tabela de loot vale para um item apoiado neste móvel.
+func _surface_kind(sd: Dictionary, tp: String) -> String:
+	var k: String = sd["kind"]
+	if k != "":
+		return k
+	match tp:
+		"kitchen": return "kitchen_cabinet"
+		"bedroom", "kids": return "nightstand"
+		"living", "hall": return "drawer"
+		"bar": return "counter"
+		"office", "reception", "classroom", "radio": return "desk"
+		"garage", "hardware": return "workbench"
+		"ward", "med_storage": return "med_cart"
+	return "_floor"
+
+
+## Ponto livre no piso do cômodo (fora dos móveis e longe de outros itens), em (u, w).
+func _free_floor_spot(rr: Rect2, margin: float = 0.45) -> Vector2:
+	if rr.size.x < margin * 2.2 or rr.size.y < margin * 2.2:
+		return Vector2(INF, INF)
+	for t in 10:
+		var q := Vector2(rng.randf_range(rr.position.x + margin, rr.end.x - margin), rng.randf_range(rr.position.y + margin, rr.end.y - margin))
+		var wp := fr.p(q.x, q.y, 0.0)
+		if not _spot_free(wp, 0.12):
+			continue
+		var near := false
+		for pk in out["pickups"]:
+			var pp: Vector3 = pk["pos"]
+			if Vector2(pp.x - wp.x, pp.z - wp.z).length() < 0.5:
+				near = true
+				break
+		if not near:
+			return q
+	return Vector2(INF, INF)
+
+
+func _spot_free(wp: Vector3, pad: float) -> bool:
+	var cols: Array = mesh.colliders
+	for ci in range(_col0, cols.size()):
+		var xf: Transform3D = cols[ci][0]
+		var sz: Vector3 = cols[ci][1]
+		var lp := xf.affine_inverse() * Vector3(wp.x, xf.origin.y, wp.z)
+		if absf(lp.x) < sz.x * 0.5 + pad and absf(lp.z) < sz.z * 0.5 + pad:
+			return false
+	return true
+
+
+# ---------------------------------------------------------------------------
+# Abandono: móveis tombados, sujeira, entulho, pichações, teto caído
+# ---------------------------------------------------------------------------
+func _place_chair(pos: Vector3, yaw: float) -> void:
+	if ruined and rng.randf() < 0.35:
+		_place_tipped("chair", pos + fr.d3(rng.randf_range(-0.3, 0.3), rng.randf_range(-0.3, 0.3)), yaw + rng.randf_range(-0.6, 0.6),
+			Basis(Vector3.BACK, PI * 0.5 * (1.0 if rng.randf() < 0.5 else -1.0)), false)
+	else:
+		_place(PropLib.buf("chair"), "chair", pos, yaw + (rng.randf_range(-0.35, 0.35) if ruined else 0.0), false)
+
+
+## Móvel deitado/virado: `tip` gira o prop no espaço local; apoia o ponto mais baixo no piso.
+func _place_tipped(pn: String, pos: Vector3, yaw: float, tip: Basis, collide: bool) -> void:
+	var src := PropLib.buf(pn)
+	var lo := INF
+	for v in src.verts:
+		lo = minf(lo, (tip * v).y)
+	if lo == INF:
+		return
+	var bs := Basis(Vector3.UP, yaw) * tip
+	var xf := Transform3D(bs, pos + Vector3(0, -lo + 0.003, 0))
+	mesh.append(src, xf)
+	if collide:
+		var cs := PropLib.collision_size(pn)
+		if cs != Vector3.ZERO:
+			mesh.add_collider(Transform3D(bs, xf * Vector3(0, cs.y * 0.5, 0)), cs)
+
+
+## Tábuas pregadas e cacos de vidro sob algumas janelas.
+func _window_decay(base: Vector3, along: Vector3, n: Vector3) -> void:
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var r := rng.randf()
+	if r < 0.3:
+		var cnt := rng.randi_range(2, 4)
+		for i in cnt:
+			var h := 1.05 + (float(i) + 0.5) / float(cnt) * 1.1 + rng.randf_range(-0.08, 0.08)
+			var tilt := rng.randf_range(-0.25, 0.25)
+			var bs := Basis(along, n.cross(along).normalized(), n).orthonormalized() * Basis(Vector3.BACK, tilt)
+			mesh.box_xf(Transform3D(bs, base + Vector3(0, h, 0) + n * (0.03 + i * 0.022)), Vector3(1.45, 0.12, 0.02), WOOD, rng.randf(),
+				Color(0.62, 0.5, 0.36).darkened(rng.randf() * 0.25))
+	elif r < 0.55:
+		_glass_shards(base + n * 0.35, 0.45, along, n)
+
+
+func _glass_shards(c: Vector3, spread: float, along: Vector3, n: Vector3) -> void:
+	var TIL := Assets.uv2_code(Assets.L_TILES)
+	for i in rng.randi_range(5, 11):
+		var o := c + along * rng.randf_range(-spread, spread) + n * rng.randf_range(-0.2, spread * 0.8)
+		o.y = c.y + 0.018 + i * 0.0004
+		var s := rng.randf_range(0.02, 0.07)
+		var a := rng.randf() * TAU
+		var p0 := o + Vector3(cos(a), 0, sin(a)) * s
+		var p1 := o + Vector3(cos(a + 2.2), 0, sin(a + 2.2)) * s * rng.randf_range(0.5, 1.0)
+		var p2 := o + Vector3(cos(a + 4.1), 0, sin(a + 4.1)) * s * rng.randf_range(0.4, 0.9)
+		mesh.tri(p0, p1, p2, Vector3.UP, Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), Vector2(p2.x, p2.z), TIL, 0.0, Color(0.75, 0.85, 0.88))
+
+
+func _decay(rr: Rect2, tp: String, y_off: float, doors: Array, amount: float = 1.0) -> void:
+	var area := rr.get_area()
+	var k := clampf(area / 14.0, 0.6, 3.0) * amount
+	var PLA := Assets.uv2_code(Assets.L_PLASTER)
+	var FAB := Assets.uv2_code(Assets.L_FABRIC)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var spec: Dictionary = ROOM_SPECS.get(tp, {})
+	var fl := int(spec.get("floor", Assets.L_WOOD))
+	if tp in ["corridor", "lab_main", "observation", "isolation", "office_helena", "cold_storage"]:
+		fl = Assets.L_LINOLEUM
+	var floor_code := Assets.uv2_code(fl)
+	var fy := y_off + 0.017
+	# 1) manchas no piso: sujeira, infiltração, sangue seco
+	for i in int(2.0 * k) + rng.randi_range(0, 2):
+		var q := _rand_in(rr, 0.4)
+		var blood := rng.randf() < 0.16
+		var col := Color(0.42, 0.12, 0.08) if blood else Color(0.62, 0.56, 0.48).darkened(rng.randf() * 0.25)
+		_stain(fr.p(q.x, q.y, fy + i * 0.0003), rng.randf_range(0.25, 0.85), floor_code, col)
+	if rng.randf() < 0.12:
+		_blood_trail(rr, fy + 0.004, floor_code)
+	# 2) papéis espalhados
+	var np := int(float(rng.randi_range(2, 6)) * k * (1.8 if tp in ["office", "reception", "classroom", "lobby", "radio"] else 1.0))
+	for i in np:
+		var q := _rand_in(rr, 0.3)
+		var paper := Color(0.97, 0.95, 0.88).lerp(Color(0.78, 0.7, 0.52), rng.randf())
+		mesh.box_xf(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.05, 0.05)), fr.p(q.x, q.y, fy + 0.003 + i * 0.0005)),
+			Vector3(0.21, 0.0015, 0.297), PLA, rng.randf(), paper)
+	# 3) entulho de reboco caído perto das paredes
+	for i in int(float(rng.randi_range(2, 6)) * k):
+		var q := _rand_near_wall(rr)
+		var sz := Vector3(rng.randf_range(0.03, 0.17), rng.randf_range(0.012, 0.045), rng.randf_range(0.03, 0.14))
+		mesh.box_xf(Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3))),
+			fr.p(q.x, q.y, fy + sz.y * 0.35)), sz, PLA, rng.randf(), Color(0.86, 0.84, 0.8))
+	# 4) lixo: latas, garrafas, sacolas, embalagens amassadas
+	for i in int(float(rng.randi_range(2, 6)) * k):
+		var q := _rand_in(rr, 0.35)
+		var wp := fr.p(q.x, q.y, fy)
+		if not _spot_free(wp, 0.0):
+			continue
+		_trash_piece(wp)
+	# 5) cantos: sacos de lixo / caixas de papelão
+	if rng.randf() < 0.3 * k and tp not in ["bathroom", "corridor", "isolation"]:
+		var q := _rand_near_wall(rr, 0.55)
+		var wp := fr.p(q.x, q.y, y_off)
+		if _spot_free(wp, 0.35):
+			mesh.append(PropLib.buf("trash_bags" if rng.randf() < 0.6 else "cardboard"), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * 0.75), wp))
+	# 6) paredes: infiltração, mofo, rachaduras, reboco caído (tijolo exposto), pichação
+	var walls := _room_walls(rr)
+	for wd in walls:
+		var len: float = wd["len"]
+		if len < 1.2:
+			continue
+		if rng.randf() < 0.55:
+			_wall_streak(wd, rng.randf_range(0.4, len - 0.4), y_off, doors)
+		if rng.randf() < 0.3:
+			_wall_crack(wd, rng.randf_range(0.5, len - 0.5), y_off, doors)
+		if bool(wd["ext"]) and rng.randf() < 0.25:
+			_wall_brick(wd, rng.randf_range(0.6, len - 0.6), y_off, doors)
+		if rng.randf() < 0.18:
+			_wall_blood(wd, rng.randf_range(0.5, len - 0.5), y_off, doors)
+	if _graffiti_n < 3 and rng.randf() < (0.22 if tp not in ["bathroom", "kids"] else 0.08):
+		var wd: Dictionary = walls[rng.randi() % walls.size()]
+		if float(wd["len"]) > 1.6:
+			_graffiti(wd, rng.randf_range(0.8, float(wd["len"]) - 0.8), y_off, doors)
+	# 7) teto desabado (placas e fiação caídas)
+	if tp not in ["corridor", "isolation", "observation"] and area > 7.0 and rng.randf() < 0.2:
+		_ceiling_collapse(rr, y_off, floor_code)
+	# 8) detalhes por cômodo
+	match tp:
+		"bedroom", "kids":
+			for i in rng.randi_range(1, 4):
+				var q := _rand_in(rr, 0.45)
+				var wp := fr.p(q.x, q.y, fy)
+				if _spot_free(wp, 0.05):
+					_clothes(wp)
+		"kitchen", "bar":
+			for i in rng.randi_range(3, 8):
+				var q := _rand_in(rr, 0.4)
+				var sz := rng.randf_range(0.02, 0.07)
+				mesh.box_xf(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), fr.p(q.x, q.y, fy + 0.004)), Vector3(sz, 0.006, sz * rng.randf_range(0.5, 1.2)),
+					Assets.uv2_code(Assets.L_TILES), 0.0, Color(0.95, 0.95, 0.93))
+			if rng.randf() < 0.5:
+				var q := _rand_in(rr, 0.5)
+				var wp := fr.p(q.x, q.y, y_off + 0.12)
+				mesh.cylinder(Transform3D(Basis(Vector3.BACK, PI * 0.5) * Basis(Vector3.UP, rng.randf()), wp), 0.12, 0.14, 10, MET, 0.0, Color(0.55, 0.55, 0.58))
+		"bathroom":
+			if rng.randf() < 0.6:
+				var q := _rand_in(rr, 0.4)
+				_clothes(fr.p(q.x, q.y, fy), Color(0.9, 0.9, 0.88))
+	# livros caídos na frente das estantes, gavetas no chão
+	for pr in _room_props:
+		var pn: String = pr[0]
+		var pxf: Transform3D = pr[1]
+		if (pn == "bookshelf" or pn == "shelf") and rng.randf() < 0.65:
+			for i in rng.randi_range(2, 6):
+				var lp := Vector3(rng.randf_range(-0.45, 0.45), 0.0, rng.randf_range(-0.35, -0.85))
+				var wp := pxf * lp
+				wp.y = fy + 0.015 + i * 0.002
+				var bc := Color.from_hsv(rng.randf(), rng.randf_range(0.3, 0.6), rng.randf_range(0.3, 0.7))
+				mesh.box_xf(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.BACK, rng.randf_range(-0.2, 0.2)), wp),
+					Vector3(0.15, 0.03, 0.22) if pn == "bookshelf" else Vector3(0.14, 0.09, 0.1), FAB, rng.randf(), bc)
+		elif pn in ["cabinet_low", "nightstand", "desk", "kitchen_counter"] and rng.randf() < 0.3:
+			var wp := pxf * Vector3(rng.randf_range(-0.2, 0.2), 0.0, -0.6)
+			wp.y = y_off + 0.07
+			mesh.box_xf(Transform3D(Basis(Vector3.UP, pxf.basis.get_euler().y + rng.randf_range(-0.8, 0.8)), wp), Vector3(0.4, 0.12, 0.36),
+				Assets.uv2_code(Assets.L_WOOD), rng.randf(), Color(0.6, 0.46, 0.33))
+	# ninho de sobrevivente (colchão no chão, latas, vela)
+	if tp in ["living", "office", "hall", "storage", "classroom", "reception", "bunker"] and rng.randf() < 0.12:
+		_survivor_nest(rr, y_off)
+
+
+func _rand_in(rr: Rect2, margin: float) -> Vector2:
+	return Vector2(rng.randf_range(rr.position.x + margin, maxf(rr.position.x + margin, rr.end.x - margin)),
+		rng.randf_range(rr.position.y + margin, maxf(rr.position.y + margin, rr.end.y - margin)))
+
+
+func _rand_near_wall(rr: Rect2, inset: float = 0.45) -> Vector2:
+	var side := rng.randi() % 4
+	var q := _rand_in(rr, inset)
+	match side:
+		0: q.y = rr.position.y + inset
+		1: q.x = rr.end.x - inset
+		2: q.y = rr.end.y - inset
+		_: q.x = rr.position.x + inset
+	return q
+
+
+## Mancha irregular no piso (três anéis: borda quase da cor do piso até o miolo escuro).
+func _stain(c: Vector3, r: float, code: float, col: Color) -> void:
+	var n := 16
+	var rs: Array = []
+	var ph := rng.randf() * TAU
+	for i in n:
+		var a := TAU * float(i) / float(n)
+		rs.append(r * (0.72 + 0.18 * sin(a * 3.0 + ph) + rng.randf_range(-0.12, 0.12)))
+	var ex := rng.randf_range(0.55, 1.0)
+	var rot := rng.randf() * TAU
+	var off := Vector2(rng.randf_range(-0.15, 0.15), rng.randf_range(-0.15, 0.15)) * r
+	for ring in 3:
+		var sc := [1.0, 0.72, 0.42][ring] as float
+		var cc := col.lerp(Color(1, 1, 1), [0.62, 0.3, 0.0][ring] as float)
+		var y := c.y + ring * 0.0007
+		var cen := Vector3(c.x + off.x * ring * 0.5, y, c.z + off.y * ring * 0.5)
+		var pts: Array = []
+		for i in n:
+			var a := TAU * float(i) / float(n)
+			var v := Vector2(cos(a) * float(rs[i]) * sc, sin(a) * float(rs[i]) * sc * ex).rotated(rot)
+			pts.append(Vector3(cen.x + v.x, y, cen.z + v.y))
+		for i in n:
+			var p0: Vector3 = pts[i]
+			var p1: Vector3 = pts[(i + 1) % n]
+			mesh.tri(cen, p0, p1, Vector3.UP, Vector2(cen.x, cen.z), Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), code, 0.37, cc)
+
+
+func _blood_trail(rr: Rect2, y: float, code: float) -> void:
+	var a := _rand_in(rr, 0.5)
+	var b := _rand_in(rr, 0.5)
+	var steps := int(a.distance_to(b) / 0.35)
+	for i in steps:
+		var q := a.lerp(b, float(i) / float(maxi(steps, 1))) + Vector2(rng.randf_range(-0.08, 0.08), rng.randf_range(-0.08, 0.08))
+		_stain(fr.p(q.x, q.y, y + i * 0.0002), rng.randf_range(0.06, 0.16), code, Color(0.4, 0.1, 0.07))
+
+
+func _trash_piece(wp: Vector3) -> void:
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var TIL := Assets.uv2_code(Assets.L_TILES)
+	var FAB := Assets.uv2_code(Assets.L_FABRIC)
+	var PLA := Assets.uv2_code(Assets.L_PLASTER)
+	var yaw := rng.randf() * TAU
+	var r := rng.randf()
+	if r < 0.3:   # lata deitada
+		mesh.cylinder(Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, PI * 0.5), wp + Vector3(0, 0.034, 0)), 0.034, 0.11, 8, MET, rng.randf(),
+			Color.from_hsv(rng.randf(), 0.6, 0.7))
+	elif r < 0.5:   # garrafa deitada
+		mesh.cylinder(Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, PI * 0.5), wp + Vector3(0, 0.035, 0)), 0.035, 0.22, 8, TIL, 0.0,
+			Color(0.35, 0.55, 0.3) if rng.randf() < 0.5 else Color(0.55, 0.4, 0.2))
+	elif r < 0.75:   # papel/embalagem amassada
+		var s := rng.randf_range(0.04, 0.08)
+		mesh.box_xf(Transform3D(Basis.from_euler(Vector3(rng.randf(), yaw, rng.randf())), wp + Vector3(0, s * 0.4, 0)), Vector3(s, s * 0.8, s * 0.9), PLA, rng.randf(),
+			Color(0.95, 0.93, 0.88) if rng.randf() < 0.6 else Color.from_hsv(rng.randf(), 0.6, 0.8))
+	else:   # sacola plástica achatada
+		mesh.box_xf(Transform3D(Basis(Vector3.UP, yaw), wp + Vector3(0, 0.01, 0)), Vector3(rng.randf_range(0.18, 0.3), 0.02, rng.randf_range(0.15, 0.25)), FAB, rng.randf(),
+			Color.from_hsv(rng.randf(), 0.3, 0.85))
+
+
+func _clothes(wp: Vector3, col: Color = Color(-1, 0, 0)) -> void:
+	var FAB := Assets.uv2_code(Assets.L_FABRIC)
+	var c := col if col.r >= 0.0 else Color.from_hsv(rng.randf(), rng.randf_range(0.2, 0.6), rng.randf_range(0.3, 0.75))
+	var yaw := rng.randf() * TAU
+	mesh.box_xf(Transform3D(Basis(Vector3.UP, yaw), wp + Vector3(0, 0.012, 0)), Vector3(rng.randf_range(0.35, 0.55), 0.024, rng.randf_range(0.3, 0.5)), FAB, rng.randf(), c)
+	mesh.box_xf(Transform3D(Basis(Vector3.UP, yaw + rng.randf_range(0.4, 1.2)), wp + Vector3(0.12, 0.03, 0.05)), Vector3(0.1, 0.03, 0.4), FAB, rng.randf(), c.darkened(0.1))
+
+
+## Lados internos de um cômodo: origem (u, w), direção, normal para dentro, comprimento, se é parede externa.
+func _room_walls(rr: Rect2) -> Array:
+	var W := fr.width
+	var D := fr.depth
+	var o: Array = []
+	var e0 := rr.position.y < 0.05
+	var e1 := rr.end.x > W - 0.05
+	var e2 := rr.end.y > D - 0.05
+	var e3 := rr.position.x < 0.05
+	var t := WALL_T * 0.5
+	o.append({"o": Vector2(rr.position.x, rr.position.y + (0.3 if e0 else t)), "dir": Vector2(1, 0), "n": Vector2(0, 1), "len": rr.size.x, "ext": e0, "line": rr.position.y, "a0": rr.position.x})
+	o.append({"o": Vector2(rr.end.x - (0.3 if e1 else t), rr.position.y), "dir": Vector2(0, 1), "n": Vector2(-1, 0), "len": rr.size.y, "ext": e1, "line": rr.end.x, "a0": rr.position.y})
+	o.append({"o": Vector2(rr.end.x, rr.end.y - (0.3 if e2 else t)), "dir": Vector2(-1, 0), "n": Vector2(0, -1), "len": rr.size.x, "ext": e2, "line": rr.end.y, "a0": rr.end.x})
+	o.append({"o": Vector2(rr.position.x + (0.3 if e3 else t), rr.end.y), "dir": Vector2(0, -1), "n": Vector2(1, 0), "len": rr.size.y, "ext": e3, "line": rr.position.x, "a0": rr.end.y})
+	return o
+
+
+## Há porta/abertura nesta parede perto da posição `s` (ao longo)?
+func _wall_has_door(wd: Dictionary, s: float, half: float, doors: Array) -> bool:
+	var o: Vector2 = wd["o"]
+	var dir: Vector2 = wd["dir"]
+	var n: Vector2 = wd["n"]
+	var q := o + dir * s
+	for d in doors:
+		var dp: Vector2 = d["a"]
+		var rel := dp - q
+		if absf(rel.dot(n)) < 0.4 and absf(rel.dot(dir)) < half + float(d.get("w", DOOR_W)) * 0.5 + 0.15:
+			return true
+	if bool(wd["ext"]) and n.y > 0.5:
+		if absf(q.x - _door_u) < half + 1.0:
+			return true
+	return false
+
+
+## Polígono (s = ao longo, v = altura) desenhado rente à parede.
+func _wall_poly(wd: Dictionary, pts: PackedVector2Array, y_off: float, code: float, col: Color, off: float = 0.006) -> void:
+	var o: Vector2 = wd["o"]
+	var dir: Vector2 = wd["dir"]
+	var n2: Vector2 = wd["n"]
+	var n := fr.d3(n2.x, n2.y).normalized()
+	var tris := Geometry2D.triangulate_polygon(pts)
+	if tris.is_empty():
+		return
+	var w3: Array = []
+	for p in pts:
+		var q := o + dir * p.x + n2 * off
+		w3.append(fr.p(q.x, q.y, y_off + p.y))
+	for t in range(0, tris.size(), 3):
+		var i0 := tris[t]
+		var i1 := tris[t + 1]
+		var i2 := tris[t + 2]
+		mesh.tri(w3[i0], w3[i1], w3[i2], n, pts[i0], pts[i1], pts[i2], code, 0.53, col)
+
+
+func _wall_streak(wd: Dictionary, s: float, y_off: float, doors: Array) -> void:
+	var w := rng.randf_range(0.25, 1.0)
+	if _wall_has_door(wd, s, w * 0.5, doors):
+		return
+	var top := fh - 0.03
+	var ln := rng.randf_range(0.5, 1.5)
+	var mold := rng.randf() < 0.35
+	# duas camadas: auréola clara e miolo mais escuro e curto (infiltração escorrendo)
+	for layer in 2:
+		var ww := w * (1.0 if layer == 0 else 0.6)
+		var ll := ln * (1.0 if layer == 0 else 0.62)
+		var pts := PackedVector2Array()
+		var nn := 9
+		pts.append(Vector2(s - ww * 0.5, top))
+		pts.append(Vector2(s + ww * 0.5, top))
+		for i in nn:
+			var f := 1.0 - float(i) / float(nn - 1)
+			var drip := rng.randf_range(0.35, 1.0) * (1.0 - 0.5 * absf(f - 0.5))
+			pts.append(Vector2(s - ww * 0.5 + ww * f, top - ll * drip))
+		var col := Color(0.86, 0.82, 0.72) if layer == 0 else Color(0.7, 0.64, 0.52)
+		if mold:
+			col = Color(0.82, 0.84, 0.76) if layer == 0 else Color(0.62, 0.66, 0.56)
+		_wall_poly(wd, pts, y_off, Assets.uv2_code(Assets.L_PLASTER), col, 0.006 + layer * 0.0008)
+
+
+func _wall_crack(wd: Dictionary, s: float, y_off: float, doors: Array) -> void:
+	if _wall_has_door(wd, s, 0.6, doors):
+		return
+	var p := Vector2(s, rng.randf_range(0.6, fh - 0.4))
+	var ang := rng.randf_range(-PI, PI)
+	for i in rng.randi_range(4, 8):
+		ang += rng.randf_range(-0.7, 0.7)
+		var q := p + Vector2(cos(ang), sin(ang)) * rng.randf_range(0.08, 0.22)
+		q.y = clampf(q.y, 0.1, fh - 0.1)
+		var nrm := (q - p).orthogonal().normalized() * rng.randf_range(0.004, 0.009)
+		_wall_poly(wd, PackedVector2Array([p - nrm, q - nrm * 0.6, q + nrm * 0.6, p + nrm]), y_off, Assets.uv2_code(Assets.L_PLASTER), Color(0.22, 0.2, 0.18), 0.007)
+		p = q
+
+
+func _wall_brick(wd: Dictionary, s: float, y_off: float, doors: Array) -> void:
+	var w := rng.randf_range(0.3, 0.8)
+	if _wall_has_door(wd, s, w * 0.5 + 0.1, doors):
+		return
+	var cy := rng.randf_range(0.5, fh - 0.6)
+	var h := rng.randf_range(0.25, 0.55)
+	var pts := PackedVector2Array()
+	var nn := 10
+	for i in nn:
+		var a := TAU * float(i) / float(nn)
+		pts.append(Vector2(s + cos(a) * w * 0.5 * rng.randf_range(0.7, 1.0), cy + sin(a) * h * 0.5 * rng.randf_range(0.7, 1.0)))
+	var rim := PackedVector2Array()
+	for p in pts:
+		rim.append(Vector2(s, cy) + (p - Vector2(s, cy)) * 1.12)
+	_wall_poly(wd, rim, y_off, Assets.uv2_code(Assets.L_PLASTER), Color(0.62, 0.6, 0.56), 0.005)
+	_wall_poly(wd, pts, y_off, Assets.uv2_code(Assets.L_BRICK), Color(0.8, 0.75, 0.72), 0.0065)
+
+
+func _wall_blood(wd: Dictionary, s: float, y_off: float, doors: Array) -> void:
+	if _wall_has_door(wd, s, 0.4, doors):
+		return
+	var cy := rng.randf_range(0.7, 1.5)
+	# marca de mão arrastada: faixas verticais escorrendo
+	for i in rng.randi_range(2, 4):
+		var x := s + i * 0.045 + rng.randf_range(-0.01, 0.01)
+		var ln := rng.randf_range(0.2, 0.6)
+		_wall_poly(wd, PackedVector2Array([Vector2(x - 0.018, cy + 0.08), Vector2(x + 0.018, cy + 0.08), Vector2(x + 0.01, cy - ln), Vector2(x - 0.008, cy - ln + 0.03)]),
+			y_off, Assets.uv2_code(Assets.L_PLASTER), Color(0.35, 0.05, 0.04), 0.0068)
+
+
+func _graffiti(wd: Dictionary, s: float, y_off: float, doors: Array) -> void:
+	if _wall_has_door(wd, s, 0.8, doors):
+		return
+	_graffiti_n += 1
+	var o: Vector2 = wd["o"]
+	var dir: Vector2 = wd["dir"]
+	var n2: Vector2 = wd["n"]
+	var q := o + dir * s + n2 * 0.012
+	var cols := [Color(0.62, 0.07, 0.05), Color(0.07, 0.07, 0.08), Color(0.85, 0.85, 0.82), Color(0.1, 0.25, 0.55)]
+	var text: String = GRAFFITI[rng.randi() % GRAFFITI.size()]
+	var size := rng.randf_range(0.2, 0.34) * (1.6 if text.length() <= 2 else 1.0)
+	out["labels"].append({"xf": Transform3D(Basis(Vector3.UP, fr.yaw_for(n2.x, n2.y)) * Basis(Vector3.BACK, rng.randf_range(-0.09, 0.09)),
+		fr.p(q.x, q.y, y_off + rng.randf_range(1.2, 1.8))), "text": text, "size": size, "color": (cols[rng.randi() % cols.size()] as Color) * Color(1, 1, 1, 0.82)})
+
+
+func _ceiling_collapse(rr: Rect2, y_off: float, floor_code: float) -> void:
+	var PLA := Assets.uv2_code(Assets.L_PLASTER)
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var q := _rand_in(rr, 1.0)
+	var cy := y_off + fh - 0.018
+	var r := rng.randf_range(0.45, 0.9)
+	# buraco escuro no forro (borda quebrada mais clara)
+	for ring in 2:
+		var sc := 1.0 if ring == 0 else 0.82
+		var cc := Color(0.45, 0.43, 0.4) if ring == 0 else Color(0.06, 0.055, 0.05)
+		var yy := cy - ring * 0.002
+		var cen := fr.p(q.x, q.y, yy - y_off)
+		cen.y = yy
+		var pts: Array = []
+		for i in 12:
+			var a := TAU * float(i) / 12.0
+			var rr2 := r * sc * rng.randf_range(0.65, 1.0)
+			var w := fr.p(q.x + cos(a) * rr2, q.y + sin(a) * rr2 * 0.8, 0.0)
+			w.y = yy
+			pts.append(w)
+		for i in 12:
+			var p0: Vector3 = pts[i]
+			var p1: Vector3 = pts[(i + 1) % 12]
+			mesh.tri(cen, p0, p1, Vector3.DOWN, Vector2(cen.x, cen.z), Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), PLA, 0.0, cc)
+	# ripas do forro à mostra
+	for i in 2:
+		var off := (float(i) - 0.5) * r * 0.7
+		var a0 := fr.p(q.x - r * 0.75, q.y + off, 0.0)
+		var a1 := fr.p(q.x + r * 0.75, q.y + off, 0.0)
+		a0.y = cy - 0.035
+		a1.y = cy - 0.035
+		mesh.tube(a0, a1, 0.025, 0.025, 4, WOOD, 0.0, Color(0.5, 0.4, 0.3))
+	# placa pendurada e fios
+	var hang := fr.p(q.x + r * 0.6, q.y, 0.0)
+	hang.y = cy - 0.3
+	mesh.box_xf(Transform3D(Basis(fr.d3(1, 0).normalized(), rng.randf_range(0.9, 1.2)), hang), Vector3(0.6, 0.012, 0.5), PLA, 0.2, Color(0.88, 0.87, 0.84))
+	for i in 2:
+		var top := fr.p(q.x + rng.randf_range(-0.3, 0.3), q.y + rng.randf_range(-0.3, 0.3), 0.0)
+		top.y = cy
+		mesh.tube(top, top + Vector3(rng.randf_range(-0.1, 0.1), -rng.randf_range(0.5, 1.1), rng.randf_range(-0.1, 0.1)), 0.004, 0.004, 4,
+			Assets.uv2_code(Assets.L_METAL), 0.0, Color(0.1, 0.1, 0.1))
+	# placas e pó no chão embaixo
+	_stain(fr.p(q.x, q.y, 0.021 + y_off), r * 1.3, floor_code, Color(1.25, 1.22, 1.15))
+	for i in rng.randi_range(3, 6):
+		var o := fr.p(q.x + rng.randf_range(-r, r), q.y + rng.randf_range(-r, r), y_off + 0.03)
+		mesh.box_xf(Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.25, 0.25), rng.randf() * TAU, rng.randf_range(-0.25, 0.25))), o),
+			Vector3(rng.randf_range(0.2, 0.6), 0.014, rng.randf_range(0.2, 0.5)), PLA, rng.randf(), Color(0.9, 0.89, 0.86))
+	for i in rng.randi_range(4, 9):
+		var o := fr.p(q.x + rng.randf_range(-r, r), q.y + rng.randf_range(-r, r), y_off + 0.03)
+		var sz := rng.randf_range(0.03, 0.1)
+		mesh.box_xf(Transform3D(Basis.from_euler(Vector3(rng.randf(), rng.randf() * TAU, rng.randf())), o), Vector3(sz, sz * 0.6, sz * 0.8), PLA, rng.randf(), Color(0.85, 0.84, 0.8))
+
+
+func _survivor_nest(rr: Rect2, y_off: float) -> void:
+	var q := _free_floor_spot(rr, 1.2)
+	if q.x == INF:
+		return
+	var FAB := Assets.uv2_code(Assets.L_FABRIC)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var yaw := fr.yaw_for(0, 1) + (PI * 0.5 if rng.randf() < 0.5 else 0.0)
+	var bs := Basis(Vector3.UP, yaw)
+	var c := fr.p(q.x, q.y, y_off)
+	mesh.box_xf(Transform3D(bs, c + Vector3(0, 0.08, 0)), Vector3(0.9, 0.15, 1.9), FAB, 0.3, Color(0.75, 0.72, 0.62))
+	mesh.box_xf(Transform3D(bs * Basis(Vector3.UP, 0.1), c + Vector3(0, 0.17, 0) + bs * Vector3(0.05, 0, 0.25)), Vector3(0.85, 0.04, 1.1), FAB, 0.6, Color(0.35, 0.25, 0.4))
+	mesh.box_xf(Transform3D(bs, c + Vector3(0, 0.2, 0) + bs * Vector3(0, 0, -0.75)), Vector3(0.5, 0.1, 0.3), FAB, 0.1, Color(0.9, 0.9, 0.86))
+	for i in rng.randi_range(3, 6):
+		var lp := Vector3(rng.randf_range(0.6, 0.95), 0.0, rng.randf_range(-0.8, 0.8))
+		var wp := c + bs * lp + Vector3(0, 0.017, 0)
+		if rng.randf() < 0.6:
+			mesh.cylinder(Transform3D(Basis.IDENTITY, wp), 0.037, 0.11, 8, MET, rng.randf(), Color.from_hsv(rng.randf(), 0.5, 0.7))
+		else:
+			_trash_piece(wp)
+	# vela derretida num pires
+	var cw := c + bs * Vector3(0.7, 0, -0.95) + Vector3(0, 0.017, 0)
+	mesh.cylinder(Transform3D(Basis.IDENTITY, cw), 0.07, 0.01, 10, Assets.uv2_code(Assets.L_TILES), 0.0, Color(0.9, 0.9, 0.88))
+	mesh.cylinder(Transform3D(Basis.IDENTITY, cw + Vector3(0, 0.01, 0)), 0.02, 0.06, 8, Assets.uv2_code(Assets.L_PLASTER), 0.0, Color(0.95, 0.92, 0.8))
+
+
+# ---------------------------------------------------------------------------
+# Objetos de cena em cima dos móveis (não coletáveis): louça, micro-ondas,
+# abajures, canecas, livros, caixa registradora, vasos…
+# ---------------------------------------------------------------------------
+func _surface_decor(sd: Dictionary, tp: String) -> void:
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var TIL := Assets.uv2_code(Assets.L_TILES)
+	var PLA := Assets.uv2_code(Assets.L_PLASTER)
+	var FAB := Assets.uv2_code(Assets.L_FABRIC)
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var xf: Transform3D = sd["xf"]
+	var ext: Vector2 = sd["ext"]
+	var h: float = sd["h"]
+	var pn: String = sd["prop"]
+	var spot := func(fx: float, fz: float) -> Vector3:
+		return xf * Vector3(ext.x * fx, h, float(sd["zoff"]) + ext.y * fz)
+	var bs := xf.basis
+	var white := Color(0.93, 0.93, 0.9)
+	var knocked := ruined and rng.randf() < 0.35
+	match pn:
+		"kitchen_counter":
+			var p0: Vector3 = spot.call(-0.6, 0.2)
+			mesh.box_xf(Transform3D(bs, p0 + Vector3(0, 0.15, 0)), Vector3(0.5, 0.3, 0.36), MET, 0.1, white)
+			mesh.box_xf(Transform3D(bs, p0 + Vector3(0, 0.15, 0) + bs * Vector3(-0.06, 0, -0.181)), Vector3(0.32, 0.2, 0.004), TIL, 0.0, Color(0.08, 0.08, 0.09))
+			var p1: Vector3 = spot.call(0.35, -0.1)
+			if knocked:
+				mesh.cylinder(Transform3D(bs * Basis(Vector3.BACK, PI * 0.5), p1 + Vector3(0, 0.1, 0)), 0.1, 0.13, 10, MET, 0.0, Color(0.5, 0.5, 0.52))
+			else:
+				mesh.cylinder(Transform3D(bs, p1), 0.11, 0.13, 12, MET, 0.0, Color(0.5, 0.5, 0.52))
+				mesh.cylinder(Transform3D(bs, p1 + Vector3(0, 0.13, 0)), 0.115, 0.012, 12, MET, 0.0, Color(0.35, 0.35, 0.36))
+			var p2: Vector3 = spot.call(0.85, 0.1)
+			for i in rng.randi_range(2, 5):
+				mesh.cylinder(Transform3D(bs, p2 + Vector3(0, i * 0.014, 0)), 0.11, 0.012, 14, TIL, 0.0, white)
+		"desk", "school_desk":
+			var p0: Vector3 = spot.call(rng.randf_range(-0.7, 0.7), rng.randf_range(-0.5, 0.4))
+			for i in rng.randi_range(1, 4):
+				mesh.box_xf(Transform3D(bs * Basis(Vector3.UP, rng.randf_range(-0.3, 0.3)), p0 + Vector3(0, 0.002 + i * 0.003, 0)), Vector3(0.21, 0.002, 0.297), PLA, rng.randf(), Color(0.96, 0.95, 0.9))
+			var p1: Vector3 = spot.call(rng.randf_range(-0.8, 0.8), rng.randf_range(-0.6, 0.6))
+			if knocked:
+				mesh.cylinder(Transform3D(bs * Basis(Vector3.BACK, PI * 0.5), p1 + Vector3(0, 0.04, 0)), 0.04, 0.1, 10, TIL, 0.0, Color.from_hsv(rng.randf(), 0.4, 0.8))
+			else:
+				mesh.cylinder(Transform3D(bs, p1), 0.04, 0.1, 10, TIL, 0.0, Color.from_hsv(rng.randf(), 0.4, 0.8))
+			if pn == "desk" and rng.randf() < 0.6:
+				var p2: Vector3 = spot.call(0.8, 0.5)
+				mesh.cylinder(Transform3D(bs, p2), 0.08, 0.02, 10, MET, 0.0, Color(0.15, 0.15, 0.16))
+				mesh.tube(p2 + Vector3(0, 0.02, 0), p2 + Vector3(0, 0.34, 0) + bs * Vector3(0, 0, -0.08), 0.01, 0.01, 5, MET, 0.0, Color(0.15, 0.15, 0.16))
+				mesh.cylinder(Transform3D(bs, p2 + Vector3(0, 0.3, 0) + bs * Vector3(0, 0, -0.1)), 0.1, 0.1, 10, MET, 0.0, Color(0.2, 0.35, 0.25), false, 0.05)
+		"nightstand":
+			var p0: Vector3 = spot.call(0.0, 0.0)
+			if knocked:
+				mesh.cylinder(Transform3D(bs * Basis(Vector3.BACK, PI * 0.5), p0 + Vector3(0, 0.07, 0)), 0.06, 0.28, 10, FAB, 0.2, Color(0.9, 0.85, 0.7))
+			else:
+				mesh.cylinder(Transform3D(bs, p0), 0.06, 0.2, 10, TIL, 0.0, Color(0.7, 0.55, 0.4))
+				mesh.cylinder(Transform3D(bs, p0 + Vector3(0, 0.2, 0)), 0.14, 0.16, 12, FAB, 0.2, Color(0.9, 0.85, 0.7), false, 0.09)
+		"table", "table_small":
+			for i in rng.randi_range(1, 3):
+				var pp: Vector3 = spot.call(rng.randf_range(-0.7, 0.7), rng.randf_range(-0.6, 0.6))
+				if rng.randf() < 0.55:
+					mesh.cylinder(Transform3D(bs, pp), 0.11, 0.012, 14, TIL, 0.0, white)
+				elif knocked:
+					mesh.cylinder(Transform3D(bs * Basis(Vector3.BACK, PI * 0.5), pp + Vector3(0, 0.035, 0)), 0.035, 0.09, 10, TIL, 0.0, Color(0.8, 0.85, 0.88))
+				else:
+					mesh.cylinder(Transform3D(bs, pp), 0.035, 0.09, 10, TIL, 0.0, Color(0.8, 0.85, 0.88))
+			if rng.randf() < 0.35:
+				var pv: Vector3 = spot.call(0.0, 0.0)
+				mesh.cylinder(Transform3D(bs, pv), 0.07, 0.22, 10, TIL, 0.0, Color.from_hsv(rng.randf(), 0.35, 0.6), true, 0.05)
+				for k in 5:
+					var a := TAU * k / 5.0
+					mesh.tube(pv + Vector3(0, 0.2, 0), pv + Vector3(cos(a) * 0.1, 0.42 + rng.randf() * 0.1, sin(a) * 0.1), 0.004, 0.003, 4,
+						Assets.uv2_code(Assets.L_BARK), 0.0, Color(0.45, 0.35, 0.22))
+		"counter", "checkout":
+			var p0: Vector3 = spot.call(0.5, 0.0)
+			mesh.box_xf(Transform3D(bs, p0 + Vector3(0, 0.08, 0)), Vector3(0.4, 0.16, 0.38), MET, 0.0, Color(0.2, 0.2, 0.22))
+			mesh.box_xf(Transform3D(bs * Basis(Vector3.RIGHT, -0.5), p0 + Vector3(0, 0.22, 0) + bs * Vector3(0, 0, 0.1)), Vector3(0.3, 0.16, 0.02), MET, 0.0, Color(0.15, 0.15, 0.16))
+			if tp == "bar":
+				for i in rng.randi_range(2, 5):
+					var pb: Vector3 = spot.call(rng.randf_range(-0.9, 0.1), rng.randf_range(-0.5, 0.5))
+					mesh.cylinder(Transform3D(bs, pb), 0.035, 0.28, 8, TIL, 0.0, Color(0.3, 0.45, 0.25) if rng.randf() < 0.5 else Color(0.5, 0.33, 0.15))
+		"workbench":
+			var p0: Vector3 = spot.call(-0.4, 0.2)
+			mesh.box_xf(Transform3D(bs * Basis(Vector3.UP, 0.2), p0 + Vector3(0, 0.08, 0)), Vector3(0.42, 0.16, 0.2), MET, 0.0, Color(0.7, 0.15, 0.1))
+			var p1: Vector3 = spot.call(0.5, -0.2)
+			for i in 2:
+				mesh.cylinder(Transform3D(bs, p1 + bs * Vector3(i * 0.14, 0, 0)), 0.06, 0.16, 10, MET, 0.0, Color.from_hsv(rng.randf(), 0.5, 0.6))
+			mesh.box_xf(Transform3D(bs * Basis(Vector3.UP, 0.7), spot.call(0.1, -0.4) + Vector3(0, 0.01, 0)), Vector3(0.3, 0.02, 0.22), FAB, 0.4, Color(0.4, 0.35, 0.3))
+		"cabinet_low", "tv_stand":
+			var p0: Vector3 = spot.call(rng.randf_range(-0.6, 0.6), 0.0)
+			if rng.randf() < 0.5:
+				for i in rng.randi_range(2, 5):
+					mesh.box_xf(Transform3D(bs * Basis(Vector3.BACK, 0.0 if not knocked else PI * 0.5), p0 + bs * Vector3(i * 0.04, 0.11, 0)),
+						Vector3(0.03, 0.22, 0.16), FAB, rng.randf(), Color.from_hsv(rng.randf(), 0.4, 0.55))
+			else:
+				mesh.box_xf(Transform3D(bs * Basis(Vector3.RIGHT, -0.2 if not knocked else -PI * 0.5), p0 + Vector3(0, 0.1, 0)), Vector3(0.18, 0.22, 0.015), WOOD, 0.0, Color(0.4, 0.3, 0.22))
+		"bed", "bed_single":
+			if ruined:
+				mesh.box_xf(Transform3D(bs * Basis(Vector3.UP, rng.randf_range(-0.8, 0.8)), spot.call(rng.randf_range(-0.6, 0.6), rng.randf_range(-0.2, 0.8)) + Vector3(0, 0.03, 0)),
+					Vector3(0.45, 0.05, 0.4), FAB, rng.randf(), Color.from_hsv(rng.randf(), 0.3, 0.6))

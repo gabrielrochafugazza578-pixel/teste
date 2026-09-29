@@ -15,6 +15,7 @@ var shake: float = 0.0
 var aim: float = 0.0
 var aim_target: float = 0.0
 var sprint_fov: float = 0.0
+var aim_zoom: float = 1.0      # zoom extra ao mirar (luneta/mira da arma)
 var crouch_amount: float = 0.0
 var bob_phase: float = 0.0
 var bob_amount: float = 0.0
@@ -136,4 +137,6 @@ func update_camera(delta: float) -> void:
 	var s := shake * shake
 	cam.rotation = Vector3(_noise.get_noise_2d(_t * 25.0, 1.0) * 0.05 * s, _noise.get_noise_2d(_t * 25.0, 7.0) * 0.05 * s, _noise.get_noise_2d(_t * 25.0, 13.0) * 0.04 * s)
 	var fov_target := Settings.get_fov() + sprint_fov - aim * 12.0
+	if aim_zoom > 1.0:
+		fov_target = lerpf(fov_target, Settings.get_fov() / aim_zoom, aim)
 	cam.fov = lerpf(cam.fov, fov_target, 1.0 - exp(-delta * 6.0))

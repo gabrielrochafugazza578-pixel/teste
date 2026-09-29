@@ -52,6 +52,7 @@ var crosshair: Control
 var vignette: ColorRect
 var log_label: Label
 var fps_label: Label
+var nearby: HUDNearby
 
 var _sub_t: float = 0.0
 var _banner_t: float = 0.0
@@ -114,6 +115,7 @@ func _ready() -> void:
 func bind(p: Player, g: Node) -> void:
 	player = p
 	game = g
+	nearby.player = p
 	p.interact_hold_progress.connect(func(v: float) -> void: _hold_p = v)
 
 
@@ -398,6 +400,11 @@ func _build() -> void:
 	subtitle_panel.visible = false
 	subtitle_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(subtitle_panel)
+	# ---- itens por perto (direita, meio da tela)
+	nearby = HUDNearby.new()
+	nearby.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	nearby.position = Vector2(-322, -150)
+	add_child(nearby)
 	# ---- notificações
 	toasts = UIKit.vbox(6)
 	toasts.set_anchors_preset(Control.PRESET_CENTER_LEFT)
@@ -478,6 +485,7 @@ func _process(delta: float) -> void:
 	var s := player.survival
 	var cinematic := player.cinematic
 	var show := _visible_user and not cinematic
+	nearby.tick(delta, show and player.in_vehicle == null)
 	for c in [vitals, compass, clock_card, stealth_card.get_parent(), weapon_card.get_parent(), crosshair]:
 		(c as CanvasItem).visible = show
 	vehicle_box.visible = show and player.in_vehicle is Vehicle

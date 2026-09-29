@@ -48,6 +48,33 @@ func _ready() -> void:
 			ti += (Time.get_ticks_usec() - t) / 1000.0
 			n += 1
 	print("interior: média %.1f ms (%d prédios)" % [ti / maxi(n, 1), n])
+	# os mais pesados (delegacia, escritórios, mercados), com o mesh montado
+	var worst := 0.0
+	var wname := ""
+	for poi in ["delegacia", "corvalis_hq", "mercado", "hospital"]:
+		if not layout.pois.has(poi) or not layout.pois[poi].has("building"):
+			continue
+		var bb: Dictionary = layout.buildings[int(layout.pois[poi]["building"])]
+		InteriorGen.debug_counts = {}
+		t = Time.get_ticks_usec()
+		var dd2 := InteriorGen.build(bb)
+		var dc: Dictionary = InteriorGen.debug_counts
+		var ks := dc.keys()
+		ks.sort_custom(func(a, b2): return int(dc[a]) > int(dc[b2]))
+		var top := []
+		for kk in ks.slice(0, 8):
+			top.append("%s=%d" % [kk, dc[kk]])
+		print("  props: ", ", ".join(top))
+		InteriorGen.debug_counts = null
+		var tb := (Time.get_ticks_usec() - t) / 1000.0
+		t = Time.get_ticks_usec()
+		(dd2["mesh"] as MeshBuf).to_mesh()
+		var tm := (Time.get_ticks_usec() - t) / 1000.0
+		print("interior %s: gerar %.1f ms (thread), montar malha %.1f ms (principal), %d vértices, %d itens" % [poi, tb, tm,
+			(dd2["mesh"] as MeshBuf).vertex_count(), (dd2["pickups"] as Array).size()])
+		if tb > worst:
+			worst = tb
+			wname = poi
 	var lab: Dictionary = layout.buildings[int(layout.pois["lab_nexus"]["building"])]
 	t = Time.get_ticks_usec()
 	var li := InteriorGen.build(lab)

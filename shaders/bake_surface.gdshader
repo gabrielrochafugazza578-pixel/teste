@@ -9,6 +9,7 @@
 // mode 2: folhas (RGBA com alfa recortado)
 // mode 3: sprites de partículas (layer: 0 fumaça, 1 papel, 2 faísca, 3 gota, 4 folha seca)
 // mode 4: ruído genérico (R grande, G médio, B fino, A voronoi)
+// mode 5: atlas das armas (4 quadrantes: nogueira, aço, polímero, borracha)
 shader_type canvas_item;
 render_mode unshaded, blend_disabled;
 
@@ -101,74 +102,155 @@ vec3 voronoi(vec2 uv, float freq) {
 }
 
 // ---------------------------------------------------------------------------
+// Utilitários de detalhe
+// ---------------------------------------------------------------------------
+// Riscos finos: em cada célula um segmento com direção aleatória (tileável)
+float scratches(vec2 uv, float freq, float density, float width) {
+	vec2 p = uv * freq;
+	float m = 0.0;
+	for (int k = 0; k < 2; k++) {
+		vec2 q = p + float(k) * vec2(0.37, 0.71);
+		vec2 ci = floor(q);
+		vec2 f = fract(q) - 0.5;
+		vec2 cell = mod(ci, vec2(freq));
+		float r = hash21(cell + float(k) * 9.1);
+		if (r < density) {
+			float a = hash21(cell + 2.3) * PI;
+			vec2 d = vec2(cos(a), sin(a));
+			float along = dot(f, d);
+			float across = abs(dot(f, vec2(-d.y, d.x)));
+			float len = 0.2 + hash21(cell + 5.7) * 0.3;
+			m = max(m, (1.0 - smoothstep(0.0, width, across)) * (1.0 - smoothstep(len * 0.8, len, abs(along))));
+		}
+	}
+	return m;
+}
+
+// Fissura ramificada: borda de voronoi distorcida
+float cracks(vec2 uv, float freq, float warp, float width) {
+	vec2 w = vec2(fbm(uv, 4.0, 3), fbm(uv + 3.3, 4.0, 3)) - 0.5;
+	vec3 v = voronoi(uv + w * warp, freq);
+	return 1.0 - smoothstep(0.0, width, v.y);
+}
+
+// ---------------------------------------------------------------------------
 // Superfícies do mundo. Saída: albedo, altura (0..1), roughness, metallic, ao
 // ---------------------------------------------------------------------------
 void surface(int id, vec2 uv, out vec3 alb, out float h, out float rough, out float metal, out float ao) {
 	metal = 0.0;
 	ao = 1.0;
-	if (id == 0) { // asfalto
-		float agg = vnoise(uv, vec2(160.0));
-		vec3 st = voronoi(uv, 48.0);
-		float stones = smoothstep(0.35, 0.1, st.x);
-		float patch = smoothstep(0.58, 0.62, fbm(uv, 3.0, 4));
-		vec3 cr = voronoi(uv + fbm(uv, 4.0, 3) * 0.05, 5.0);
-		float crack = 1.0 - smoothstep(0.0, 0.025, cr.y);
-		float base = 0.13 + agg * 0.05 + stones * st.z * 0.09;
-		alb = vec3(base * 0.98, base, base * 1.04);
-		alb = mix(alb, vec3(0.075, 0.075, 0.08), patch * 0.8);
-		alb *= 1.0 - crack * 0.5;
-		h = 0.45 + stones * 0.35 + agg * 0.2 - crack * 0.5;
-		rough = 0.86 - patch * 0.12 - stones * 0.05;
-		ao = 1.0 - crack * 0.5;
-	} else if (id == 1) { // concreto (calçada)
+	if (id == 0) { // asfalto: agregado, betume, desgaste, manchas de óleo, fissuras e remendos
+		vec3 s1 = voronoi(uv, 90.0);
+		vec3 s2 = voronoi(uv + 0.31, 46.0);
+		float st1 = smoothstep(0.42, 0.18, s1.x);
+		float st2 = smoothstep(0.38, 0.12, s2.x) * step(0.45, s2.z);
+		float grit = vnoise(uv, vec2(320.0));
+		float wear = fbm(uv, 2.0, 4);
+		vec3 bitumen = vec3(0.075, 0.076, 0.08);
+		vec3 stone1 = mix(vec3(0.2, 0.2, 0.2), vec3(0.3, 0.28, 0.26), s1.z);
+		vec3 stone2 = mix(vec3(0.24, 0.24, 0.25), vec3(0.36, 0.33, 0.3), s2.z);
+		vec3 c = bitumen;
+		c = mix(c, stone1, st1 * 0.4);
+		c = mix(c, stone2, st2 * 0.55);
+		c *= 0.88 + grit * 0.22;
+		c *= 0.85 + fbm(uv + 2.2, 6.0, 4) * 0.3;
+		c = mix(c, c * 1.5 + 0.03, smoothstep(0.4, 0.8, wear) * 0.7);   // desbotado pelo sol
+		float oil = smoothstep(0.62, 0.7, fbm(uv + 7.7, 3.0, 5));
+		c = mix(c, vec3(0.045, 0.045, 0.05), oil * 0.75);
+		float patch = smoothstep(0.66, 0.68, fbm(uv + 1.9, 2.0, 3));
+		c = mix(c, vec3(0.06, 0.062, 0.066) * (0.9 + grit * 0.2), patch);
+		float cr = max(cracks(uv, 5.0, 0.25, 0.035), cracks(uv + 0.21, 11.0, 0.3, 0.03) * smoothstep(0.5, 0.65, fbm(uv + 9.0, 2.0, 3))) * (1.0 - patch);
+		float seal = cracks(uv + 0.5, 3.0, 0.15, 0.045) * smoothstep(0.55, 0.7, fbm(uv + 4.0, 2.0, 3));
+		c = mix(c, vec3(0.035), seal * 0.9);
+		c *= 1.0 - cr * 0.8;
+		alb = c;
+		h = 0.4 + st1 * 0.25 + st2 * 0.3 + grit * 0.1 - cr * 0.55 + seal * 0.08;
+		rough = 0.88 - st2 * 0.05 - oil * 0.3 - seal * 0.35 - patch * 0.06;
+		ao = 1.0 - cr * 0.6 - (1.0 - max(st1, st2)) * 0.1;
+	} else if (id == 1) { // concreto (calçada): placas, agregado, poros, manchas, chiclete, trincas
+		vec2 sg = uv * 2.0;
+		vec2 sf = fract(sg);
+		vec2 sid = mod(floor(sg), vec2(2.0));
+		float ed = min(min(sf.x, 1.0 - sf.x), min(sf.y, 1.0 - sf.y));
+		float seam = 1.0 - smoothstep(0.004, 0.014, ed);
+		float chip = (1.0 - smoothstep(0.012, 0.04, ed)) * smoothstep(0.6, 0.75, vnoise(uv, vec2(60.0)));
+		float r = hash21(sid + 4.4);
 		float n = fbm(uv, 4.0, 5);
-		float pores = smoothstep(0.75, 0.9, vnoise(uv, vec2(220.0)));
-		vec2 slab = fract(uv * 2.0);
-		float seam = 1.0 - smoothstep(0.0, 0.012, min(min(slab.x, 1.0 - slab.x), min(slab.y, 1.0 - slab.y)));
-		float stain = smoothstep(0.55, 0.8, fbm(uv + 0.3, 2.0, 4));
-		float g = 0.5 + n * 0.12 - stain * 0.12;
-		alb = vec3(g * 1.02, g, g * 0.95);
-		alb *= 1.0 - seam * 0.45;
-		h = 0.6 + n * 0.25 - pores * 0.2 - seam * 0.6;
-		rough = 0.9 - stain * 0.1;
-		ao = 1.0 - seam * 0.6;
-	} else if (id == 2) { // tijolo
+		vec3 ag = voronoi(uv, 140.0);
+		float spec = smoothstep(0.3, 0.1, ag.x) * step(0.6, ag.z);
+		float pores = smoothstep(0.8, 0.92, vnoise(uv, vec2(260.0)));
+		float stain = smoothstep(0.55, 0.85, fbm(uv + 0.3, 2.0, 5));
+		vec3 gv = voronoi(uv + 0.77, 12.0);
+		float gum = smoothstep(0.05, 0.03, gv.x) * step(0.94, gv.z);
+		float hair = cracks(uv + r, 3.0, 0.3, 0.012) * step(0.6, r) * (1.0 - seam);
+		float mott = fbm(uv + 1.1, 8.0, 4);
+		float g = 0.52 + (r - 0.5) * 0.08 + n * 0.14 + (mott - 0.5) * 0.1 - stain * 0.16;
+		vec3 c = vec3(g * 1.02, g, g * 0.95);
+		c = mix(c, c * (0.75 + ag.z * 0.5), spec * 0.6);
+		c *= 1.0 - pores * 0.35;
+		c = mix(c, vec3(0.2, 0.19, 0.18), seam * 0.8);
+		c = mix(c, c * 0.8, chip);
+		c = mix(c, vec3(0.12, 0.12, 0.13), gum * 0.8);
+		c *= 1.0 - hair * 0.45;
+		alb = c;
+		h = 0.6 + n * 0.2 + spec * 0.08 - pores * 0.2 - seam * 0.6 - chip * 0.2 - hair * 0.3;
+		rough = 0.9 - stain * 0.12 - gum * 0.2;
+		ao = 1.0 - seam * 0.6 - pores * 0.2;
+	} else if (id == 2) { // tijolo: tamanho irregular, cantos lascados, fuligem, eflorescência
 		float rows = 14.0;
 		float row = floor(uv.y * rows);
-		float off = mod(row, 2.0) * 0.5;
+		float off = mod(row, 2.0) * 0.5 + (hash21(vec2(row, 1.3)) - 0.5) * 0.08;
 		float bx = uv.x * 4.0 + off;
 		vec2 bid = vec2(mod(floor(bx), 4.0), mod(row, rows));
+		float r = hash21(bid);
 		float fx = fract(bx);
 		float fy = fract(uv.y * rows);
-		float mw = 0.05;
+		float nb = vnoise(uv, vec2(96.0));
+		float mw = 0.045 + nb * 0.02;
 		float mx = smoothstep(0.0, mw, fx) * smoothstep(0.0, mw, 1.0 - fx);
 		float my = smoothstep(0.0, mw * 3.0, fy) * smoothstep(0.0, mw * 3.0, 1.0 - fy);
 		float brick = mx * my;
-		float r = hash21(bid);
+		float corner = (1.0 - smoothstep(0.0, 0.18, min(fx, 1.0 - fx) + min(fy, 1.0 - fy) * 0.25)) * step(0.55, hash21(bid + 7.0));
+		brick *= 1.0 - corner * smoothstep(0.4, 0.6, nb);
 		float n = fbm(uv, 16.0, 4);
-		vec3 bc = mix(vec3(0.42, 0.17, 0.11), vec3(0.62, 0.33, 0.22), r);
-		bc = mix(bc, vec3(0.3, 0.26, 0.24), step(0.92, r) * 0.6);
-		bc *= 0.85 + n * 0.3;
-		vec3 mc = vec3(0.52, 0.5, 0.46) * (0.85 + n * 0.2);
-		alb = mix(mc, bc, brick);
-		h = mix(0.25, 0.75 + n * 0.2, brick);
-		rough = mix(0.95, 0.82, brick);
-		ao = mix(0.6, 1.0, brick);
-	} else if (id == 3) { // reboco pintado
+		float pits = smoothstep(0.78, 0.9, vnoise(uv, vec2(200.0)));
+		vec3 bc = mix(vec3(0.4, 0.16, 0.1), vec3(0.64, 0.34, 0.21), r);
+		bc = mix(bc, vec3(0.26, 0.14, 0.1), step(0.9, r) * 0.7);      // tijolos queimados
+		bc = mix(bc, vec3(0.62, 0.45, 0.32), step(0.82, fract(r * 7.3)) * 0.4);
+		bc *= 0.82 + n * 0.3 - pits * 0.2;
+		float soot = smoothstep(0.5, 0.85, fbm(uv + 2.0, 2.0, 4));
+		float eff = smoothstep(0.7, 0.85, fbm(uv + 5.0, 5.0, 4));
+		vec3 mc = vec3(0.5, 0.48, 0.44) * (0.8 + vnoise(uv, vec2(300.0)) * 0.3);
+		vec3 c = mix(mc * 0.85, bc, brick);
+		c = mix(c, c * 0.55, soot * 0.6);
+		c = mix(c, vec3(0.78, 0.76, 0.72), eff * 0.35);
+		alb = c;
+		h = mix(0.15, 0.75 + n * 0.2 - pits * 0.2, brick);
+		rough = mix(0.96, 0.84, brick);
+		ao = mix(0.5, 1.0, brick);
+	} else if (id == 3) { // reboco pintado: chapisco, ondulação, escorridos, descascado, fissuras
 		float n = fbm(uv, 3.0, 6);
-		float fine = vnoise(uv, vec2(180.0));
+		float grain = vnoise(uv, vec2(220.0));
+		float bumps = smoothstep(0.55, 0.85, vnoise(uv, vec2(110.0)));
+		float drip = fbm2(uv + 0.2, vec2(28.0, 1.5), 4);
+		float drip_mask = smoothstep(0.48, 0.75, drip) * smoothstep(0.35, 0.7, fbm(uv + 1.7, 3.0, 3));
 		vec3 cr = voronoi(uv + n * 0.1, 3.0);
-		float crack = (1.0 - smoothstep(0.0, 0.012, cr.y)) * smoothstep(0.6, 0.7, fbm(uv + 7.0, 2.0, 3));
-		// descascado raro e sutil: a sujeira pesada vem da deterioração (world_decay)
-		float peel = smoothstep(0.79, 0.81, fbm(uv + 2.0, 4.0, 5));
-		float g = 0.8 + n * 0.1 + fine * 0.05;
-		alb = vec3(g);
-		alb = mix(alb, vec3(0.7, 0.68, 0.64), peel);
-		alb *= 1.0 - crack * 0.5;
-		h = 0.5 + n * 0.3 + fine * 0.1 - peel * 0.3 - crack * 0.4;
-		rough = 0.85;
-		ao = 1.0 - crack * 0.4;
-	} else if (id == 4) { // telha cerâmica
+		float crack = (1.0 - smoothstep(0.0, 0.01, cr.y)) * smoothstep(0.62, 0.7, fbm(uv + 7.0, 2.0, 3));
+		float peel_n = fbm(uv + 2.0, 5.0, 5);
+		float peel = smoothstep(0.78, 0.8, peel_n);
+		float peel_edge = smoothstep(0.75, 0.78, peel_n) - peel;
+		float g = 0.82 + n * 0.08 + grain * 0.04 + bumps * 0.03;
+		vec3 c = vec3(g);
+		c = mix(c, c * vec3(0.76, 0.73, 0.66), drip_mask * 0.6);
+		c *= 0.94 + fbm(uv + 5.5, 7.0, 4) * 0.1;
+		c = mix(c, vec3(0.64, 0.62, 0.58) * (0.85 + grain * 0.3), peel);   // reboco cru por baixo da tinta
+		c *= 1.0 - peel_edge * 0.25;
+		c *= 1.0 - crack * 0.55;
+		alb = c;
+		h = 0.5 + n * 0.2 + grain * 0.08 + bumps * 0.12 - peel * 0.25 + peel_edge * 0.1 - crack * 0.4;
+		rough = 0.86 + peel * 0.08 - drip_mask * 0.05;
+		ao = 1.0 - crack * 0.4 - peel * 0.15;
+	} else if (id == 4) { // telha cerâmica: variação, lascas, sujeira nas sobreposições, líquen
 		float rows = 6.0;
 		float row = floor(uv.y * rows);
 		float off = mod(row, 2.0) * 0.5;
@@ -179,135 +261,238 @@ void surface(int id, vec2 uv, out vec3 alb, out float h, out float rough, out fl
 		float r = hash21(tid);
 		float curve = sin(fx * PI);
 		float lap = smoothstep(0.0, 0.25, fy);
-		vec3 tc = mix(vec3(0.5, 0.2, 0.12), vec3(0.66, 0.32, 0.18), r);
-		float moss = smoothstep(0.6, 0.75, fbm(uv, 3.0, 5)) * (1.0 - lap * 0.5);
-		tc = mix(tc, vec3(0.22, 0.24, 0.12), moss * 0.7);
-		alb = tc * (0.75 + curve * 0.3) * (0.7 + lap * 0.3);
-		h = curve * 0.6 + lap * 0.4;
-		rough = 0.72 + moss * 0.2;
-		ao = 0.55 + lap * 0.45;
-	} else if (id == 5) { // metal ondulado pintado
+		float n = fbm(uv, 12.0, 4);
+		vec3 tc = mix(vec3(0.48, 0.19, 0.11), vec3(0.68, 0.34, 0.19), r);
+		tc = mix(tc, vec3(0.36, 0.2, 0.14), step(0.88, r) * 0.6);
+		tc *= 0.88 + n * 0.25;
+		float lichen = smoothstep(0.7, 0.76, fbm(uv, 6.0, 5)) * (0.4 + lap * 0.6);
+		float moss = smoothstep(0.6, 0.75, fbm(uv + 3.0, 3.0, 5)) * (1.0 - lap);
+		float chip = smoothstep(0.82, 0.9, vnoise(uv, vec2(40.0))) * (1.0 - smoothstep(0.0, 0.1, 1.0 - fy));
+		tc = mix(tc, vec3(0.6, 0.58, 0.48), lichen * 0.35);
+		tc = mix(tc, vec3(0.2, 0.23, 0.1), moss * 0.7);
+		tc = mix(tc, vec3(0.55, 0.36, 0.28), chip);
+		alb = tc * (0.72 + curve * 0.32) * (0.6 + lap * 0.4);
+		h = curve * 0.6 + lap * 0.4 + n * 0.05 - chip * 0.2;
+		rough = 0.72 + moss * 0.2 + lichen * 0.1;
+		ao = 0.5 + lap * 0.5;
+	} else if (id == 5) { // metal ondulado pintado: riscos, tinta lascada nas cristas, ferrugem escorrida
 		float c = 0.5 + 0.5 * sin(uv.x * 12.0 * 2.0 * PI);
-		float rust = smoothstep(0.55, 0.7, fbm(uv, 4.0, 6) + (1.0 - uv.y) * 0.0);
+		float spots = smoothstep(0.62, 0.72, fbm(uv, 4.0, 6));
+		float bleed = smoothstep(0.5, 0.75, fbm2(uv + vec2(0.0, 0.1), vec2(40.0, 2.0), 4)) * smoothstep(0.45, 0.65, fbm(uv + vec2(0.0, 0.15), 4.0, 4));
+		float chip = smoothstep(0.7, 0.8, vnoise(uv, vec2(80.0))) * smoothstep(0.7, 0.95, c);
+		float scr = scratches(uv, 24.0, 0.5, 0.02);
 		float streak = fbm2(uv, vec2(24.0, 2.0), 4);
-		vec3 paint = vec3(0.34, 0.4, 0.43) * (0.9 + streak * 0.2);
-		vec3 rc = mix(vec3(0.28, 0.13, 0.06), vec3(0.45, 0.24, 0.1), fbm(uv, 16.0, 3));
-		alb = mix(paint, rc, rust);
-		h = c * 0.8 + rust * 0.1;
-		rough = mix(0.45, 0.9, rust);
-		metal = mix(0.55, 0.15, rust);
-		ao = 0.75 + c * 0.25;
-	} else if (id == 6) { // tábuas de madeira
+		vec3 paint = vec3(0.34, 0.4, 0.43) * (0.88 + streak * 0.22);
+		vec3 rc = mix(vec3(0.24, 0.11, 0.05), vec3(0.5, 0.27, 0.11), fbm(uv, 16.0, 3));
+		vec3 bare = vec3(0.55, 0.56, 0.57);
+		vec3 col = paint;
+		col = mix(col, bare, max(chip, scr * 0.7));
+		col = mix(col, rc, max(spots, bleed * 0.6));
+		alb = col;
+		float rust = max(spots, bleed * 0.6);
+		h = c * 0.8 + spots * 0.1 - scr * 0.05;
+		rough = mix(mix(0.45, 0.3, chip), 0.9, rust);
+		metal = mix(mix(0.45, 0.95, max(chip, scr * 0.7)), 0.1, rust);
+		ao = 0.72 + c * 0.28;
+	} else if (id == 6) { // tábuas: veio com anéis, nós, emendas, pregos, desgaste e sujeira nas frestas
 		float planks = 5.0;
 		float px_ = uv.x * planks;
 		float pid = mod(floor(px_), planks);
 		float fx = fract(px_);
-		float gap = smoothstep(0.0, 0.03, fx) * smoothstep(0.0, 0.03, 1.0 - fx);
 		float r = hash21(vec2(pid, 1.0));
-		float grain = fbm2(uv + vec2(r, 0.0), vec2(40.0, 3.0), 5);
-		float rings = 0.5 + 0.5 * sin((uv.x * 60.0 + grain * 6.0) * PI);
-		vec3 wc = mix(vec3(0.3, 0.19, 0.11), vec3(0.5, 0.34, 0.2), r);
-		wc *= 0.8 + grain * 0.3 + rings * 0.08;
-		alb = wc * (0.4 + gap * 0.6);
-		h = 0.4 + grain * 0.4 + gap * 0.2 - (1.0 - gap) * 0.4;
-		rough = 0.74;
-		ao = 0.5 + gap * 0.5;
-	} else if (id == 7) { // grama (solo)
+		// emenda de topo (tábuas de comprimentos diferentes)
+		float jy = fract(uv.y + r);
+		float joint = 1.0 - smoothstep(0.0, 0.008, min(jy, 1.0 - jy)) * 1.0;
+		float gap = smoothstep(0.0, 0.03, fx) * smoothstep(0.0, 0.03, 1.0 - fx) * (1.0 - joint * 0.8);
+		float warp = fbm2(uv + vec2(r * 3.0, 0.0), vec2(6.0, 1.0), 4);
+		// nó: centro por tábua, anéis contornam o nó
+		vec2 kc = vec2((pid + 0.3 + hash21(vec2(pid, 5.0)) * 0.4) / planks, fract(hash21(vec2(pid, 8.0)) + 0.2));
+		vec2 kd = vec2((uv.x - kc.x) * planks, (fract(uv.y - kc.y + 0.5) - 0.5) * 1.6);
+		float kr = length(kd);
+		float has_knot = step(0.45, hash21(vec2(pid, 9.0)));
+		float knot = (1.0 - smoothstep(0.03, 0.09, kr)) * has_knot;
+		float around = exp(-kr * 8.0) * has_knot;
+		float ring_x = fx * 3.0 + warp * 2.5 + around * 1.2 / max(kr, 0.05) * 0.05;
+		float rings = 0.5 + 0.5 * sin(ring_x * 2.0 * PI * (3.0 + r * 3.0));
+		float fibers = fbm2(uv + vec2(r, 0.0), vec2(160.0, 4.0), 3);
+		vec3 lightw = mix(vec3(0.52, 0.36, 0.22), vec3(0.62, 0.46, 0.3), r);
+		vec3 darkw = lightw * vec3(0.62, 0.55, 0.5);
+		vec3 wc = mix(darkw, lightw, smoothstep(0.25, 0.85, rings));
+		wc *= 0.85 + fibers * 0.3;
+		wc = mix(wc, vec3(0.18, 0.11, 0.07), knot * 0.85);
+		float worn = smoothstep(0.55, 0.8, fbm(uv + 3.3, 3.0, 4));
+		wc = mix(wc, wc * 1.2 + 0.04, worn * 0.35);
+		float dirt = (1.0 - smoothstep(0.03, 0.12, min(fx, 1.0 - fx))) * 0.5;
+		wc *= 1.0 - dirt * 0.4;
+		// pregos nas pontas das tábuas
+		vec2 nd = vec2((fx - 0.5) / 0.25, (jy < 0.5 ? jy : jy - 1.0) * planks * 1.6 - 0.25);
+		float nail = (1.0 - smoothstep(0.08, 0.14, length(vec2(abs(nd.x) - 1.0, nd.y)))) * step(0.3, r);
+		wc = mix(wc, vec3(0.12, 0.11, 0.1), nail);
+		alb = wc * (0.35 + gap * 0.65);
+		h = 0.45 + rings * 0.1 + fibers * 0.15 + gap * 0.2 - (1.0 - gap) * 0.45 - knot * 0.1 - nail * 0.2;
+		rough = 0.72 - worn * 0.12 + knot * 0.1;
+		metal = nail * 0.6;
+		ao = 0.45 + gap * 0.55;
+	} else if (id == 7) { // grama (solo): folhas finas, trevos, palha, falhas de terra
 		float n = fbm(uv, 3.0, 5);
 		float blades = vnoise(uv * vec2(1.0, 0.35), vec2(240.0, 84.0));
+		float blades2 = vnoise((uv + 0.5) * vec2(0.4, 1.0), vec2(96.0, 240.0));
 		float dry = smoothstep(0.5, 0.75, fbm(uv + 5.0, 2.0, 4));
-		vec3 g = mix(vec3(0.12, 0.2, 0.06), vec3(0.2, 0.28, 0.09), n);
-		g = mix(g, vec3(0.32, 0.29, 0.14), dry * 0.7);
-		g *= 0.75 + blades * 0.45;
+		float bald = smoothstep(0.68, 0.74, fbm(uv + 8.0, 3.0, 5));
+		vec3 cl = voronoi(uv, 60.0);
+		float clover = smoothstep(0.3, 0.12, cl.x) * step(0.7, cl.z);
+		vec3 g = mix(vec3(0.11, 0.19, 0.05), vec3(0.22, 0.3, 0.09), n);
+		g = mix(g, vec3(0.34, 0.31, 0.15), dry * 0.7);
+		g *= 0.55 + max(blades, blades2) * 0.8;
+		g *= 0.9 + vnoise(uv, vec2(400.0)) * 0.2;
+		g = mix(g, vec3(0.14, 0.26, 0.07), clover * 0.6);
+		vec3 soil = mix(vec3(0.2, 0.15, 0.1), vec3(0.3, 0.23, 0.15), vnoise(uv, vec2(120.0)));
+		g = mix(g, soil, bald * 0.85);
 		alb = g;
-		h = blades * 0.7 + n * 0.3;
+		h = max(blades, blades2) * 0.7 * (1.0 - bald) + n * 0.3;
 		rough = 0.96;
-		ao = 0.7 + blades * 0.3;
-	} else if (id == 8) { // terra
+		ao = 0.65 + max(blades, blades2) * 0.35;
+	} else if (id == 8) { // terra: torrões, pedrinhas sombreadas, gravetos, gretas de seca
 		float n = fbm(uv, 4.0, 6);
 		vec3 v = voronoi(uv, 22.0);
-		float peb = smoothstep(0.32, 0.18, v.x) * step(0.55, v.z);
-		vec3 d = mix(vec3(0.22, 0.16, 0.11), vec3(0.36, 0.27, 0.18), n);
-		d = mix(d, vec3(0.42, 0.38, 0.33) * (0.8 + v.z * 0.3), peb);
+		vec3 v2 = voronoi(uv + 0.4, 55.0);
+		float peb = smoothstep(0.34, 0.16 + v.z * 0.1, v.x) * step(0.8, v.z);
+		float peb2 = smoothstep(0.3, 0.12, v2.x) * step(0.86, v2.z);
+		float clod = smoothstep(0.4, 0.0, voronoi(uv + 0.8, 30.0).x);
+		float dryc = cracks(uv, 7.0, 0.2, 0.025) * smoothstep(0.55, 0.7, fbm(uv + 6.0, 2.0, 3));
+		float twig = scratches(uv, 14.0, 0.25, 0.035);
+		vec3 d = mix(vec3(0.2, 0.15, 0.1), vec3(0.37, 0.28, 0.19), n);
+		d *= 0.85 + clod * 0.25;
+		d = mix(d, vec3(0.44, 0.4, 0.35) * (0.75 + v.z * 0.35), peb);
+		d = mix(d, vec3(0.38, 0.34, 0.3) * (0.8 + v2.z * 0.3), peb2);
+		d = mix(d, vec3(0.28, 0.2, 0.12), twig * 0.8);
+		d *= 1.0 - dryc * 0.5;
 		alb = d;
-		h = n * 0.5 + peb * 0.5;
+		h = n * 0.35 + clod * 0.2 + peb * 0.5 + peb2 * 0.3 + twig * 0.15 - dryc * 0.4;
 		rough = 0.95 - peb * 0.1;
-		ao = 0.8 + peb * 0.2;
+		ao = 0.75 + max(peb, peb2) * 0.25 - dryc * 0.3;
 	} else if (id == 9) { // rocha
 		float n = fbm(uv, 3.0, 7);
 		float ridge = 1.0 - abs(fbm(uv + 3.0, 4.0, 5) * 2.0 - 1.0);
 		vec3 v = voronoi(uv + n * 0.2, 5.0);
 		float crack = 1.0 - smoothstep(0.0, 0.04, v.y);
 		float lichen = smoothstep(0.66, 0.72, fbm(uv + 9.0, 8.0, 4));
-		vec3 rc = mix(vec3(0.3, 0.29, 0.27), vec3(0.47, 0.45, 0.41), n);
+		float grain = vnoise(uv, vec2(180.0));
+		float strata = 0.5 + 0.5 * sin((uv.y * 18.0 + n * 3.0) * PI);
+		vec3 rc = mix(vec3(0.3, 0.29, 0.27), vec3(0.48, 0.46, 0.42), n);
+		rc *= 0.88 + grain * 0.2 + strata * 0.06;
 		rc = mix(rc, vec3(0.45, 0.46, 0.3), lichen * 0.6);
 		alb = rc * (1.0 - crack * 0.5);
-		h = n * 0.5 + ridge * 0.4 - crack * 0.4;
+		h = n * 0.5 + ridge * 0.35 + grain * 0.05 - crack * 0.4;
 		rough = 0.86;
 		ao = 1.0 - crack * 0.6;
-	} else if (id == 10) { // piso cerâmico
+	} else if (id == 10) { // piso cerâmico: esmalte mesclado, trincas, cantos lascados, rejunte sujo
 		float t = 3.0;
 		vec2 f = fract(uv * t);
 		vec2 tid = mod(floor(uv * t), vec2(t));
-		float grout = smoothstep(0.0, 0.025, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+		float ed = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
+		float grout = smoothstep(0.0, 0.025, ed);
 		float r = hash21(tid);
 		float n = fbm(uv, 6.0, 4);
-		vec3 tc = mix(vec3(0.62, 0.58, 0.52), vec3(0.72, 0.68, 0.6), r) * (0.92 + n * 0.12);
-		alb = mix(vec3(0.3, 0.29, 0.27), tc, grout);
-		h = grout * 0.8 + n * 0.1;
-		rough = mix(0.85, 0.28 + n * 0.1, grout);
-		ao = 0.6 + grout * 0.4;
-	} else if (id == 11) { // painéis de fachada (concreto pré-moldado)
+		float speck = smoothstep(0.75, 0.9, vnoise(uv, vec2(240.0)));
+		float marble = smoothstep(0.4, 0.6, fbm2(uv + r, vec2(8.0, 3.0), 5));
+		vec3 tc = mix(vec3(0.6, 0.56, 0.5), vec3(0.73, 0.69, 0.61), r) * (0.92 + n * 0.1);
+		tc = mix(tc, tc * 0.85, marble * 0.3);
+		tc *= 1.0 - speck * 0.12;
+		float cracked = step(0.78, r) * cracks(uv + r, 6.0, 0.2, 0.012);
+		float chip = (1.0 - smoothstep(0.0, 0.06, ed)) * step(0.7, hash21(tid + 2.0)) * smoothstep(0.55, 0.7, vnoise(uv, vec2(48.0)));
+		float scuff = smoothstep(0.6, 0.8, fbm2(uv, vec2(3.0, 16.0), 4));
+		vec3 gc = vec3(0.27, 0.26, 0.24) * (0.8 + vnoise(uv, vec2(300.0)) * 0.3);
+		vec3 c = mix(gc, tc, grout);
+		c = mix(c, vec3(0.4, 0.38, 0.34), chip);
+		c *= 1.0 - cracked * 0.5 - scuff * 0.08;
+		alb = c;
+		h = grout * 0.8 + n * 0.05 - chip * 0.3 - cracked * 0.3;
+		rough = mix(0.88, 0.22 + n * 0.1 + scuff * 0.25, grout * (1.0 - chip));
+		ao = 0.55 + grout * 0.45;
+	} else if (id == 11) { // painéis pré-moldados: juntas, chumbadores, escorridos de sujeira, pátina
 		vec2 f = fract(uv * 2.0);
-		float seam = smoothstep(0.0, 0.01, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+		float ed = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
+		float seam = smoothstep(0.0, 0.01, ed);
 		float n = fbm(uv, 4.0, 5);
 		float streak = fbm2(uv, vec2(12.0, 1.0), 4);
+		float drip = smoothstep(0.5, 0.8, fbm2(uv + 0.3, vec2(36.0, 1.2), 4)) * smoothstep(1.0, 0.3, f.y);
+		vec2 bf = abs(f - vec2(0.1));
+		float bolt = 1.0 - smoothstep(0.012, 0.02, length(f - vec2(0.08, 0.08))) ;
+		bolt = max(bolt, 1.0 - smoothstep(0.012, 0.02, length(f - vec2(0.92, 0.08))));
+		float pores = smoothstep(0.82, 0.93, vnoise(uv, vec2(240.0)));
 		float g = 0.58 + n * 0.1 - streak * 0.06;
-		alb = vec3(g, g * 0.99, g * 0.96) * (0.55 + seam * 0.45);
-		h = 0.5 + n * 0.2 + seam * 0.3 - (1.0 - seam) * 0.3;
-		rough = 0.78;
+		vec3 c = vec3(g, g * 0.99, g * 0.96);
+		c = mix(c, c * vec3(0.7, 0.68, 0.64), drip * 0.5);
+		c *= 1.0 - pores * 0.2;
+		c = mix(c, vec3(0.25, 0.24, 0.23), bolt * 0.8);
+		alb = c * (0.55 + seam * 0.45);
+		h = 0.5 + n * 0.2 + seam * 0.3 - (1.0 - seam) * 0.3 - bolt * 0.2 - pores * 0.1;
+		rough = 0.78 - drip * 0.08;
+		metal = bolt * 0.5;
 		ao = 0.6 + seam * 0.4;
 	} else if (id == 12) { // cascalho
 		vec3 v = voronoi(uv, 18.0);
 		vec3 v2 = voronoi(uv + 0.37, 31.0);
+		vec3 v3 = voronoi(uv + 0.71, 60.0);
 		float s1 = smoothstep(0.45, 0.2, v.x);
 		float s2 = smoothstep(0.4, 0.15, v2.x);
-		vec3 c = mix(vec3(0.3, 0.28, 0.25), vec3(0.52, 0.49, 0.44), v.z);
-		c = mix(c, vec3(0.4, 0.36, 0.3) * (0.8 + v2.z * 0.4), s2 * (1.0 - s1));
-		alb = c * (0.6 + max(s1, s2) * 0.4);
-		h = max(s1, s2 * 0.8);
+		float s3 = smoothstep(0.35, 0.1, v3.x);
+		vec3 c = mix(vec3(0.3, 0.28, 0.25), vec3(0.54, 0.5, 0.45), v.z);
+		c = mix(c, vec3(0.42, 0.37, 0.31) * (0.8 + v2.z * 0.4), s2 * (1.0 - s1));
+		c = mix(c, vec3(0.36, 0.34, 0.32) * (0.8 + v3.z * 0.4), s3 * (1.0 - max(s1, s2)));
+		float top = smoothstep(0.0, 0.6, s1);
+		alb = c * (0.5 + max(max(s1, s2), s3) * 0.5) * (0.9 + top * 0.15);
+		h = max(max(s1, s2 * 0.8), s3 * 0.6);
 		rough = 0.93;
-		ao = 0.6 + max(s1, s2) * 0.4;
+		ao = 0.5 + max(max(s1, s2), s3) * 0.5;
 	} else if (id == 13) { // casca de árvore
 		float fib = fbm2(uv, vec2(14.0, 2.0), 5);
 		float ridges = smoothstep(0.35, 0.65, fib);
-		vec3 bc = mix(vec3(0.14, 0.1, 0.07), vec3(0.3, 0.24, 0.18), ridges);
+		float plates = voronoi(uv * vec2(1.0, 0.4), 10.0).y;
+		float deep = 1.0 - smoothstep(0.0, 0.08, plates);
+		vec3 bc = mix(vec3(0.13, 0.09, 0.06), vec3(0.32, 0.26, 0.2), ridges);
+		bc *= 1.0 - deep * 0.5;
 		float moss = smoothstep(0.6, 0.72, fbm(uv, 4.0, 4));
 		bc = mix(bc, vec3(0.2, 0.25, 0.1), moss * 0.5);
-		alb = bc;
-		h = ridges;
+		alb = bc * (0.9 + vnoise(uv, vec2(160.0)) * 0.2);
+		h = ridges - deep * 0.4;
 		rough = 0.92;
-		ao = 0.5 + ridges * 0.5;
-	} else if (id == 14) { // tecido (estofado)
+		ao = 0.45 + ridges * 0.55 - deep * 0.2;
+	} else if (id == 14) { // tecido (estofado): trama, fiapos, manchas, desbotado
 		float wx = 0.5 + 0.5 * sin(uv.x * 160.0 * PI);
 		float wy = 0.5 + 0.5 * sin(uv.y * 160.0 * PI);
 		float weave = mix(wx, wy, step(0.5, fract((floor(uv.x * 160.0) + floor(uv.y * 160.0)) * 0.5)));
 		float n = fbm(uv, 4.0, 4);
-		alb = vec3(0.78 + weave * 0.1) * (0.9 + n * 0.15);
-		h = weave * 0.6 + n * 0.2;
+		float fuzz = vnoise(uv, vec2(320.0));
+		float stain = smoothstep(0.62, 0.7, fbm(uv + 4.0, 3.0, 5));
+		float ring = smoothstep(0.62, 0.64, fbm(uv + 4.0, 3.0, 5)) - smoothstep(0.64, 0.68, fbm(uv + 4.0, 3.0, 5));
+		float fade = smoothstep(0.5, 0.8, fbm(uv + 9.0, 2.0, 3));
+		vec3 c = vec3(0.76 + weave * 0.1) * (0.88 + n * 0.15 + fuzz * 0.06);
+		c = mix(c, c * vec3(0.72, 0.64, 0.5), stain * 0.55);
+		c *= 1.0 - ring * 0.2;
+		c = mix(c, c * 1.12 + 0.03, fade * 0.3);
+		alb = c;
+		h = weave * 0.6 + n * 0.2 + fuzz * 0.1;
 		rough = 0.95;
 		ao = 0.8 + weave * 0.2;
-	} else { // 15: linóleo hospitalar
+	} else { // 15: linóleo / vinílico: pontilhado, emendas, marcas de arrasto, riscos
 		float n = fbm(uv, 3.0, 5);
 		float spk = smoothstep(0.8, 0.95, vnoise(uv, vec2(200.0)));
+		float spk2 = smoothstep(0.85, 0.97, vnoise(uv + 0.3, vec2(90.0)));
 		float scuff = smoothstep(0.6, 0.8, fbm2(uv, vec2(3.0, 18.0), 4));
+		float scr = scratches(uv, 16.0, 0.45, 0.015);
+		vec2 f = fract(uv * 1.0);
+		float seam = 1.0 - smoothstep(0.0, 0.004, min(f.x, 1.0 - f.x));
 		vec3 c = vec3(0.56, 0.6, 0.57) * (0.93 + n * 0.1);
 		c = mix(c, vec3(0.3, 0.32, 0.3), spk * 0.5);
-		c *= 1.0 - scuff * 0.12;
+		c = mix(c, vec3(0.75, 0.77, 0.74), spk2 * 0.4);
+		c *= 1.0 - scuff * 0.14 - scr * 0.12;
+		c *= 1.0 - seam * 0.4;
 		alb = c;
-		h = 0.5 + n * 0.1;
-		rough = 0.32 + scuff * 0.3;
-		ao = 1.0;
+		h = 0.5 + n * 0.1 - scr * 0.1 - seam * 0.3;
+		rough = 0.32 + scuff * 0.3 + scr * 0.2;
+		ao = 1.0 - seam * 0.3;
 	}
 }
 
@@ -346,6 +531,67 @@ void char_surface(int q, vec2 uv, out vec3 alb, out float h, out float rough, ou
 		alb = vec3(0.84 + n * 0.1) * (0.9 + grain * 0.1);
 		h = grain * 0.6 + n * 0.2;
 		rough = 0.42 + (1.0 - grain) * 0.2;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Atlas das armas (quadrantes): 0 nogueira envernizada, 1 aço (escovado,
+// riscos, desgaste), 2 polímero pontilhado, 3 borracha/couro quadriculado.
+// extra = metalicidade
+// ---------------------------------------------------------------------------
+void weapon_surface(int q, vec2 uv, out vec3 alb, out float h, out float rough, out float extra) {
+	extra = 0.0;
+	if (q == 0) { // nogueira: veio longo contínuo, figura, poros, verniz gasto
+		float warp = fbm2(uv, vec2(3.0, 1.0), 5);
+		float ring = 0.5 + 0.5 * sin((uv.x * 40.0 + warp * 9.0 + fbm(uv, 6.0, 4) * 3.0) * 2.0 * PI);
+		ring = pow(ring, 3.0);   // anéis finos e escuros sobre fundo claro
+		float fig = fbm2(uv + 0.3, vec2(48.0, 5.0), 4);
+		float pores = smoothstep(0.75, 0.92, vnoise(uv * vec2(1.0, 0.25), vec2(300.0, 75.0)));
+		vec3 lw = vec3(0.42, 0.26, 0.15);
+		vec3 dw = vec3(0.26, 0.15, 0.08);
+		vec3 c = mix(lw, dw, ring * 0.55 + fig * 0.3);
+		c *= 0.9 + fbm(uv + 7.0, 3.0, 3) * 0.2;
+		c *= 1.0 - pores * 0.25;
+		float worn = smoothstep(0.6, 0.8, fbm(uv + 2.0, 3.0, 4));
+		c = mix(c, c * 1.25 + vec3(0.04, 0.03, 0.02), worn * 0.4);
+		alb = c;
+		h = 0.5 + ring * 0.08 + fig * 0.08 - pores * 0.15;
+		rough = 0.38 + worn * 0.25 + pores * 0.15;
+	} else if (q == 1) { // aço: escovado, riscos, oxidação leve, desgaste claro
+		float brush = fbm2(uv, vec2(2.0, 180.0), 3);
+		float scr = scratches(uv, 18.0, 0.7, 0.012);
+		float scr2 = scratches(uv + 0.5, 40.0, 0.5, 0.02);
+		float ox = smoothstep(0.66, 0.78, fbm(uv + 4.0, 5.0, 5));
+		float n = fbm(uv, 8.0, 4);
+		vec3 c = vec3(0.62, 0.63, 0.65) * (0.85 + brush * 0.25 + n * 0.08);
+		c = mix(c, vec3(0.85), max(scr, scr2 * 0.6) * 0.6);
+		c = mix(c, vec3(0.3, 0.2, 0.14), ox * 0.45);
+		alb = c;
+		h = 0.5 + brush * 0.05 - scr * 0.12 - scr2 * 0.06 + ox * 0.05;
+		rough = 0.3 + brush * 0.12 + ox * 0.35 - scr * 0.1;
+		extra = 1.0 - ox * 0.6;
+	} else if (q == 2) { // polímero: pontilhado fino, desgaste brilhante nas bordas
+		float st = vnoise(uv, vec2(300.0));
+		float st2 = smoothstep(0.55, 0.8, vnoise(uv + 0.2, vec2(140.0)));
+		float n = fbm(uv, 6.0, 4);
+		float scuff = smoothstep(0.65, 0.8, fbm2(uv, vec2(4.0, 20.0), 4));
+		vec3 c = vec3(0.17 + st * 0.04 + n * 0.03);
+		c = mix(c, c * 1.35, scuff * 0.5);
+		alb = c;
+		h = 0.5 + st * 0.2 + st2 * 0.15;
+		rough = 0.72 - scuff * 0.25;
+	} else { // borracha / couro: quadriculado (checkering) com sujeira nos sulcos
+		vec2 d = uv * 90.0;
+		float a = abs(fract(d.x + d.y) - 0.5);
+		float b = abs(fract(d.x - d.y) - 0.5);
+		float diamond = smoothstep(0.06, 0.18, min(a, b));
+		float n = fbm(uv, 5.0, 4);
+		float grime = vnoise(uv, vec2(120.0));
+		vec3 c = vec3(0.16 + n * 0.04) * (0.8 + diamond * 0.25);
+		c *= 1.0 - (1.0 - diamond) * grime * 0.25;
+		alb = c;
+		h = diamond * 0.22 + n * 0.08;
+		rough = 0.82 - diamond * 0.1;
 	}
 }
 
@@ -429,6 +675,21 @@ void fragment() {
 			char_surface(q, fract(luv + vec2(px * 2.0, 0.0)), a2, hx, r2, e2);
 			char_surface(q, fract(luv + vec2(0.0, px * 2.0)), a2, hy, r2, e2);
 			float strength = 1.2;
+			vec3 n = normalize(vec3(-(hx - h) * strength / (px * 512.0), (hy - h) * strength / (px * 512.0), 1.0));
+			COLOR = vec4(n.xy * 0.5 + 0.5, 1.0, extra);
+		}
+	} else if (mode == 5) {
+		int q = int(step(0.5, uv.x)) + int(step(0.5, uv.y)) * 2;
+		vec2 luv = fract(uv * 2.0);
+		vec3 alb; float h; float rough; float extra;
+		weapon_surface(q, luv, alb, h, rough, extra);
+		if (channel == 0) {
+			COLOR = vec4(clamp(alb, 0.0, 1.0), clamp(rough, 0.0, 1.0));
+		} else {
+			vec3 a2; float hx; float hy; float r2; float e2;
+			weapon_surface(q, fract(luv + vec2(px * 2.0, 0.0)), a2, hx, r2, e2);
+			weapon_surface(q, fract(luv + vec2(0.0, px * 2.0)), a2, hy, r2, e2);
+			float strength = 1.6;
 			vec3 n = normalize(vec3(-(hx - h) * strength / (px * 512.0), (hy - h) * strength / (px * 512.0), 1.0));
 			COLOR = vec4(n.xy * 0.5 + 0.5, 1.0, extra);
 		}

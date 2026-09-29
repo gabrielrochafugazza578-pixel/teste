@@ -207,6 +207,90 @@ func cylinder(xf: Transform3D, radius: float, height: float, sides: int, code: f
 			tri(top, p3, p2, up, Vector2(0, 0), Vector2(d0.x * rt, d0.z * rt), Vector2(d1.x * rt, d1.z * rt), code, seed_value, c)
 
 
+## Tubo de `a` até `b` com normais suaves (cabos, canos, lâminas redondas).
+## Raio r0 em `a`, r1 em `b`. UV: u = volta (m), v = comprimento (m).
+func tube(a: Vector3, b: Vector3, r0: float, r1: float, sides: int, code: float, seed_value: float = 0.0, c: Color = Color.WHITE, caps: bool = true) -> void:
+	var axis := b - a
+	var len := axis.length()
+	if len < 0.00001:
+		return
+	var dir := axis / len
+	var ref := Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT
+	var u := dir.cross(ref).normalized()
+	var v := dir.cross(u).normalized()
+	var circ := TAU * maxf(r0, r1)
+	var base := verts.size()
+	for k in sides + 1:
+		var ang := TAU * float(k) / float(sides)
+		var d := u * cos(ang) + v * sin(ang)
+		var nrm := (d + dir * ((r0 - r1) / len)).normalized()
+		var tg := dir.cross(d).normalized()
+		_vert(a + d * r0, nrm, tg, 1.0, Vector2(circ * float(k) / float(sides), 0.0), code, seed_value, c)
+		_vert(b + d * r1, nrm, tg, 1.0, Vector2(circ * float(k) / float(sides), len), code, seed_value, c)
+	for k in sides:
+		var i0 := base + k * 2
+		# (i0, i0+2, i0+1): frente = horário visto de fora (convenção do quad())
+		var fn := (verts[i0 + 2] - verts[i0]).cross(verts[i0 + 1] - verts[i0])
+		if fn.dot(norms[i0]) > 0.0:
+			idx.append_array(PackedInt32Array([i0, i0 + 1, i0 + 2, i0 + 1, i0 + 3, i0 + 2]))
+		else:
+			idx.append_array(PackedInt32Array([i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3]))
+	if caps:
+		for end in [[a, r0, -dir], [b, r1, dir]]:
+			var cp: Vector3 = end[0]
+			var rr: float = end[1]
+			var n: Vector3 = end[2]
+			if rr <= 0.0001:
+				continue
+			for k in sides:
+				var a0 := TAU * float(k) / float(sides)
+				var a1 := TAU * float(k + 1) / float(sides)
+				var p0 := cp + (u * cos(a0) + v * sin(a0)) * rr
+				var p1 := cp + (u * cos(a1) + v * sin(a1)) * rr
+				tri(cp, p0, p1, n, Vector2.ZERO, Vector2(cos(a0), sin(a0)) * rr, Vector2(cos(a1), sin(a1)) * rr, code, seed_value, c)
+
+
+## Extrusão de um perfil 2D (plano XY local, anti-horário ou horário) de z0 a
+## z1, transformado por `xf`. Lâminas, armações, coronhas, cabeças de machado.
+func extrude(poly: PackedVector2Array, z0: float, z1: float, xf: Transform3D, code: float, seed_value: float = 0.0, c: Color = Color.WHITE) -> void:
+	var n := poly.size()
+	if n < 3:
+		return
+	var bsis := xf.basis
+	var o := xf.origin
+	var zf := (bsis * Vector3.BACK).normalized()
+	# lados
+	var area := 0.0
+	for i in n:
+		var p := poly[i]
+		var q := poly[(i + 1) % n]
+		area += p.x * q.y - q.x * p.y
+	var ccw := area > 0.0
+	var perim := 0.0
+	for i in n:
+		var p := poly[i]
+		var q := poly[(i + 1) % n]
+		var e := q - p
+		var en := Vector2(e.y, -e.x) if ccw else Vector2(-e.y, e.x)
+		var nw := (bsis * Vector3(en.x, en.y, 0.0)).normalized()
+		var l := e.length()
+		var a0 := o + bsis * Vector3(p.x, p.y, z0)
+		var a1 := o + bsis * Vector3(q.x, q.y, z0)
+		var b1 := o + bsis * Vector3(q.x, q.y, z1)
+		var b0 := o + bsis * Vector3(p.x, p.y, z1)
+		quad(a0, a1, b1, b0, nw, Vector2(perim, z0), Vector2(perim + l, z0), Vector2(perim + l, z1), Vector2(perim, z1), code, seed_value, c)
+		perim += l
+	# tampas
+	var tris := Geometry2D.triangulate_polygon(poly)
+	for t in range(0, tris.size(), 3):
+		var p0 := poly[tris[t]]
+		var p1 := poly[tris[t + 1]]
+		var p2 := poly[tris[t + 2]]
+		for zz in [[z1, zf], [z0, -zf]]:
+			var z: float = zz[0]
+			tri(o + bsis * Vector3(p0.x, p0.y, z), o + bsis * Vector3(p1.x, p1.y, z), o + bsis * Vector3(p2.x, p2.y, z), zz[1], p0, p1, p2, code, seed_value, c)
+
+
 ## Telhado de duas águas sobre um retângulo (xz). ridge_x: cumeeira ao longo de X.
 func gable_roof(rect: Rect2, y0: float, rise: float, overhang: float, ridge_x: bool, code: float, gable_code: float, seed_value: float, c: Color = Color.WHITE, gable_c: Color = Color.WHITE) -> void:
 	var r := rect.grow(overhang)

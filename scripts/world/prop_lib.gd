@@ -20,7 +20,9 @@ const NAMES := ["bed", "bed_single", "bunk", "hospital_bed", "sofa", "armchair",
 	"planter", "fence_wood", "fence_metal", "wall_low", "sandbags", "barricade_wood", "concrete_barrier", "tent",
 	"campfire", "hay_bale", "gas_pump", "water_tank", "ac_unit", "antenna", "container", "forklift", "debris_pile",
 	"trash_bags", "cardboard", "radio_tower", "floodlight", "power_pole", "billboard", "log", "crib", "rug",
-	"generator", "radio_set", "bookshelf", "stair_ramp", "tarp_shelter", "fence_chain_post", "gate_bar", "washing_machine"]
+	"generator", "radio_set", "bookshelf", "stair_ramp", "tarp_shelter", "fence_chain_post", "gate_bar", "washing_machine",
+	"plant_pot", "floor_lamp", "picture", "wall_clock", "poster", "notice_board", "fluoro_lamp", "pendant_lamp", "office_chair",
+	"vending_machine", "water_cooler", "coat_rack", "mirror", "wall_shelf", "radiator", "gondola_hw", "gondola_ph"]
 
 
 static func warm() -> void:
@@ -68,7 +70,7 @@ static func collision_size(name: String) -> Vector3:
 		"locker": return Vector3(1.5, 1.9, 0.5)
 		"filing_cabinet": return Vector3(0.5, 1.3, 0.62)
 		"checkout": return Vector3(1.8, 0.92, 0.75)
-		"gondola": return Vector3(2.4, 1.65, 0.95)
+		"gondola", "gondola_hw", "gondola_ph": return Vector3(2.4, 1.65, 0.95)
 		"freezer": return Vector3(2.0, 0.92, 0.85)
 		"workbench", "lab_bench": return Vector3(2.0 if name == "workbench" else 3.0, 0.95, 0.82)
 		"tool_cabinet": return Vector3(0.8, 1.05, 0.5)
@@ -93,6 +95,12 @@ static func collision_size(name: String) -> Vector3:
 		"barrel": return Vector3(0.62, 0.92, 0.62)
 		"generator": return Vector3(1.2, 0.9, 0.7)
 		"tent": return Vector3(2.2, 1.3, 2.4)
+		"plant_pot": return Vector3(0.45, 0.9, 0.45)
+		"floor_lamp": return Vector3(0.36, 1.6, 0.36)
+		"vending_machine": return Vector3(0.95, 1.85, 0.82)
+		"water_cooler": return Vector3(0.36, 1.25, 0.36)
+		"coat_rack": return Vector3(0.45, 1.8, 0.45)
+		"radiator": return Vector3(0.9, 0.62, 0.12)
 	return Vector3.ZERO
 
 
@@ -214,10 +222,11 @@ static func _build(name: String, b: MeshBuf) -> void:
 			for i in 4:
 				var x := -0.4
 				while x < 0.4:
-					var w := r.randf_range(0.06, 0.16)
+					var w := r.randf_range(0.08, 0.18)
 					var h := r.randf_range(0.15, 0.35)
-					var c := Color.from_hsv(r.randf(), r.randf_range(0.2, 0.6), r.randf_range(0.35, 0.8))
-					b.box(Vector3(x + w * 0.5, 0.07 + i * 0.45 + h * 0.5, 0.0), Vector3(w * 0.95, h, 0.28), PLA if name == "shelf" else FAB, r.randf(), c)
+					var c := Color.from_hsv(r.randf(), r.randf_range(0.15, 0.5), r.randf_range(0.35, 0.75))
+					# sem fundo nem traseira (não aparecem): 1/3 menos vértices
+					b.box(Vector3(x + w * 0.5, 0.07 + i * 0.45 + h * 0.5, 0.0), Vector3(w * 0.95, h, 0.28), PLA if name == "shelf" else FAB, r.randf(), c, 39)
 					x += w + r.randf_range(0.0, 0.06)
 		"tv_stand":
 			b.box(Vector3(0, 0.25, 0), Vector3(1.4, 0.5, 0.45), WOOD, 0.2, dark_wood)
@@ -252,7 +261,7 @@ static func _build(name: String, b: MeshBuf) -> void:
 			b.box(Vector3(0, 0.45, 0), Vector3(1.8, 0.9, 0.7), PLA, 0.3, Color(0.7, 0.72, 0.72))
 			b.box(Vector3(-0.3, 0.91, 0), Vector3(1.1, 0.02, 0.45), MET, 0.0, black)
 			b.box(Vector3(0.65, 1.05, 0), Vector3(0.35, 0.25, 0.3), MET, 0.0, Color(0.2, 0.2, 0.2))
-		"gondola":
+		"gondola", "gondola_hw", "gondola_ph":
 			b.box(Vector3(0, 0.8, 0), Vector3(2.4, 1.6, 0.08), MET, 0.0, Color(0.85, 0.85, 0.83))
 			b.box(Vector3(0, 0.06, 0), Vector3(2.4, 0.12, 0.9), MET, 0.0, Color(0.6, 0.6, 0.62))
 			var r := RandomNumberGenerator.new()
@@ -265,8 +274,14 @@ static func _build(name: String, b: MeshBuf) -> void:
 					while x < 1.1:
 						var w := r.randf_range(0.08, 0.2)
 						var h := r.randf_range(0.12, 0.3)
-						var c := Color.from_hsv(r.randf(), r.randf_range(0.5, 0.9), r.randf_range(0.5, 0.95))
-						b.box(Vector3(x + w * 0.5, y + 0.01 + h * 0.5, side * 0.24), Vector3(w * 0.9, h, 0.3), PLA, r.randf(), c)
+						var c := Color.from_hsv(r.randf(), r.randf_range(0.25, 0.65), r.randf_range(0.45, 0.85))
+						if name == "gondola_hw":
+							# ferragens: caixas de papelão, metal, laranja/amarelo de ferramentas
+							c = [Color(0.62, 0.48, 0.32), Color(0.55, 0.56, 0.58), Color(0.85, 0.45, 0.12), Color(0.8, 0.68, 0.2), Color(0.3, 0.32, 0.35)][r.randi() % 5]
+						elif name == "gondola_ph":
+							c = Color(0.92, 0.93, 0.94).lerp(Color.from_hsv(r.randf(), 0.5, 0.8), r.randf_range(0.0, 0.35))
+							h *= 0.6
+						b.box(Vector3(x + w * 0.5, y + 0.01 + h * 0.5, side * 0.24), Vector3(w * 0.9, h, 0.3), PLA, r.randf(), c, 63 - 8 - (16 if side < 0.0 else 32))
 						x += w + 0.01
 		"freezer":
 			b.box(Vector3(0, 0.42, 0), Vector3(2.0, 0.84, 0.82), MET, 0.1, white)
@@ -539,5 +554,95 @@ static func _build(name: String, b: MeshBuf) -> void:
 		"gate_bar":
 			b.box(Vector3(0, 0.5, 0), Vector3(0.3, 1.0, 0.3), MET, 0.0, Color(0.9, 0.9, 0.2))
 			b.box(Vector3(2.5, 0.95, 0), Vector3(5.0, 0.12, 0.12), MET, 0.0, Color(0.9, 0.2, 0.15))
+		"plant_pot":
+			b.cylinder(Transform3D.IDENTITY, 0.16, 0.36, 8, CON, 0.2, Color(0.72, 0.42, 0.28), false, 0.2)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.33, 0)), 0.19, 0.02, 8, _c(Assets.L_DIRT), 0.0, Color(0.45, 0.38, 0.3))
+			var r := RandomNumberGenerator.new()
+			r.seed = 91
+			for i in 6:
+				var a := TAU * float(i) / 6.0 + r.randf() * 0.4
+				var ln := r.randf_range(0.25, 0.6)
+				var tip := Vector3(cos(a) * ln * 0.55, 0.35 + ln * r.randf_range(0.6, 1.0), sin(a) * ln * 0.55)
+				b.tube(Vector3(cos(a) * 0.03, 0.35, sin(a) * 0.03), tip, 0.012, 0.004, 3, _c(Assets.L_BARK), 0.0, Color(0.5, 0.42, 0.26), false)
+				b.box_xf(Transform3D(Basis(Vector3.UP, -a) * Basis(Vector3.BACK, 0.8), tip), Vector3(0.12, 0.004, 0.05), _c(Assets.L_GRASS), 0.0, Color(0.9, 0.75, 0.4))
+		"floor_lamp":
+			b.cylinder(Transform3D.IDENTITY, 0.15, 0.03, 12, MET, 0.0, black)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.03, 0)), 0.015, 1.3, 6, MET, 0.0, steel)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 1.3, 0)), 0.2, 0.28, 12, FAB, 0.3, Color(0.92, 0.85, 0.7), false, 0.12)
+		"picture":
+			b.box(Vector3(0, 0, 0), Vector3(0.52, 0.42, 0.03), WOOD, 0.3, dark_wood)
+			b.box(Vector3(0, 0, -0.016), Vector3(0.44, 0.34, 0.004), FAB, 0.7, Color(0.55, 0.6, 0.5))
+			b.box(Vector3(0.05, -0.04, -0.019), Vector3(0.22, 0.14, 0.002), FAB, 0.2, Color(0.75, 0.55, 0.35))
+		"wall_clock":
+			b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0, 0.02)), 0.16, 0.04, 16, PLA, 0.0, white)
+			b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0, 0.022)), 0.175, 0.045, 16, MET, 0.0, black, false)
+			b.box_xf(Transform3D(Basis(Vector3.BACK, 0.9), Vector3(0.03, 0.03, -0.022)), Vector3(0.012, 0.09, 0.003), MET, 0.0, black)
+			b.box_xf(Transform3D(Basis(Vector3.BACK, -2.2), Vector3(-0.04, -0.02, -0.024)), Vector3(0.01, 0.12, 0.003), MET, 0.0, black)
+		"poster":
+			b.box(Vector3(0, 0, 0), Vector3(0.6, 0.85, 0.004), PLA, 0.6, Color(0.9, 0.85, 0.7))
+			b.box(Vector3(0, 0.12, -0.003), Vector3(0.5, 0.45, 0.002), FAB, 0.5, Color(0.7, 0.25, 0.2))
+			b.box(Vector3(0, -0.28, -0.003), Vector3(0.5, 0.1, 0.002), PLA, 0.1, Color(0.15, 0.15, 0.2))
+		"notice_board":
+			b.box(Vector3(0, 0, 0), Vector3(1.2, 0.8, 0.03), WOOD, 0.1, dark_wood)
+			b.box(Vector3(0, 0, -0.016), Vector3(1.12, 0.72, 0.004), FAB, 0.8, Color(0.72, 0.52, 0.32))
+			var r := RandomNumberGenerator.new()
+			r.seed = 55
+			for i in 7:
+				b.box_xf(Transform3D(Basis(Vector3.BACK, r.randf_range(-0.15, 0.15)), Vector3(r.randf_range(-0.42, 0.42), r.randf_range(-0.22, 0.22), -0.02)),
+					Vector3(0.21, 0.28, 0.002), PLA, r.randf(), Color(0.97, 0.95, 0.88) if r.randf() < 0.7 else Color(0.95, 0.9, 0.5))
+		"fluoro_lamp":
+			b.box(Vector3(0, -0.03, 0), Vector3(1.24, 0.06, 0.3), MET, 0.0, Color(0.85, 0.85, 0.83))
+			b.box(Vector3(0, -0.062, 0), Vector3(1.18, 0.005, 0.24), TIL, 0.0, Color(0.97, 0.97, 0.95))
+		"pendant_lamp":
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, -0.5, 0)), 0.004, 0.5, 4, MET, 0.0, black)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, -0.72, 0)), 0.2, 0.22, 12, MET, 0.0, Color(0.3, 0.35, 0.3), false, 0.05)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, -0.7, 0)), 0.04, 0.06, 8, TIL, 0.0, white)
+		"office_chair":
+			for i in 5:
+				var a := TAU * float(i) / 5.0
+				b.box_xf(Transform3D(Basis(Vector3.UP, -a), Vector3(cos(a) * 0.15, 0.05, sin(a) * 0.15)), Vector3(0.3, 0.03, 0.04), MET, 0.0, black)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.05, 0)), 0.025, 0.38, 6, MET, 0.0, steel)
+			b.box(Vector3(0, 0.46, 0), Vector3(0.48, 0.07, 0.46), FAB, 0.3, Color(0.15, 0.16, 0.18))
+			b.box_xf(Transform3D(Basis(Vector3.RIGHT, -0.12), Vector3(0, 0.78, 0.22)), Vector3(0.44, 0.5, 0.06), FAB, 0.3, Color(0.15, 0.16, 0.18))
+		"vending_machine":
+			b.box(Vector3(0, 0.92, 0), Vector3(0.95, 1.84, 0.8), MET, 0.2, Color(0.75, 0.12, 0.1))
+			b.box(Vector3(-0.1, 1.05, -0.401), Vector3(0.62, 1.2, 0.01), TIL, 0.0, Color(0.15, 0.18, 0.2))
+			var r := RandomNumberGenerator.new()
+			r.seed = 8
+			for row in 5:
+				for i in 5:
+					b.box(Vector3(-0.36 + i * 0.13, 0.55 + row * 0.23, -0.35), Vector3(0.08, 0.14, 0.08), PLA, 0.0, Color.from_hsv(r.randf(), 0.7, 0.85))
+			b.box(Vector3(0.33, 1.1, -0.402), Vector3(0.18, 0.4, 0.01), MET, 0.0, Color(0.2, 0.2, 0.22))
+			b.box(Vector3(-0.1, 0.25, -0.402), Vector3(0.5, 0.16, 0.01), MET, 0.0, black)
+		"water_cooler":
+			b.box(Vector3(0, 0.45, 0), Vector3(0.34, 0.9, 0.34), PLA, 0.1, white)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.9, 0)), 0.14, 0.35, 12, TIL, 0.0, Color(0.55, 0.7, 0.85), true, 0.13)
+			b.box(Vector3(0.06, 0.72, -0.175), Vector3(0.04, 0.05, 0.03), PLA, 0.0, Color(0.2, 0.4, 0.8))
+			b.box(Vector3(-0.06, 0.72, -0.175), Vector3(0.04, 0.05, 0.03), PLA, 0.0, Color(0.8, 0.2, 0.2))
+		"coat_rack":
+			b.cylinder(Transform3D.IDENTITY, 0.2, 0.03, 10, MET, 0.0, black)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.03, 0)), 0.02, 1.72, 6, WOOD, 0.0, dark_wood)
+			for i in 4:
+				var a := TAU * float(i) / 4.0
+				b.box_xf(Transform3D(Basis(Vector3.UP, -a) * Basis(Vector3.BACK, 0.6), Vector3(cos(a) * 0.07, 1.68, sin(a) * 0.07)), Vector3(0.18, 0.02, 0.02), WOOD, 0.0, dark_wood)
+			b.box_xf(Transform3D(Basis(Vector3.UP, 0.4), Vector3(0.1, 1.25, 0.02)), Vector3(0.36, 0.7, 0.1), FAB, 0.4, Color(0.3, 0.28, 0.25))
+		"mirror":
+			b.box(Vector3(0, 0, 0), Vector3(0.5, 0.7, 0.02), MET, 0.0, steel)
+			b.box(Vector3(0, 0, -0.011), Vector3(0.46, 0.66, 0.002), TIL, 0.0, Color(0.55, 0.62, 0.66))
+		"wall_shelf":
+			b.box(Vector3(0, 0, -0.1), Vector3(0.8, 0.025, 0.2), WOOD, 0.2, dark_wood)
+			var r := RandomNumberGenerator.new()
+			r.seed = 21
+			var x := -0.36
+			while x < 0.3:
+				var w := r.randf_range(0.05, 0.12)
+				var h := r.randf_range(0.08, 0.22)
+				b.box(Vector3(x + w * 0.5, 0.0125 + h * 0.5, -0.1), Vector3(w * 0.9, h, 0.14), FAB, r.randf(), Color.from_hsv(r.randf(), 0.4, 0.6))
+				x += w + r.randf_range(0.0, 0.08)
+		"radiator":
+			for i in 10:
+				b.box(Vector3(-0.4 + i * 0.09, 0.36, 0), Vector3(0.07, 0.52, 0.09), MET, 0.0, white)
+			b.box(Vector3(0, 0.1, 0), Vector3(0.9, 0.03, 0.03), MET, 0.0, white)
+			b.box(Vector3(0, 0.62, 0), Vector3(0.9, 0.03, 0.03), MET, 0.0, white)
 		_:
 			b.box(Vector3(0, 0.25, 0), Vector3(0.5, 0.5, 0.5), WOOD, 0.0, Color(0.6, 0.5, 0.4))

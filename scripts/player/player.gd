@@ -63,6 +63,8 @@ var _queued_t: float = 0.0
 var _melee_target: Node3D = null     # alvo da mira assistida do golpe atual
 var _lunge_t: float = 0.0
 var _lunge_stop: float = 1.0         # o passo para quando o alvo entra nesta distância
+var _auto_fire: bool = false         # gatilho segurado com arma automática
+var _burst: float = 0.0              # tiros seguidos (piora a dispersão)
 var _lmb_down_t: float = -1.0
 var _block_t: float = -10.0
 var _busy_t: float = 0.0
@@ -439,8 +441,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _is_ranged():
 			if aiming:
 				_fire_ranged()
+				_auto_fire = bool(ItemDB.get_item(str(equipment["weapon"]["id"]))["ranged"].get("auto", false))
 		else:
 			_lmb_down_t = Time.get_ticks_msec() / 1000.0
+	if event.is_action_released("attack"):
+		_auto_fire = false
 	if event.is_action_released("attack") and _lmb_down_t > 0.0:
 		var held := Time.get_ticks_msec() / 1000.0 - _lmb_down_t
 		_lmb_down_t = -1.0
@@ -449,11 +454,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _is_ranged():
 			aiming = true
 			cam_rig.aim_target = 1.0
+			var wid := str(equipment["weapon"]["id"])
+			cam_rig.aim_zoom = float(ItemDB.get_item(wid)["ranged"].get("zoom", 1.0))
+			if _busy_t <= 0.0:
+				body.play("aim_rifle" if WeaponMeshes.is_long_gun(wid) else "aim_pistol", 1.0)
+			if WeaponMeshes.is_long_gun(wid):
+				_update_weapon_visual()
 		else:
 			_start_block()
 	if event.is_action_released("block"):
+		var was_aiming := aiming
 		aiming = false
+		if was_aiming:
+			body.stop_action()
+			if _is_ranged() and WeaponMeshes.is_long_gun(str(equipment["weapon"]["id"])):
+				_update_weapon_visual()
+		_auto_fire = false
 		cam_rig.aim_target = 0.0
+		cam_rig.aim_zoom = 1.0
 		_end_block()
 	if event.is_action_pressed("dodge"):
 		_dodge()
@@ -663,6 +681,10 @@ func _timers(delta: float) -> void:
 			_queued_attack = -1
 			_attack(h)
 	_ranged_cd = maxf(0.0, _ranged_cd - delta)
+	if _auto_fire and aiming and _ranged_cd <= 0.0 and _is_ranged():
+		_fire_ranged()
+	elif not _auto_fire:
+		_burst = maxf(0.0, _burst - delta * 6.0)
 	if state == "knockdown" and not body.animator.is_playing("knockdown"):
 		state = "normal"
 	if _lmb_down_t > 0.0 and Time.get_ticks_msec() / 1000.0 - _lmb_down_t > 0.32 and not _attack_active and _busy_t <= 0.0:
@@ -954,13 +976,18 @@ func _is_ranged() -> bool:
 
 func _update_weapon_visual() -> void:
 	body.clear_attachment("hand_r")
+	body.clear_attachment("chest")
 	var w: Dictionary = equipment["weapon"]
 	if w.is_empty():
 		return
 	var mi := MeshInstance3D.new()
 	mi.mesh = WeaponMeshes.mesh(str(w["id"]))
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-	body.attach("hand_r", mi, Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0.0, -0.12, -0.02)))
+	if aiming and WeaponMeshes.is_long_gun(str(w["id"])):
+		# arma longa na mira: coronha no ombro direito, cano para a frente
+		body.attach("chest", mi, Transform3D(Basis.IDENTITY, Vector3(0.15, 0.16, -0.27)))
+	else:
+		body.attach("hand_r", mi, Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0.0, -0.12, -0.02)))
 
 
 func _attack(heavy: bool) -> void:
@@ -1240,37 +1267,71 @@ func _fire_ranged() -> void:
 	var ammo: String = r["ammo"]
 	if not inventory.has(ammo):
 		AudioManager.play_3d("door_locked", global_position, -10.0)
-		EventBus.toast("Sem munição.", "warn")
+		EventBus.toast("Sem munição (%s)." % ItemDB.item_name(ammo), "warn")
+		_auto_fire = false
 		return
 	inventory.remove(ammo, 1)
 	_ranged_cd = float(r["rate"])
 	var cam := cam_rig.cam
 	var from := cam.global_position
-	var spread := float(r["spread"]) * (1.0 + survival.pain * 0.01 + (1.0 - survival.stamina / 100.0))
-	var dir := (cam_rig.look_dir() + Vector3(randf_range(-spread, spread), randf_range(-spread, spread), randf_range(-spread, spread))).normalized()
-	var q := PhysicsRayQueryParameters3D.create(from, from + dir * float(r["range"]), 1 | (1 << 2) | (1 << 3) | (1 << 4))
-	q.exclude = [get_rid()]
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	var is_bow := str(ws["id"]) == "arco"
-	AudioManager.play_3d("bow_shot" if is_bow else "gun_shot", global_position, 0.0 if not is_bow else -4.0)
-	EventBus.make_noise(global_position, float(r["noise"]), self, &"gunshot" if not is_bow else &"bow")
-	cam_rig.add_shake(0.4 if not is_bow else 0.1)
-	if not hit.is_empty():
+	var silent := bool(r.get("silent", false))
+	var pellets := int(r.get("pellets", 1))
+	# dispersão: dor, cansaço e rajada contínua pioram a mira
+	var spread := float(r["spread"]) * (1.0 + survival.pain * 0.01 + (1.0 - survival.stamina / 100.0)) * (1.0 + _burst * 0.25)
+	_burst = minf(_burst + (1.0 if bool(r.get("auto", false)) else 0.0), 6.0)
+	var space := get_world_3d().direct_space_state
+	var hit_once := {}
+	for k in pellets:
+		var dir := (cam_rig.look_dir() + Vector3(randf_range(-spread, spread), randf_range(-spread, spread), randf_range(-spread, spread))).normalized()
+		var q := PhysicsRayQueryParameters3D.create(from, from + dir * float(r["range"]), 1 | (1 << 2) | (1 << 3) | (1 << 4))
+		q.exclude = [get_rid()]
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			continue
 		var col: Object = hit["collider"]
+		var hp: Vector3 = hit["position"]
 		if col is Node and (col as Node).has_method("receive_hit"):
-			var hp: Vector3 = hit["position"]
-			var info := DamageInfo.make(float(r["dmg"]), "bullet" if not is_bow else "sharp", self, dir)
+			# queda de dano com a distância (chumbo perde força rápido)
+			var dist := from.distance_to(hp)
+			var fall := clampf(1.0 - dist / float(r["range"]) * (0.8 if pellets > 1 else 0.35), 0.2, 1.0)
+			var info := DamageInfo.make(float(r["dmg"]) * fall, "bullet" if not silent else "sharp", self, dir)
 			info.point = hp
 			info.headshot = hp.y - (col as Node3D).global_position.y > 1.45
 			if info.headshot:
 				info.amount *= 2.5
-			info.stagger = 0.6
+			info.stagger = 0.6 if pellets == 1 else 0.35
+			info.knockback = 1.2 if pellets == 1 else 0.5
 			info.blockable = false
 			col.receive_hit(info)
-		elif is_bow and randf() < float(r.get("recover", 0.0)):
-			var ip := ItemPickup.new()
-			get_parent().add_child(ip)
-			ip.setup(Inventory.make_stack("flecha", 1), hit["position"] - dir * 0.2, true)
+			HitFx.spawn(get_parent(), hp, -dir, info.headshot, col is Infected)
+			if not hit_once.has(col.get_instance_id()):
+				hit_once[col.get_instance_id()] = true
+				EventBus.combat_hit.emit(self, col, info.amount)
+		else:
+			HitFx.spawn(get_parent(), hp + (hit["normal"] as Vector3) * 0.02, hit["normal"], false, false)
+			if silent and randf() < float(r.get("recover", 0.0)):
+				var ip := ItemPickup.new()
+				get_parent().add_child(ip)
+				ip.setup(Inventory.make_stack(ammo, 1), hp - dir * 0.2, true)
+	var pitch := float(r.get("pitch", 1.0)) * randf_range(0.95, 1.05)
+	AudioManager.play_3d("bow_shot" if silent else "gun_shot", global_position, (-4.0 if silent else (2.0 if pellets > 1 else 0.0)), pitch)
+	EventBus.make_noise(global_position, float(r["noise"]), self, &"gunshot" if not silent else &"bow")
+	cam_rig.add_shake((0.1 if silent else 0.3) * float(r.get("kick", 1.0)))
+	cam_rig.pitch = clampf(cam_rig.pitch + (0.0 if silent else 0.012 * float(r.get("kick", 1.0))), -1.3, 1.3)
+	if not silent:
+		_muzzle_flash()
+
+
+## Clarão do disparo: luz curta na boca do cano.
+func _muzzle_flash() -> void:
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.8, 0.45)
+	l.light_energy = 3.5
+	l.omni_range = 5.0
+	l.shadow_enabled = false
+	get_parent().add_child(l)
+	l.global_position = body.bone_global_position("hand_r") + cam_rig.look_dir() * 0.5
+	get_tree().create_timer(0.05, false).timeout.connect(l.queue_free)
 
 
 ## Recebe golpe de infectado/NPC.

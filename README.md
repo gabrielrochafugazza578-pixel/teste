@@ -47,7 +47,12 @@ Primeira execução: o jogo **gera as texturas PBR na GPU** (Texture2DArray, 16 
   distância de visão/objetos, vegetação, partículas, pós, densidade de NPCs e infectados, clima, reflexos,
   MSAA, VSync, limite de FPS, FOV).
 * **Texturas**: 2 `Texture2DArray` (albedo+rugosidade / normal+AO+metal) compartilhadas por todo o mundo;
-  256–2048 px por camada (≈ 11–720 MB) — BAIXO usa 512 px ≈ 45 MB.
+  256–2048 px por camada (≈ 11–720 MB) — BAIXO usa 512 px ≈ 45 MB. Cada camada tem detalhe próprio (asfalto
+  com agregado, remendos e rachaduras; concreto com juntas e poros; tijolo com lascas e eflorescência; reboco
+  com escorridos e descascado; madeira com veios, nós e pregos; piso com peças trincadas…) e o shader quebra
+  a repetição das camadas orgânicas com uma segunda amostra girada. As armas usam um atlas à parte
+  (`Assets.weapon_a/b`: nogueira, aço escovado, polímero, borracha). Interiores recebem uma luz indireta
+  falsa e quente (`interior_fill`) em vez de ficarem só com o azul do céu.
 * **Draw calls**: cada chunk de 64 m é mesclado em poucas malhas com um único material; props repetidos em
   **MultiMesh**; vegetação/grama instanciada; *visibility ranges*; *occlusion culling* com `ArrayOccluder3D`.
   Medido: 100–230 draw calls, ~80 MB de VRAM na cidade.
@@ -184,6 +189,30 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
 * **Inventário limitado** por peso e espaços; mochilas, bolsos, porta-malas, baús, esconderijos, armários;
   condição/frescor dos itens; atalhos rápidos.
 * **Loot contextual**: casa, mercado, farmácia, hospital, oficina, posto, delegacia, escola, laboratório…
+  Sítios e cabanas têm ferramentas de roça e armas de caça; cada prédio pode ter uma arma largada
+  (`LootTables.WEAPONS`), e arma de fogo achada vem com um pouco de munição do lado.
+* **Itens soltos pelo mundo**: em cima de mesas, balcões, escrivaninhas, criados-mudos, bancadas, camas e no
+  chão (`InteriorGen._scatter_items`, tabela do móvel ou do cômodo), até 40 por prédio. Cada item tem um modelo
+  3D próprio em escala real (`ItemModels`: latas, garrafas PET e de vidro, remédios, munição, ferramentas,
+  roupas dobradas, mochilas, galões, documentos…) com os materiais do atlas das armas.
+* **Painel "Itens por perto"** (`HUDNearby`, lado direito): até 6 itens visíveis num raio de 6,5 m (sem contar
+  o que está atrás de parede), com ícone, nome, quantidade e distância; o item na mira fica destacado com a
+  tecla de interação e, com o cursor livre (Alt), dá para clicar e pegar.
+* **Interiores decorados e abandonados** (depois do surto; antes dele ficam arrumados): lojas, farmácias e
+  ferragens com gôndolas em fileiras, bares com mesas e cadeiras, escritórios com mesas, cadeiras de rodinha e
+  computadores, recepções com sofás e poltronas, rodapé, luminárias, quadros, relógios, cartazes, espelhos,
+  plantas secas, micro-ondas, louça, abajures. O abandono: móveis tombados, gôndolas caídas com produtos
+  espalhados, papéis, lixo, entulho de reboco, manchas de sujeira, infiltração e sangue, rachaduras, tijolo
+  exposto, pichações, janelas tapadas com tábuas, cacos de vidro, luminárias penduradas ou caídas, forro
+  desabado e "ninhos" de sobreviventes. Tudo numa malha por interior, com teto de ~150 mil vértices.
+* **Armas**: 25 brancas, fora as ferramentas que também servem de arma (faca, canivete, cutelo, soco-inglês, facão, machadinha, machado, picareta, foice,
+  enxada, katana, tacos, bastões, chave de roda…) e 11 de fogo/arremesso (revólver .38, pistola 9 mm, pistola
+  .380, submetralhadora, espingarda 12 de bomba e de cano duplo, carabina .22, rifle com luneta, carabina
+  policial 5.56, besta e arco), todas modeladas em código (`WeaponMeshes`) com atlas próprio de nogueira, aço
+  escovado, polímero e borracha. Espingardas disparam chumbo (vários projéteis com queda de dano), armas
+  automáticas atiram enquanto o botão está apertado, miras com luneta aproximam a câmera, besta e arco são
+  silenciosos e as setas podem ser recuperadas. Pistolas são miradas com os braços estendidos; armas longas
+  vão para o ombro.
 * **Fabricação e reparo**: sobrevivência, medicamentos, culinária (no fogo), armas, ferramentas, estruturas
   (fogueira, coletor de chuva, baú, esconderijo, cama, bancada, alarme de latas, barricadas), reparos e melhorias.
 * **Combate corpo a corpo tático**: leves/pesados, combo leve-leve-finalização (o 3º golpe seguido é mais
@@ -232,6 +261,10 @@ xvfb-run godot --path . --rendering-driver opengl3 res://tests/combat.tscn -- --
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/ui.tscn -- --out=/tmp/ui            # fotos de todas as telas do jogo
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/light.tscn -- --out=/tmp/luz        # iluminação: dia, noite, interior, Setor 7
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/buildings.tscn -- --out=/tmp/predios # fachadas de perto e do alto
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/interiors.tscn -- --out=/tmp/interiores [--only=house,police]  # dentro dos prédios
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/arms.tscn -- --out=/tmp/armas_mao [--only=rifle_caca]        # armas na mão e disparo
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/weapons_test.tscn -- --out=/tmp/armas                         # vitrine dos modelos de arma
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/tex_dump.tscn -- --out=/tmp/texturas                          # todas as texturas geradas
 ```
 
 ## Build

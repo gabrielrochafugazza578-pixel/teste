@@ -25,6 +25,8 @@ uniform bool use_instance_tint = false;
 uniform float normal_strength = 1.0;
 uniform float grime = 1.0;
 uniform float emission_boost = 1.0;
+// Interiores: luz indireta falsa (claridade que entra pelas janelas e rebate), quente.
+uniform float interior_fill = 0.0;
 
 global uniform float wetness;
 global uniform float world_decay;
@@ -69,18 +71,28 @@ void fragment() {
 	vec4 a = texture(tex_a, uvw);
 	vec4 b = texture(tex_b, uvw);
 
-	vec3 alb = a.rgb * v_tint.rgb;
+	// Projeção dominante para ruídos em espaço de mundo (1 amostra, barato)
+	vec3 an = abs(w_nrm);
+	vec2 np = an.y > 0.7 ? w_pos.xz : (an.x > an.z ? w_pos.zy : w_pos.xy);
+	vec4 nz = texture(noise_tex, np * 0.045);
+
+	vec3 base_rgb = a.rgb;
+	// anti-repetição nas camadas orgânicas (asfalto, reboco, grama, terra, rocha,
+	// cascalho, casca): 2ª amostra girada em outra escala, misturada por ruído de mundo
+	if (li == 0 || li == 3 || li == 7 || li == 8 || li == 9 || li == 12 || li == 13) {
+		vec2 ruv = mat2(vec2(0.8, -0.6), vec2(0.6, 0.8)) * (UV * sc * 0.41) + vec2(0.37, 0.71);
+		vec3 a2 = texture(tex_a, vec3(ruv, v_layer)).rgb;
+		base_rgb = mix(base_rgb, a2, smoothstep(0.3, 0.7, nz.g) * 0.5);
+	}
+	// variação de tom em grande escala (manchas, sol, sujeira acumulada)
+	base_rgb *= 0.9 + nz.r * 0.2;
+	vec3 alb = base_rgb * v_tint.rgb;
 	float rough = a.a;
 	float metal = b.a;
 	float ao = b.b * v_tint.a;
 	vec2 nxy = (b.rg * 2.0 - 1.0) * normal_strength;
 	vec3 nmap = vec3(nxy, sqrt(max(0.0, 1.0 - dot(nxy, nxy))));
 	vec3 emit = vec3(0.0);
-
-	// Projeção dominante para ruídos em espaço de mundo (1 amostra, barato)
-	vec3 an = abs(w_nrm);
-	vec2 np = an.y > 0.7 ? w_pos.xz : (an.x > an.z ? w_pos.zy : w_pos.xy);
-	vec4 nz = texture(noise_tex, np * 0.045);
 
 	// --- Deterioração: fuligem, escorridos, musgo -------------------------------
 	float decay = world_decay * grime;
@@ -201,6 +213,12 @@ void fragment() {
 		}
 	}
 
+	if (interior_fill > 0.0) {
+		// forros e faces voltadas para baixo recebem a luz que rebate do piso
+		float down = clamp(-w_nrm.y, 0.0, 1.0);
+		alb *= vec3(1.04, 1.0, 0.93);
+		emit += alb * vec3(1.0, 0.9, 0.76) * interior_fill * (1.0 + down * 1.4) * (0.2 + daylight * 0.8) * (0.55 + 0.45 * ao);
+	}
 	ALBEDO = alb;
 	ROUGHNESS = clamp(rough, 0.02, 1.0);
 	METALLIC = metal;
