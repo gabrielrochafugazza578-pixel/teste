@@ -18,11 +18,13 @@ static func sweep(attacker: Node3D, origin: Vector3, forward: Vector3, reach: fl
 	q.collision_mask = MASK_TARGETS
 	q.exclude = exclude
 	q.collide_with_areas = false
-	var steps := 3
-	for i in steps:
-		var a := deg_to_rad(lerpf(-arc_deg * 0.5, arc_deg * 0.5, float(i) / float(steps - 1)))
-		var dir := forward.rotated(Vector3.UP, a)
-		var p := origin + dir * (reach * 0.75)
+	# duas faixas de distância: acerta tanto o alvo colado quanto o da ponta do alcance
+	var probes: Array[Vector3] = []
+	for f in [0.4, 0.8]:
+		for i in 3:
+			var a := deg_to_rad(lerpf(-arc_deg * 0.5, arc_deg * 0.5, float(i) / 2.0))
+			probes.append(origin + forward.rotated(Vector3.UP, a) * (reach * f))
+	for p in probes:
 		q.transform = Transform3D(Basis.IDENTITY, p)
 		for r in space.intersect_shape(q, 6):
 			var col: Object = r["collider"]

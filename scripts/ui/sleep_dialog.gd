@@ -11,11 +11,11 @@ var _label: Label
 
 
 func _ready() -> void:
-	theme = UITheme.get_theme()
+	theme = UITheme.game_theme()
 	UIKit.full_rect(self)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(UIKit.dim_bg(0.5))
-	var p := UIKit.panel(22)
+	var p := UIKit.window(22)
 	var v := UIKit.vbox(10)
 	p.add_child(v)
 	v.add_child(UIKit.title("DESCANSAR", 26))

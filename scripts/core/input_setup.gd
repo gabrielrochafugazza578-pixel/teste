@@ -37,6 +37,7 @@ static func defaults() -> Dictionary:
 		"inventory": ["Inventário / Fabricação", KEY_TAB, JOY_BUTTON_BACK, null],
 		"map": ["Mapa", KEY_M, -1, null],
 		"journal": ["Diário", KEY_J, -1, null],
+		"free_cursor": ["Liberar o cursor do mouse (segurar)", KEY_ALT, -1, null],
 		"pause": ["Pausa / Voltar", KEY_ESCAPE, JOY_BUTTON_START, null],
 		"handbrake": ["Freio de mão (veículo)", KEY_SPACE, JOY_BUTTON_A, null],
 		"horn": ["Buzina (veículo)", KEY_R, JOY_BUTTON_Y, null],
@@ -105,6 +106,11 @@ static func code_to_text(code: int) -> String:
 			MOUSE_BUTTON_XBUTTON2: return "Mouse 5"
 			_: return "Mouse %d" % (code - 1000)
 	return OS.get_keycode_string(code)
+
+
+## Texto curto da tecla atual de uma ação ("Tab", "E", "Mouse Esq.").
+static func key_text(action: String) -> String:
+	return code_to_text(current_code(action))
 
 
 static func current_code(action: String) -> int:

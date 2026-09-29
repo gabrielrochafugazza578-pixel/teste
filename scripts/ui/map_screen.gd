@@ -18,12 +18,12 @@ var view: MapView
 
 
 func _ready() -> void:
-	theme = UITheme.get_theme()
+	theme = UITheme.game_theme()
 	UIKit.full_rect(self)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(UIKit.dim_bg(0.75))
 	var h := UIKit.hbox(14)
-	var p := UIKit.panel(10)
+	var p := UIKit.window(10)
 	p.custom_minimum_size = Vector2(900, 760)
 	view = MapView.new()
 	view.screen = self
@@ -31,17 +31,29 @@ func _ready() -> void:
 	view.clip_contents = true
 	p.add_child(view)
 	h.add_child(p)
-	var side := UIKit.panel(14)
-	side.custom_minimum_size = Vector2(360, 760)
-	var sv := UIKit.vbox(6)
+	var side := UIKit.window(16)
+	side.custom_minimum_size = Vector2(380, 760)
+	var sv := UIKit.vbox(8)
 	side.add_child(sv)
-	sv.add_child(UIKit.title("MAPA", 26))
-	sv.add_child(UIKit.label(WorldLayout.district_name(game.world.district_at(player.global_position)), 16, UITheme.TEXT_DIM))
+	sv.add_child(UIKit.header("map", "MAPA", WorldLayout.district_name(game.world.district_at(player.global_position)), "M", "Fechar"))
 	sv.add_child(UIKit.separator())
-	sv.add_child(UIKit.label("Locais conhecidos", 17, UITheme.ACCENT))
+	# legenda
+	var leg := GridContainer.new()
+	leg.columns = 2
+	leg.add_theme_constant_override("h_separation", 14)
+	leg.add_theme_constant_override("v_separation", 4)
+	for e in [["target", "Você", Color(1.0, 0.95, 0.85)], ["star", "Objetivo", UITheme.ACCENT], ["flag", "Local conhecido", Color(0.85, 0.8, 0.7)], ["people", "Companheiros", UITheme.GOOD]]:
+		var lh := UIKit.hbox(6)
+		lh.add_child(UIGlyph.make(str(e[0]), 16, e[2]))
+		lh.add_child(UIKit.label(str(e[1]), 14, UITheme.TEXT_DIM))
+		leg.add_child(lh)
+	sv.add_child(leg)
+	sv.add_child(UIKit.section("Locais conhecidos (%d)" % GameState.discovered.size()))
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(330, 520)
+	sc.custom_minimum_size = Vector2(340, 440)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var lv := UIKit.vbox(2)
+	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(lv)
 	var ids := GameState.discovered.keys()
 	ids.sort()
@@ -50,15 +62,25 @@ func _ready() -> void:
 		if poi.is_empty():
 			continue
 		var b := Button.new()
-		b.text = str(poi["name"])
+		b.text = "      " + str(poi["name"])
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.flat = true
-		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_font_size_override("font_size", 15)
+		var fg := UIGlyph.make("flag", 16, UITheme.ACCENT.darkened(0.2))
+		fg.position = Vector2(6, 8)
+		b.add_child(fg)
 		var pp: Vector3 = poi["pos"]
 		b.pressed.connect(func() -> void: view.center_on(Vector2(pp.x, pp.z)))
 		lv.add_child(b)
 	sv.add_child(sc)
-	sv.add_child(UIKit.label("Roda: zoom · Arrastar: mover\nBotão direito: marcar destino", 13, UITheme.TEXT_DIM))
+	var hints := GridContainer.new()
+	hints.columns = 2
+	hints.add_theme_constant_override("h_separation", 8)
+	hints.add_theme_constant_override("v_separation", 4)
+	for e in [["Roda", "zoom"], ["Arrastar", "mover o mapa"], ["Botão direito", "marcar destino"]]:
+		hints.add_child(UIKit.keycap(str(e[0])))
+		hints.add_child(UIKit.label(str(e[1]), 13, UITheme.TEXT_DIM))
+	sv.add_child(hints)
 	sv.add_child(UIKit.button("Fechar", close, 200))
 	h.add_child(side)
 	add_child(UIKit.center(h))

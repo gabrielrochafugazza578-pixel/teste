@@ -43,6 +43,7 @@ func _ready() -> void:
 	EventBus.trade_requested.connect(_on_trade)
 	EventBus.player_died.connect(_on_died)
 	EventBus.settings_changed.connect(_update_filter)
+	EventBus.hud_menu_requested.connect(_open_menu)
 	_update_filter()
 
 
@@ -92,16 +93,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		pm.game = game
 		open(pm, true)
 	elif event.is_action_pressed("inventory"):
-		open_inventory(null, "", null, "")
+		_open_menu("inventory")
 	elif event.is_action_pressed("map"):
-		var m := MapScreen.new()
-		m.game = game
-		m.player = player
-		open(m, _menu_pause())
+		_open_menu("map")
 	elif event.is_action_pressed("journal"):
-		var j := JournalScreen.new()
-		j.game = game
-		open(j, _menu_pause())
+		_open_menu("journal")
 	elif event.is_action_pressed("quicksave"):
 		if game.can_save():
 			SaveManager.save_game("quick")
@@ -110,6 +106,36 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("quickload"):
 		if SaveManager.has_slot("quick"):
 			SaveManager.load_game("quick")
+
+
+## Abre Mochila/Mapa/Diário (teclas ou botões do HUD).
+func _open_menu(action: String) -> void:
+	if player == null or game == null or is_screen_open():
+		return
+	if player.cinematic or player.survival.dead or game.transitioning:
+		return
+	match action:
+		"inventory":
+			open_inventory(null, "", null, "")
+		"map":
+			var m := MapScreen.new()
+			m.game = game
+			m.player = player
+			open(m, _menu_pause())
+		"journal":
+			var j := JournalScreen.new()
+			j.game = game
+			open(j, _menu_pause())
+
+
+## Segurar Alt libera o cursor (para clicar nos botões do HUD); soltar recaptura.
+func _input(event: InputEvent) -> void:
+	if player == null or is_screen_open() or player.cinematic or player.survival.dead:
+		return
+	if event.is_action_pressed("free_cursor"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif event.is_action_released("free_cursor") and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _menu_pause() -> bool:

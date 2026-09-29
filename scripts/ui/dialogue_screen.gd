@@ -18,25 +18,44 @@ var _opts: Array = []
 
 
 func _ready() -> void:
-	theme = UITheme.get_theme()
+	theme = UITheme.game_theme()
 	UIKit.full_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var p := UIKit.panel(20)
+	# faixa escura na base (cinema) para o texto ler bem sobre qualquer cena
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.35)
+	shade.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	shade.offset_top = -380
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(shade)
+	var p := UIKit.window(20)
 	p.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	p.custom_minimum_size = Vector2(1000, 0)
-	p.position = Vector2(-500, -330)
+	p.custom_minimum_size = Vector2(1040, 0)
+	p.position = Vector2(-520, -340)
 	var v := UIKit.vbox(10)
 	p.add_child(v)
-	name_label = UIKit.label(npc.display_name, 20, UITheme.ACCENT)
-	v.add_child(name_label)
+	var nh := UIKit.hbox(10)
+	nh.add_child(UIGlyph.make("people", 26, UITheme.ACCENT))
+	name_label = UIKit.label(npc.display_name, 22, UITheme.ACCENT)
+	nh.add_child(name_label)
+	if npc.faction != "":
+		var fc := UIKit.chip(FactionManager.faction_name(npc.faction), Color(0.7, 0.65, 0.9), 13)
+		fc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		nh.add_child(fc)
+	var att := npc.attitude()
+	var ac := UIKit.chip({"friendly": "Amigável", "neutral": "Neutro", "wary": "Desconfiado", "hostile": "Hostil"}.get(att, att),
+		UITheme.GOOD if att == "friendly" else (UITheme.DANGER if att in ["wary", "hostile"] else UITheme.TEXT_DIM), 13)
+	ac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nh.add_child(ac)
+	v.add_child(nh)
 	text_label = RichTextLabel.new()
 	text_label.bbcode_enabled = true
 	text_label.fit_content = true
-	text_label.custom_minimum_size = Vector2(960, 70)
-	text_label.add_theme_font_size_override("normal_font_size", 19)
+	text_label.custom_minimum_size = Vector2(1000, 70)
+	text_label.add_theme_font_size_override("normal_font_size", 20)
 	v.add_child(text_label)
 	v.add_child(UIKit.separator())
-	opts_box = UIKit.vbox(4)
+	opts_box = UIKit.vbox(6)
 	v.add_child(opts_box)
 	add_child(p)
 	runner = DialogueRunner.new(npc, player, manager)
@@ -58,8 +77,11 @@ func _on_node(text: String, options: Array) -> void:
 	for i in options.size():
 		var o: Dictionary = options[i]
 		var idx := i
-		var b := UIKit.button("%d. %s" % [i + 1, o["t"]], func() -> void: runner.choose(idx), 960, 17)
+		var b := UIKit.button("        " + str(o["t"]), func() -> void: runner.choose(idx), 1000, 17)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var kc := UIKit.keycap(str(i + 1), 13)
+		kc.position = Vector2(10, 9)
+		b.add_child(kc)
 		opts_box.add_child(b)
 	if opts_box.get_child_count() > 0:
 		(opts_box.get_child(0) as Control).grab_focus.call_deferred()

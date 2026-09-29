@@ -10,20 +10,38 @@ var _box: VBoxContainer
 
 
 func _ready() -> void:
-	theme = UITheme.get_theme()
+	theme = UITheme.game_theme()
 	UIKit.full_rect(self)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(UIKit.dim_bg(0.65))
-	var p := UIKit.panel(24)
+	var p := UIKit.window(24)
+	p.custom_minimum_size = Vector2(420, 0)
 	_box = UIKit.vbox(8)
 	p.add_child(_box)
-	_box.add_child(UIKit.title("PAUSA", 30))
+	_box.add_child(UIKit.header("", "PAUSA", "", "Esc", "Voltar"))
+	# situação atual
+	var info := UIKit.card(12, UITheme.ACCENT)
+	var iv := UIKit.vbox(6)
+	info.add_child(iv)
 	var m := MissionManager.tracked
 	if m != "":
-		_box.add_child(UIKit.label(str(MissionDB.get_mission(m).get("title", "")), 15, UITheme.TEXT_DIM))
-	_box.add_child(UIKit.label("Dia %d · %s · %s" % [TimeManager.day, Util.format_time(TimeManager.hour), game.location_name() if game else ""], 14, UITheme.TEXT_DIM))
-	_box.add_child(UIKit.spacer(10))
-	_box.add_child(UIKit.button("Continuar", close))
+		var mh := UIKit.hbox(8)
+		mh.add_child(UIGlyph.make("star", 16, UITheme.ACCENT))
+		mh.add_child(UIKit.label(str(MissionDB.get_mission(m).get("title", "")), 16, UITheme.TEXT))
+		iv.add_child(mh)
+	var dh := UIKit.hbox(8)
+	dh.add_child(UIGlyph.make("moon" if TimeManager.is_night() else "sun", 16, Color(1.0, 0.85, 0.45)))
+	dh.add_child(UIKit.label("Dia %d · %s" % [TimeManager.day, Util.format_time(TimeManager.hour)], 15, UITheme.TEXT_DIM))
+	iv.add_child(dh)
+	if game:
+		var lh := UIKit.hbox(8)
+		lh.add_child(UIGlyph.make("flag", 16, UITheme.TEXT_DIM))
+		lh.add_child(UIKit.label(game.location_name(), 15, UITheme.TEXT_DIM))
+		iv.add_child(lh)
+	_box.add_child(info)
+	_box.add_child(UIKit.spacer(6))
+	var cont := UIKit.button("Continuar", close)
+	_box.add_child(cont)
 	var sb := UIKit.button("Salvar jogo", _save)
 	sb.disabled = game == null or not game.can_save()
 	sb.tooltip_text = "" if not sb.disabled else "Não é possível salvar agora (combate, veículo em movimento ou cinemática)."
@@ -34,7 +52,7 @@ func _ready() -> void:
 	_box.add_child(UIKit.button("Menu principal", _to_menu))
 	_box.add_child(UIKit.button("Sair do jogo", func() -> void: get_tree().quit()))
 	add_child(UIKit.center(p))
-	(_box.get_child(3) as Control).grab_focus.call_deferred()
+	cont.grab_focus.call_deferred()
 	AudioManager.play_ui("ui_open", -6.0)
 
 

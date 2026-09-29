@@ -85,6 +85,7 @@ signal ui_screen_opened(screen: String)
 signal ui_screen_closed(screen: String)
 signal settings_changed()
 signal hud_visibility(visible: bool)
+signal hud_menu_requested(action: String)   # botões clicáveis do HUD (inventory/journal/map)
 
 # --- Cinemáticas -------------------------------------------------------------------
 signal cinematic_started(id: String)

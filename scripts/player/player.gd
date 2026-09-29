@@ -39,9 +39,6 @@ var current_interactable: Node = null
 var visibility_level: float = 0.5
 var noise_level: float = 0.0
 var indoors: bool = false
-var grabbed_by: Node = null
-var grab_progress: float = 0.0
-var grab_timer: float = 0.0
 
 # cinemática
 var cine_target: Vector3 = Vector3.INF
@@ -60,6 +57,11 @@ var _attack_hits: Dictionary = {}
 var _attack_heavy: bool = false
 var _attack_combo: int = 0
 var _combo_t: float = 0.0
+var _attack_finisher: bool = false   # 3º golpe leve seguido: mais forte
+var _queued_attack: int = -1         # golpe apertado durante o anterior (-1 nada, 0 leve, 1 pesado)
+var _queued_t: float = 0.0
+var _melee_target: Node3D = null     # alvo da mira assistida do golpe atual
+var _lunge_t: float = 0.0
 var _lmb_down_t: float = -1.0
 var _block_t: float = -10.0
 var _busy_t: float = 0.0
@@ -71,6 +73,7 @@ var _shove_cd: float = 0.0
 var _pending_use: Dictionary = {}
 var _throw_stack: Dictionary = {}
 var _knockback := Vector3.ZERO
+var _knock_last := Vector3.ZERO   # parcela do empurrão somada no quadro anterior
 var _climb_tween: Tween
 var _air_t: float = 0.0
 var _speed_now: float = 0.0
@@ -415,10 +418,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("interact"):
 			exit_vehicle()
 		return
-	if grabbed_by != null:
-		if event.is_action_pressed("shove") or event.is_action_pressed("attack"):
-			grab_progress += 0.26
-			cam_rig.add_shake(0.15)
+	# cursor liberado (Alt): cliques são para a interface, não golpes
+	if event is InputEventMouseButton and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if swimming and (event.is_action_pressed("attack") or event.is_action_pressed("block") or event.is_action_pressed("throw") or event.is_action_pressed("crouch")):
 		return
@@ -494,7 +495,7 @@ func _physics_process(delta: float) -> void:
 	var want_sprint := false
 	if cinematic:
 		wish = _cinematic_wish()
-	elif control_enabled and grabbed_by == null and state != "climb":
+	elif control_enabled and state != "climb":
 		var ix := Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
 		var iz := Input.get_action_strength("move_back") - Input.get_action_strength("move_forward")
 		var v2 := Vector2(ix, iz)
@@ -529,11 +530,15 @@ func _physics_process(delta: float) -> void:
 	if _stagger_t > 0.0 or state == "knockdown":
 		target_speed = 0.0
 	var desired := wish.normalized() * target_speed * clampf(mag, 0.0, 1.0)
-	var hv := Vector3(velocity.x, 0, velocity.z)
+	# o empurrão é somado por cima do movimento próprio, sem acumular quadro a quadro
+	var hv := Vector3(velocity.x, 0, velocity.z) - _knock_last
 	var accel := 14.0 if is_on_floor() else 3.0
 	hv = hv.move_toward(desired, accel * delta * maxf(target_speed, 2.0))
 	if _dodge_t > 0.0:
 		hv = _dodge_vel
+	elif _lunge_t > 0.0:
+		hv = Vector3(-sin(_yaw), 0, -cos(_yaw)) * 3.2
+	_knock_last = _knockback
 	hv += _knockback
 	_knockback = _knockback.move_toward(Vector3.ZERO, delta * 14.0)
 	velocity.x = hv.x
@@ -575,6 +580,11 @@ func _physics_process(delta: float) -> void:
 		fdir = cine_face
 	elif face_cam and not cinematic:
 		fdir = cam_rig.flat_forward()
+		if _melee_target != null and is_instance_valid(_melee_target) and (_attack_active or _busy_t > 0.0) and not blocking and not aiming:
+			var tdir := _melee_target.global_position - global_position
+			tdir.y = 0.0
+			if tdir.length() > 0.1:
+				fdir = tdir.normalized()
 	elif hv.length() > 0.2:
 		fdir = hv.normalized()
 	if fdir != Vector3.ZERO:
@@ -611,7 +621,6 @@ func _physics_process(delta: float) -> void:
 	cam_rig.bob_amount = clampf(_speed_now / SPRINT, 0.0, 1.0) * (0.0 if cinematic else 1.0)
 	cam_rig.bob_phase = anim.phase
 	_update_flashlight(delta)
-	_update_grab(delta)
 
 
 ## Nível da água sob o jogador (rio/lago) ou -INF.
@@ -639,6 +648,15 @@ func _timers(delta: float) -> void:
 	_stagger_t = maxf(0.0, _stagger_t - delta)
 	_shove_cd = maxf(0.0, _shove_cd - delta)
 	_combo_t = maxf(0.0, _combo_t - delta)
+	_lunge_t = maxf(0.0, _lunge_t - delta)
+	if _queued_attack >= 0:
+		_queued_t -= delta
+		if _queued_t <= 0.0:
+			_queued_attack = -1
+		elif _busy_t <= 0.0 and not _attack_active:
+			var h := _queued_attack == 1
+			_queued_attack = -1
+			_attack(h)
 	_ranged_cd = maxf(0.0, _ranged_cd - delta)
 	if state == "knockdown" and not body.animator.is_playing("knockdown"):
 		state = "normal"
@@ -941,7 +959,13 @@ func _update_weapon_visual() -> void:
 
 
 func _attack(heavy: bool) -> void:
-	if _busy_t > 0.0 or state != "normal" or cinematic:
+	if state != "normal" or cinematic:
+		return
+	if _busy_t > 0.0:
+		# guarda o clique para encadear o combo assim que o golpe atual terminar
+		if _busy_t < 0.45 and _pending_use.is_empty():
+			_queued_attack = 1 if heavy else 0
+			_queued_t = 0.5
 		return
 	var w := _weapon()
 	var target := _stealth_target()
@@ -961,18 +985,60 @@ func _attack(heavy: bool) -> void:
 		return
 	_attack_heavy = heavy
 	_attack_hits = {}
+	_aim_at_target(float(w["reach"]))
 	var sp := float(w["speed"]) * lerpf(0.75, 1.0, survival.stamina / 100.0)
+	if _combo_t <= 0.0:
+		_attack_combo = 0
+	_attack_finisher = false
 	if heavy:
 		body.play("attack_heavy", sp * 0.95)
 		_busy_t = 1.0 / sp
+		_attack_combo = 0
 		AudioManager.play_3d("swing_heavy", global_position, -2.0)
 	else:
-		var anim := "attack_light" if _attack_combo % 2 == 0 or _combo_t <= 0.0 else "attack_light_2"
+		# leve, leve, e o 3º golpe seguido vira um golpe de finalização (mais lento e forte)
+		_attack_finisher = _attack_combo % 3 == 2
+		var anim := "attack_light" if _attack_combo % 2 == 0 else "attack_light_2"
+		if _attack_finisher:
+			anim = "attack_heavy"
+			sp *= 1.25
 		_attack_combo += 1
-		_combo_t = 0.9
+		_combo_t = 1.0
 		body.play(anim, sp)
-		_busy_t = 0.55 / sp
-		AudioManager.play_3d("swing", global_position, -4.0)
+		_busy_t = (0.8 if _attack_finisher else 0.5) / sp
+		AudioManager.play_3d("swing_heavy" if _attack_finisher else "swing", global_position, -3.0 if _attack_finisher else -4.0)
+
+
+## Mira assistida: vira para o infectado mais próximo à frente (câmera) e dá um
+## passo curto se ele estiver um pouco fora do alcance.
+func _aim_at_target(reach: float) -> void:
+	_melee_target = null
+	var cf := cam_rig.flat_forward()
+	var best := INF
+	for n in get_tree().get_nodes_in_group("infected"):
+		var inf := n as Node3D
+		if inf == null or not inf.visible or (n.has_method("is_alive") and not n.is_alive()):
+			continue
+		var to := inf.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d > reach + 1.6 or d < 0.05 or absf(inf.global_position.y - global_position.y) > 1.6:
+			continue
+		var ang := rad_to_deg(cf.angle_to(to / d))
+		if ang > 65.0:
+			continue
+		var score := d + ang * 0.03
+		if score < best:
+			best = score
+			_melee_target = inf
+	if _melee_target == null:
+		return
+	var tt := _melee_target.global_position - global_position
+	tt.y = 0.0
+	_yaw = lerp_angle(_yaw, atan2(-tt.x, -tt.z), 0.7)
+	body.rotation.y = _yaw
+	if tt.length() > reach * 0.85:
+		_lunge_t = 0.16
 
 
 func _on_anim_event(e: String) -> void:
@@ -1000,17 +1066,20 @@ func _process_hits() -> void:
 		if _attack_hits.has(id):
 			continue
 		_attack_hits[id] = true
-		var dmg := float(w["dmg"]) * (1.8 if _attack_heavy else 1.0) * (1.0 - survival.pain * 0.002)
+		var strong := _attack_heavy or _attack_finisher
+		var dmg := float(w["dmg"]) * (1.8 if _attack_heavy else (1.35 if _attack_finisher else 1.0)) * (1.0 - survival.pain * 0.002)
 		var info := DamageInfo.make(dmg, str(w["kind"]), self, (t as Node3D).global_position - global_position)
-		info.knockback = float(w["knock"]) * (2.2 if _attack_heavy else 1.0) * 3.0
-		info.stagger = float(w["knock"]) * (1.4 if _attack_heavy else 0.7)
-		info.heavy = _attack_heavy
+		# empurrão em m/s (o alvo desliza v²/2a): soco ~0,3 m, taco ~0,6 m, marreta pesada ~2 m
+		info.knockback = 1.6 + float(w["knock"]) * 3.0 * (1.6 if strong else 1.0)
+		info.stagger = float(w["knock"]) * (1.4 if _attack_heavy else 0.7) + (0.35 if _attack_finisher else 0.0)
+		info.heavy = strong
 		info.bleed = float(w.get("bleed", 0.0))
 		info.point = (t as Node3D).global_position + Vector3(0, 1.3, 0)
 		t.receive_hit(info)
 		var snd := "hit_sharp" if w["kind"] == "sharp" else "hit_blunt"
 		AudioManager.play_3d(snd, info.point, 0.0)
-		cam_rig.add_shake(0.25 if _attack_heavy else 0.12)
+		HitFx.spawn(get_parent(), info.point, info.direction, strong, t is Infected)
+		cam_rig.add_shake(0.25 if strong else 0.12)
 		EventBus.combat_hit.emit(self, t, dmg)
 		EventBus.make_noise(global_position, 11.0, self, &"combat")
 		var ws: Dictionary = equipment["weapon"]
@@ -1021,7 +1090,7 @@ func _process_hits() -> void:
 				equipment["weapon"] = {}
 				_update_weapon_visual()
 		# micro "hit-stop" para peso do impacto
-		Engine.time_scale = 0.4 if _attack_heavy else 0.6
+		Engine.time_scale = 0.35 if strong else 0.6
 		get_tree().create_timer(0.05, true, false, true).timeout.connect(func() -> void: Engine.time_scale = 1.0)
 
 
@@ -1255,40 +1324,6 @@ func _stagger(t: float) -> void:
 	body.play("stagger", 1.3)
 
 
-func _update_grab(delta: float) -> void:
-	if grabbed_by == null:
-		return
-	if not is_instance_valid(grabbed_by):
-		grabbed_by = null
-		return
-	grab_timer += delta
-	grab_progress = maxf(0.0, grab_progress - delta * 0.12)
-	if grab_progress >= 1.0:
-		var g := grabbed_by
-		grabbed_by = null
-		grab_progress = 0.0
-		if g.has_method("on_grab_broken"):
-			g.on_grab_broken(self)
-		body.play("shove", 1.3)
-		AudioManager.play_3d("shove", global_position)
-	elif grab_timer > 2.4:
-		var g2 := grabbed_by
-		grabbed_by = null
-		grab_progress = 0.0
-		if g2.has_method("on_grab_bite"):
-			g2.on_grab_bite(self)
-
-
-func begin_grab(by: Node) -> void:
-	if grabbed_by != null or _invuln > 0.0 or survival.dead:
-		return
-	grabbed_by = by
-	grab_progress = 0.0
-	grab_timer = 0.0
-	_end_block()
-	EventBus.toast("Agarrado! Aperte [F] repetidamente para se soltar!", "danger")
-
-
 func _on_symptom(kind: String) -> void:
 	match kind:
 		"cough":
@@ -1395,6 +1430,7 @@ func teleport(pos: Vector3) -> void:
 	velocity = Vector3.ZERO
 	_air_t = 0.0
 	_knockback = Vector3.ZERO
+	_knock_last = Vector3.ZERO
 
 
 func set_yaw(y: float) -> void:

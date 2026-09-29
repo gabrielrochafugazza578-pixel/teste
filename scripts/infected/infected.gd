@@ -10,6 +10,9 @@ extends CharacterBody3D
 
 enum S { DORMANT, IDLE, WANDER, INVESTIGATE, SEARCH, CHASE, ATTACK, STAGGER, DOWN, FLEE, DEAD, SCREAM, CHARGE, SCRIPTED }
 
+const KNOCK_DECEL := 11.0
+const MAX_KNOCK := 6.5
+
 var kind: String = "errante"
 var def: Dictionary = {}
 var body: HumanoidBody
@@ -47,7 +50,8 @@ var _bash_t: float = 0.0
 var _charge_cd: float = 4.0
 var _charge_dir := Vector3.ZERO
 var _spore_t: float = 6.0
-var _knock := Vector3.ZERO
+var _knock := Vector3.ZERO      # empurrão recebido (m/s), some com atrito
+var _move_vel := Vector3.ZERO   # velocidade própria (andar/correr), sem o empurrão
 var _lerp_from := Vector3.ZERO
 var _lerp_to := Vector3.ZERO
 var _lerp_t: float = 1.0
@@ -97,6 +101,7 @@ func activate(k: String, pos: Vector3, yaw: float, var_seed: int, st: int, w: Wo
 	_spore_t = 6.0
 	_dead_t = 0.0
 	_knock = Vector3.ZERO
+	_move_vel = Vector3.ZERO
 	path = PackedVector3Array()
 	hidden_ambush = false
 	scripted = false
@@ -452,8 +457,6 @@ func _try_attack(ambush: bool) -> void:
 	var a: String = atks[_rng.randi() % atks.size()]
 	if a == "spores":
 		a = "inf_swipe"
-	if a != "inf_grab" and _rng.randf() < float(def.get("grab", 0.0)) and target is Player:
-		a = "inf_grab" if kind != "rastejante" else "crawler_grab"
 	_attack_name = a
 	_attack_hit = false
 	set_state(S.ATTACK)
@@ -547,8 +550,10 @@ func _physics_process(delta: float) -> void:
 		return
 	_state_t += delta
 	if state == S.DEAD:
-		velocity.x = 0.0
-		velocity.z = 0.0
+		# o corpo ainda escorrega um pouco com o golpe final
+		_knock = _knock.move_toward(Vector3.ZERO, delta * KNOCK_DECEL * 1.5)
+		velocity.x = _knock.x
+		velocity.z = _knock.z
 		if tier == SimScheduler.Tier.FULL:
 			velocity.y -= 18.0 * delta
 			move_and_slide()
@@ -563,10 +568,11 @@ func _physics_process(delta: float) -> void:
 		if _attack_name == "inf_lunge":
 			wish = tt.normalized() * 2.5
 	if tier == SimScheduler.Tier.FULL:
-		var hv := Vector3(velocity.x, 0, velocity.z).move_toward(wish, delta * 12.0) + _knock
-		_knock = _knock.move_toward(Vector3.ZERO, delta * 10.0)
-		velocity.x = hv.x
-		velocity.z = hv.z
+		# movimento próprio e empurrão separados: o empurrão não acumula quadro a quadro
+		_move_vel = _move_vel.move_toward(wish, delta * 12.0)
+		velocity.x = _move_vel.x + _knock.x
+		velocity.z = _move_vel.z + _knock.z
+		_knock = _knock.move_toward(Vector3.ZERO, delta * KNOCK_DECEL)
 		velocity.y = -0.5 if is_on_floor() else velocity.y - 18.0 * delta
 		move_and_slide()
 		if state == S.CHARGE and _state_t > 1.0:
@@ -582,7 +588,7 @@ func _physics_process(delta: float) -> void:
 	if wish.length() > 0.2 and not locked:
 		_yaw = lerp_angle(_yaw, atan2(-wish.x, -wish.z), 1.0 - exp(-delta * 7.0))
 	body.rotation.y = _yaw
-	var sp := Vector2(velocity.x, velocity.z).length() if tier == SimScheduler.Tier.FULL else wish.length()
+	var sp := Vector2(_move_vel.x, _move_vel.z).length() if tier == SimScheduler.Tier.FULL else wish.length()
 	body.animator.speed = sp
 	body.animator.forward_speed = sp
 	body.animator.style = str(def["run_style"]) if sp > 2.0 else str(def["style"])
@@ -652,10 +658,6 @@ func _attack_sweep() -> void:
 		if h is Infected:
 			continue
 		_attack_hit = true
-		var grab := _attack_name == "inf_grab" or _attack_name == "crawler_grab"
-		if grab and h is Player and not (h as Player).blocking:
-			(h as Player).begin_grab(self)
-			return
 		var kind_d := "scratch" if _attack_name == "inf_swipe" else "bite"
 		var info := DamageInfo.make(float(def["damage"]) * _rng.randf_range(0.85, 1.15), kind_d, self, (h as Node3D).global_position - global_position)
 		info.infection_chance = float(def["bite"]) * (1.0 if kind_d == "bite" else 0.35)
@@ -689,6 +691,14 @@ func _release_spores() -> void:
 # ---------------------------------------------------------------------------
 # Dano
 # ---------------------------------------------------------------------------
+## Empurrão de um golpe: velocidade inicial em m/s (com atrito KNOCK_DECEL anda
+## v²/2a: soco ~0,3 m, taco ~0,6 m, marreta pesada ~2 m). Colosso quase não se mexe.
+func knock_vector(info: DamageInfo) -> Vector3:
+	var v := minf(info.knockback, MAX_KNOCK) * (0.2 if kind == "colosso" else 1.0)
+	var d := Vector3(info.direction.x, 0, info.direction.z)
+	return d.normalized() * v if d.length_squared() > 0.0001 else Vector3.ZERO
+
+
 func receive_hit(info: DamageInfo) -> void:
 	if state == S.DEAD or not active:
 		return
@@ -715,7 +725,7 @@ func receive_hit(info: DamageInfo) -> void:
 		return
 	var local := body.global_transform.basis.inverse() * info.direction
 	body.animator.flinch(local, clampf(dmg / 20.0, 0.4, 1.6))
-	_knock = Vector3(info.direction.x, 0, info.direction.z).normalized() * info.knockback * (0.25 if kind == "colosso" else 1.0)
+	_knock = knock_vector(info)
 	var poise := float(def["poise"])
 	var st := info.stagger * 40.0 + dmg * 0.5
 	if info.kind == "push" and kind == "colosso":
@@ -736,19 +746,6 @@ func on_parried(_by: Node) -> void:
 	set_state(S.STAGGER)
 	_state_t = -0.5
 	_attack_active = false
-
-
-func on_grab_broken(_by: Node) -> void:
-	set_state(S.STAGGER)
-	_knock = (global_position - (_by as Node3D).global_position).normalized() * 3.0
-
-
-func on_grab_bite(p: Node) -> void:
-	var info := DamageInfo.make(float(def["damage"]) * 1.6, "bite", self, (p as Node3D).global_position - global_position)
-	info.infection_chance = float(def["bite"]) * 1.6
-	info.blockable = false
-	p.receive_hit(info)
-	set_state(S.CHASE)
 
 
 func can_be_stealth_killed(p: Node) -> bool:
@@ -776,6 +773,8 @@ func die(info: DamageInfo = null) -> void:
 	_dead_t = 0.0
 	_attack_active = false
 	collision_layer = 0
+	_move_vel = Vector3.ZERO
+	_knock = knock_vector(info) * 0.7 if info else Vector3.ZERO
 	body.play("death" if _rng.randf() < 0.5 else "death_front", 1.0)
 	AudioManager.play_3d("body_fall", global_position, -2.0, _rng.randf_range(0.8, 1.1), 30.0)
 	var killer: Node = info.source if info else null

@@ -59,6 +59,7 @@ var _attack_pending: bool = false
 var _bark_cd: float = 0.0
 var _warn_t: float = 0.0
 var _knock := Vector3.ZERO
+var _move_vel := Vector3.ZERO   # movimento próprio, separado do empurrão
 var _lerp_from := Vector3.ZERO
 var _lerp_to := Vector3.ZERO
 var _lerp_t: float = 1.0
@@ -502,10 +503,10 @@ func _physics_process(delta: float) -> void:
 	var locked := state in [S.DOWNED, S.SCRIPTED] or _attack_pending
 	var wish := Vector3.ZERO if locked else desired_dir * move_speed
 	if tier == SimScheduler.Tier.FULL:
-		var hv := Vector3(velocity.x, 0, velocity.z).move_toward(wish, delta * 10.0) + _knock
-		_knock = _knock.move_toward(Vector3.ZERO, delta * 10.0)
-		velocity.x = hv.x
-		velocity.z = hv.z
+		_move_vel = _move_vel.move_toward(wish, delta * 10.0)
+		velocity.x = _move_vel.x + _knock.x
+		velocity.z = _move_vel.z + _knock.z
+		_knock = _knock.move_toward(Vector3.ZERO, delta * 11.0)
 		velocity.y = -0.5 if is_on_floor() else velocity.y - 18.0 * delta
 		move_and_slide()
 	else:
@@ -520,7 +521,7 @@ func _physics_process(delta: float) -> void:
 		var to: Vector3 = manager.player.global_position - global_position
 		_yaw = lerp_angle(_yaw, atan2(-to.x, -to.z), 1.0 - exp(-delta * 5.0))
 	body.rotation.y = _yaw
-	var sp := Vector2(velocity.x, velocity.z).length() if tier == SimScheduler.Tier.FULL else wish.length()
+	var sp := Vector2(_move_vel.x, _move_vel.z).length() if tier == SimScheduler.Tier.FULL else wish.length()
 	body.animator.speed = sp
 	body.animator.forward_speed = sp
 	body.animator.crouch_target = 1.0 if activity == "hide" and sp < 0.3 else 0.0
@@ -587,7 +588,7 @@ func receive_hit(info: DamageInfo) -> void:
 	hp -= dmg
 	var local := body.global_transform.basis.inverse() * info.direction
 	body.animator.flinch(local, clampf(dmg / 20.0, 0.4, 1.6))
-	_knock = Vector3(info.direction.x, 0, info.direction.z).normalized() * info.knockback
+	_knock = Vector3(info.direction.x, 0, info.direction.z).normalized() * minf(info.knockback, 6.5)
 	if _bark_cd <= 0.0 and hp > 0.0:
 		_bark("hurt")
 	if info.source is Infected and info.infection_chance > 0.0 and _rng.randf() < info.infection_chance * 0.5 and not essential:

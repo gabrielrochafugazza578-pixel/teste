@@ -9,7 +9,7 @@ var body_text: String = ""
 
 
 func _ready() -> void:
-	theme = UITheme.get_theme()
+	theme = UITheme.game_theme()
 	UIKit.full_rect(self)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(UIKit.dim_bg(0.65))
