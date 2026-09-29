@@ -187,6 +187,7 @@ func _test_gameplay(g: Game) -> void:
 	await _wait(3.0)
 	_log("  saúde=%.0f fratura=%s" % [p.survival.health, str(p.survival.fracture > 0.0)])
 	_log("Na cidade: chunks=%d infectados=%d npcs=%d" % [g.world.chunks.size(), g.director.active.size(), g.survivors.spawned.size()])
+	_log("  malhas de personagem geradas: %d, %.0f ms no total (%.0f ms cada)" % [HumanoidBody.build_count, HumanoidBody.build_usec / 1000.0, HumanoidBody.build_usec / 1000.0 / maxf(HumanoidBody.build_count, 1)])
 	await _shot("gameplay_cidade")
 	# estádio (Remanescentes)
 	var ep := g.layout.poi_pos("estadio") + Vector3(0, 0.5, 14)

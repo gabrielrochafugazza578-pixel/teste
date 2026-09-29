@@ -11,7 +11,7 @@ const HAIR_COLORS := [Color(0.08, 0.06, 0.05), Color(0.16, 0.1, 0.06), Color(0.3
 const CLOTH_COLORS := [Color(0.18, 0.2, 0.24), Color(0.5, 0.12, 0.1), Color(0.22, 0.3, 0.2),
 	Color(0.75, 0.72, 0.65), Color(0.12, 0.12, 0.13), Color(0.32, 0.36, 0.5), Color(0.55, 0.45, 0.3),
 	Color(0.62, 0.62, 0.64), Color(0.4, 0.25, 0.35), Color(0.7, 0.55, 0.2), Color(0.25, 0.4, 0.45)]
-const DENIM := [Color(0.16, 0.22, 0.36), Color(0.26, 0.33, 0.46), Color(0.12, 0.13, 0.16), Color(0.36, 0.3, 0.22)]
+const DENIM := [Color(0.22, 0.3, 0.46), Color(0.32, 0.41, 0.56), Color(0.18, 0.19, 0.23), Color(0.42, 0.36, 0.27)]
 
 static func base() -> Dictionary:
 	return {
@@ -37,14 +37,14 @@ static func caio() -> Dictionary:
 	a["hair_color"] = Color(0.09, 0.07, 0.05)
 	a["beard"] = 0.55
 	a["top"] = "jacket"
-	a["top_color"] = Color(0.33, 0.34, 0.25)
-	a["top2_color"] = Color(0.46, 0.47, 0.48)
+	a["top_color"] = Color(0.4, 0.41, 0.28)
+	a["top2_color"] = Color(0.6, 0.62, 0.64)
 	a["bottom"] = "jeans"
-	a["bottom_color"] = Color(0.2, 0.25, 0.36)
+	a["bottom_color"] = Color(0.24, 0.31, 0.45)
 	a["shoes"] = "boots"
-	a["shoes_color"] = Color(0.28, 0.18, 0.1)
+	a["shoes_color"] = Color(0.36, 0.23, 0.13)
 	a["backpack"] = true
-	a["backpack_color"] = Color(0.22, 0.2, 0.17)
+	a["backpack_color"] = Color(0.36, 0.32, 0.23)
 	a["bedroll"] = true
 	a["grime"] = 0.35
 	a["seed"] = 7

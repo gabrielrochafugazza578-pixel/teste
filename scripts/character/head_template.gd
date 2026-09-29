@@ -18,7 +18,7 @@ extends RefCounted
 
 enum { MK_JAW, MK_LIPS, MK_MOUTH, MK_BROW, MK_BEARD, MK_NOSE, MK_CHIN, MK_CHEEK, MK_JAWLAT, MK_SOCKET, MK_EAR, MK_NECK, MK_FACE, MK_COUNT }
 
-const VERSION := 10
+const VERSION := 12
 const CROWN := 0.116      # topo da cabeça acima do centro
 const PHI_FACE := 1.72
 const TH_FRONT := PI * 1.5
@@ -44,6 +44,7 @@ var CHIN_C: Vector3; var CHIN_R: Vector3
 var GON_C: Vector3; var GON_R: Vector3
 var ZYG_C: Vector3; var ZYG_R: Vector3
 var BUC_C: Vector3; var BUC_R: Vector3
+var MZ_C: Vector3; var MZ_R: Vector3
 var BROW_C: Vector3; var BROW_R: Vector3
 var SOCK_C: Vector3; var SOCK_R: Vector3
 var NB_A: Vector3; var NB_B: Vector3; var NB_RAD: float
@@ -87,49 +88,52 @@ static func warm() -> void:
 # ---------------------------------------------------------------------------
 func _setup() -> void:
 	if not fem:
-		CRAN_C = Vector3(0, 0.028, 0.008); CRAN_R = Vector3(0.073, 0.088, 0.096)
-		FACE_C = Vector3(0, -0.018, -0.036); FACE_R = Vector3(0.06, 0.062, 0.064)
-		JAW_C = Vector3(0, -0.07, -0.028); JAW_R = Vector3(0.055, 0.036, 0.062)
-		CHIN_C = Vector3(0, -0.097, -0.078); CHIN_R = Vector3(0.026, 0.02, 0.018)
-		GON_C = Vector3(0.05, -0.066, 0.004); GON_R = Vector3(0.013, 0.024, 0.026)
-		ZYG_C = Vector3(0.051, -0.004, -0.054); ZYG_R = Vector3(0.018, 0.013, 0.026)
-		BROW_C = Vector3(0.0, 0.029, -0.08); BROW_R = Vector3(0.056, 0.011, 0.014)
-		SOCK_C = Vector3(0.032, 0.008, -0.102); SOCK_R = Vector3(0.019, 0.0145, 0.018)
-		NB_A = Vector3(0, 0.012, -0.096); NB_B = Vector3(0, -0.03, -0.114); NB_RAD = 0.006
-		NT_C = Vector3(0, -0.036, -0.112); NT_R = Vector3(0.0115, 0.011, 0.011)
-		NA_C = Vector3(0.012, -0.04, -0.103); NA_R = Vector3(0.0078, 0.007, 0.0078)
-		UL_C = Vector3(0, -0.058, -0.091); UL_R = Vector3(0.023, 0.0072, 0.008)
-		LL_C = Vector3(0, -0.0725, -0.0895); LL_R = Vector3(0.02, 0.0075, 0.0078)
+		CRAN_C = Vector3(0, 0.029, 0.008); CRAN_R = Vector3(0.074, 0.089, 0.097)
+		FACE_C = Vector3(0, -0.017, -0.036); FACE_R = Vector3(0.062, 0.06, 0.064)
+		JAW_C = Vector3(0, -0.066, -0.026); JAW_R = Vector3(0.054, 0.033, 0.06)
+		CHIN_C = Vector3(0, -0.092, -0.076); CHIN_R = Vector3(0.025, 0.017, 0.016)
+		GON_C = Vector3(0.05, -0.064, 0.004); GON_R = Vector3(0.013, 0.023, 0.026)
+		ZYG_C = Vector3(0.052, -0.003, -0.054); ZYG_R = Vector3(0.02, 0.014, 0.027)
+		BROW_C = Vector3(0.0, 0.03, -0.083); BROW_R = Vector3(0.057, 0.0105, 0.0145)
+		SOCK_C = Vector3(0.031, 0.007, -0.1); SOCK_R = Vector3(0.0175, 0.0125, 0.016)
+		NB_A = Vector3(0, 0.01, -0.094); NB_B = Vector3(0, -0.031, -0.113); NB_RAD = 0.0075
+		NT_C = Vector3(0, -0.037, -0.111); NT_R = Vector3(0.0125, 0.0112, 0.0122)
+		NA_C = Vector3(0.0135, -0.0405, -0.102); NA_R = Vector3(0.0088, 0.0078, 0.0085)
+		UL_C = Vector3(0, -0.0585, -0.0855); UL_R = Vector3(0.0255, 0.0082, 0.0095)
+		LL_C = Vector3(0, -0.0735, -0.0845); LL_R = Vector3(0.0225, 0.0092, 0.0098)
 		EAR_C = Vector3(0.074, -0.008, 0.012); EAR_R = Vector3(0.011, 0.03, 0.02)
-		NK_A = Vector3(0, -0.07, 0.022); NK_B = Vector3(0, -0.29, 0.028); NK_RAD = 0.0625
+		NK_A = Vector3(0, -0.07, 0.022); NK_B = Vector3(0, -0.29, 0.028); NK_RAD = 0.0615
 		SCM_A = Vector3(0.052, -0.045, 0.02); SCM_B = Vector3(0.014, -0.225, -0.028); SCM_RAD = 0.0135
 		NKB_C = Vector3(0, -0.225, 0.014); NKB_R = Vector3(0.088, 0.045, 0.078)
 		ADAM_C = Vector3(0, -0.128, -0.037); ADAM_R = Vector3(0.011, 0.014, 0.01)
 		MOUTH_Y = -0.0655
 	else:
-		CRAN_C = Vector3(0, 0.029, 0.007); CRAN_R = Vector3(0.07, 0.086, 0.092)
-		FACE_C = Vector3(0, -0.016, -0.035); FACE_R = Vector3(0.057, 0.058, 0.061)
-		JAW_C = Vector3(0, -0.066, -0.03); JAW_R = Vector3(0.047, 0.032, 0.058)
-		CHIN_C = Vector3(0, -0.091, -0.073); CHIN_R = Vector3(0.022, 0.017, 0.016)
-		GON_C = Vector3(0.045, -0.062, 0.0); GON_R = Vector3(0.01, 0.02, 0.022)
-		ZYG_C = Vector3(0.049, 0.001, -0.053); ZYG_R = Vector3(0.017, 0.013, 0.025)
-		BROW_C = Vector3(0.0, 0.031, -0.079); BROW_R = Vector3(0.048, 0.009, 0.011)
-		SOCK_C = Vector3(0.031, 0.009, -0.098); SOCK_R = Vector3(0.0185, 0.0145, 0.017)
-		NB_A = Vector3(0, 0.012, -0.092); NB_B = Vector3(0, -0.027, -0.108); NB_RAD = 0.0053
-		NT_C = Vector3(0, -0.033, -0.106); NT_R = Vector3(0.0098, 0.0095, 0.0095)
-		NA_C = Vector3(0.0105, -0.0365, -0.099); NA_R = Vector3(0.0065, 0.006, 0.0068)
-		UL_C = Vector3(0, -0.054, -0.088); UL_R = Vector3(0.022, 0.008, 0.0085)
-		LL_C = Vector3(0, -0.0685, -0.0865); LL_R = Vector3(0.019, 0.008, 0.0082)
+		CRAN_C = Vector3(0, 0.03, 0.007); CRAN_R = Vector3(0.071, 0.087, 0.093)
+		FACE_C = Vector3(0, -0.015, -0.035); FACE_R = Vector3(0.059, 0.057, 0.061)
+		JAW_C = Vector3(0, -0.062, -0.028); JAW_R = Vector3(0.047, 0.03, 0.057)
+		CHIN_C = Vector3(0, -0.086, -0.068); CHIN_R = Vector3(0.021, 0.015, 0.014)
+		GON_C = Vector3(0.045, -0.06, 0.0); GON_R = Vector3(0.01, 0.019, 0.022)
+		ZYG_C = Vector3(0.05, 0.002, -0.053); ZYG_R = Vector3(0.018, 0.013, 0.025)
+		BROW_C = Vector3(0.0, 0.032, -0.079); BROW_R = Vector3(0.049, 0.0085, 0.0115)
+		SOCK_C = Vector3(0.03, 0.009, -0.097); SOCK_R = Vector3(0.0175, 0.0128, 0.0155)
+		NB_A = Vector3(0, 0.011, -0.091); NB_B = Vector3(0, -0.027, -0.107); NB_RAD = 0.0062
+		NT_C = Vector3(0, -0.033, -0.104); NT_R = Vector3(0.0105, 0.01, 0.0108)
+		NA_C = Vector3(0.0115, -0.0365, -0.096); NA_R = Vector3(0.0072, 0.0064, 0.0072)
+		UL_C = Vector3(0, -0.0545, -0.0825); UL_R = Vector3(0.0235, 0.0088, 0.0098)
+		LL_C = Vector3(0, -0.0695, -0.0815); LL_R = Vector3(0.0205, 0.0098, 0.01)
 		EAR_C = Vector3(0.071, -0.006, 0.01); EAR_R = Vector3(0.0095, 0.027, 0.018)
-		NK_A = Vector3(0, -0.066, 0.02); NK_B = Vector3(0, -0.28, 0.026); NK_RAD = 0.0545
+		NK_A = Vector3(0, -0.066, 0.02); NK_B = Vector3(0, -0.28, 0.026); NK_RAD = 0.0555
 		SCM_A = Vector3(0.047, -0.042, 0.018); SCM_B = Vector3(0.013, -0.215, -0.024); SCM_RAD = 0.0095
 		NKB_C = Vector3(0, -0.215, 0.013); NKB_R = Vector3(0.077, 0.04, 0.07)
 		ADAM_C = Vector3(0, -0.12, -0.03); ADAM_R = Vector3.ZERO
 		MOUTH_Y = -0.0615
-	BUC_C = Vector3(0.04 if not fem else 0.037, -0.047 if not fem else -0.043, -0.052)
-	BUC_R = Vector3(0.018, 0.022, 0.022) if not fem else Vector3(0.014, 0.018, 0.017)
-	eye_c = SOCK_C + Vector3(0, 0, 0.022)
-	eye_r = 0.012 if not fem else 0.0118
+	BUC_C = Vector3(0.04 if not fem else 0.037, -0.047 if not fem else -0.043, -0.056)
+	BUC_R = Vector3(0.022, 0.026, 0.025) if not fem else Vector3(0.018, 0.021, 0.02)
+	# plano do meio do rosto (entre nariz, bochechas e queixo): tira o aspecto de focinho
+	MZ_C = Vector3(0, -0.05, -0.058) if not fem else Vector3(0, -0.047, -0.056)
+	MZ_R = Vector3(0.052, 0.03, 0.03) if not fem else Vector3(0.047, 0.027, 0.028)
+	eye_c = SOCK_C + Vector3(0, 0, 0.0255)
+	eye_r = 0.0135 if not fem else 0.0132
 
 
 static func _ell(p: Vector3, c: Vector3, r: Vector3) -> float:
@@ -160,6 +164,7 @@ func sdf(p: Vector3) -> float:
 	var q := Vector3(sqrt(p.x * p.x + 0.00002), p.y, p.z)
 	var d := _ell(p, CRAN_C, CRAN_R)
 	d = _smin(d, _ell(p, FACE_C, FACE_R), 0.03)
+	d = _smin(d, _ell(q, MZ_C, MZ_R), 0.03)
 	d = _smin(d, _ell(p, JAW_C, JAW_R), 0.025)
 	d = _smin(d, _ell(p, CHIN_C, CHIN_R), 0.022)
 	d = _smin(d, _ell(q, GON_C, GON_R), 0.02)
@@ -167,15 +172,16 @@ func sdf(p: Vector3) -> float:
 	d = _smin(d, _ell(q, BUC_C, BUC_R), 0.028)
 	d = _smin(d, _ell(p, BROW_C, BROW_R), 0.026)
 	# órbitas
-	d = _smax(d, -_ell(q, SOCK_C, SOCK_R), 0.011)
+	d = _smax(d, -_ell(q, SOCK_C, SOCK_R), 0.009)
 	# nariz
 	var dn := _capsule(p, NB_A, NB_B, NB_RAD)
-	dn = _smin(dn, _ell(p, NT_C, NT_R), 0.008)
-	dn = _smin(dn, _ell(q, NA_C, NA_R), 0.009)
-	d = _smin(d, dn, 0.01)
-	# lábios
-	d = _smin(d, _ell(p, UL_C, UL_R), 0.009)
-	d = _smin(d, _ell(p, LL_C, LL_R), 0.01)
+	dn = _smin(dn, _ell(p, NT_C, NT_R), 0.009)
+	dn = _smin(dn, _ell(q, NA_C, NA_R), 0.008)
+	d = _smin(d, dn, 0.011)
+	# lábios e sulco entre eles
+	d = _smin(d, _ell(p, UL_C, UL_R), 0.007)
+	d = _smin(d, _ell(p, LL_C, LL_R), 0.008)
+	d = _smax(d, -_ell(p, Vector3(0, MOUTH_Y, -0.093), Vector3(0.017, 0.00075, 0.011)), 0.0016)
 	# orelhas
 	d = _smin(d, _ell(q, EAR_C, EAR_R), 0.007)
 	# pescoço (levemente elíptico) + esternocleidomastoides + base

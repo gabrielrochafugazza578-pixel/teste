@@ -3,6 +3,8 @@ extends Node
 ## Uso: xvfb-run godot --path . --rendering-driver opengl3 res://tests/portrait.tscn -- --out=/tmp/retratos [--day]
 
 var out := "/tmp/retratos"
+var clay := false
+var inf_override := -1.0
 var vp: SubViewport
 var cam: Camera3D
 var body: HumanoidBody
@@ -13,6 +15,10 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out = a.substr(6)
+		elif a == "--clay":
+			clay = true
+		elif a.begins_with("--inf="):
+			inf_override = float(a.substr(6))
 	DirAccess.make_dir_recursive_absolute(out)
 	_run()
 
@@ -32,6 +38,14 @@ func _run() -> void:
 				sum += Vector3(c.r, c.g, c.b)
 				n += 1
 		print("CAMADA %d albedo médio (linear?) = %s  rugosidade=%.2f" % [q, str((sum / n).snapped(Vector3.ONE * 0.001)), im.get_pixel(3, 3).a])
+	for who: Dictionary in [Appearance.caio(), Appearance.civilian(3), Appearance.infected("errante", 12)]:
+		var t0 := Time.get_ticks_usec()
+		var m: ArrayMesh = HumanoidMeshBuilder.build(who, 0)
+		var dt := (Time.get_ticks_usec() - t0) / 1000.0
+		var tris := 0
+		for si in m.get_surface_count():
+			tris += (m.surface_get_arrays(si)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+		print("MALHA %s: %.1f ms, %d triângulos" % [str(who.get("id")), dt, tris])
 	vp = SubViewport.new()
 	vp.size = Vector2i(420, 640)
 	vp.own_world_3d = true
@@ -39,17 +53,17 @@ func _run() -> void:
 	add_child(vp)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.42, 0.46, 0.5)
+	env.background_color = Color(0.55, 0.6, 0.66)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.55, 0.58, 0.62)
-	env.ambient_light_energy = 0.6
+	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	var we := WorldEnvironment.new()
 	we.environment = env
 	vp.add_child(we)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-38, -35, 0)
-	sun.light_energy = 1.35
+	sun.light_energy = 2.0
 	vp.add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-15, 150, 0)
@@ -89,6 +103,13 @@ func _run() -> void:
 		vp.add_child(body)
 		body.setup(cast[name_], 0)
 		body.mesh_instance.custom_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 5, 6))
+		if inf_override >= 0.0 and body.material:
+			body.material.set_shader_parameter("infection", inf_override)
+		if clay:
+			var cm := StandardMaterial3D.new()
+			cm.albedo_color = Color(0.86, 0.84, 0.8)
+			cm.roughness = 0.75
+			body.mesh_instance.material_override = cm
 		body.animator.update(0.0)
 		body.rotation.y = deg_to_rad(28.0)
 		var h := float(cast[name_].get("height", 1.75))
@@ -112,6 +133,17 @@ func _run() -> void:
 		await _grab("%s_frente" % name_)
 		body.rotation.y = deg_to_rad(-90.0)
 		await _grab("%s_perfil" % name_)
+		body.rotation.y = deg_to_rad(-38.0)
+		await _grab("%s_tres" % name_)
+		# pescoço/gola de perto (frente e três-quartos)
+		cam.fov = 14.0
+		cam.position = Vector3(0.0, h * 0.86, -h * 0.75)
+		cam.look_at(Vector3(0, h * 0.85, 0), Vector3.UP)
+		body.rotation.y = deg_to_rad(0.0)
+		await _grab("%s_pescoco" % name_)
+		body.rotation.y = deg_to_rad(55.0)
+		await _grab("%s_pescoco2" % name_)
+		cam.fov = 18.0
 		body.rotation.y = deg_to_rad(28.0)
 		cam.fov = 30.0
 	print("FIM")

@@ -15,6 +15,7 @@ uniform float pale_eyes = 0.0;
 uniform float emissive_eyes = 0.0;
 
 global uniform float wetness;
+global uniform float daylight;
 
 varying float mat_id;
 varying vec3 l_pos;
@@ -47,6 +48,16 @@ void fragment() {
 	vec2 nxy = db.rg * 2.0 - 1.0;
 	bool eye = UV.y > 19.0;
 	bool hair = UV.y > 9.0 && !eye;
+	// roupa/couro: levanta os tons escuros (jaqueta preta ilegível sob o ACES) sem estourar os claros
+	if (q > 0.5 && !eye && !hair) {
+		base = pow(base, vec3(0.74));
+		alb = base * da.rgb;
+	}
+	// pele: idem, mais leve (tons escuros de pele fechavam em preto)
+	if (q < 0.5 && !eye && !hair) {
+		base = pow(base, vec3(0.82));
+		alb = base * da.rgb;
+	}
 	if (eye) {
 		nxy = vec2(0.0);
 		alb = base;
@@ -66,9 +77,11 @@ void fragment() {
 	if (q < 0.5) {
 		// Infecção NEXUS: palidez acinzentada, veias escuras, olheiras.
 		float veins = db.a * smoothstep(0.1, 0.6, infection);
-		vec3 pale = mix(alb, vec3(dot(alb, vec3(0.33))) * vec3(0.86, 0.9, 0.84), infection * 0.75);
-		alb = mix(pale, vec3(0.18, 0.2, 0.22), veins * 0.55);
-		rough = mix(rough, 0.35, infection * 0.4);
+		// pele doentia: cinza-esverdeada e fosca, qualquer que fosse o tom original
+		vec3 sick = vec3(0.34, 0.37, 0.31) * da.rgb;
+		vec3 pale = mix(alb, mix(sick, alb * 1.4, 0.22), infection * 0.85);
+		alb = mix(pale, vec3(0.13, 0.08, 0.12), veins * 0.6);
+		rough = mix(rough, 0.72, infection * 0.7);
 	}
 	// sujeira geral
 	float g = grime_amount * (0.3 + 0.7 * vn3(l_pos * 7.0) * (0.6 + 0.4 * vn3(l_pos * 23.0)));
@@ -86,6 +99,13 @@ void fragment() {
 	NORMAL_MAP = vec3(nxy * 0.8, sqrt(max(0.0, 1.0 - dot(nxy, nxy)))) * 0.5 + 0.5;
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	EMISSION = rim_color * rim * fresnel_rim;
+	// preenchimento de dia: personagem nunca fecha em preto no lado da sombra
+	float sky_up = 0.6 + 0.4 * clamp(NORMAL.y, -1.0, 1.0);
+	EMISSION += alb * (0.055 * daylight) * sky_up;
+	// translucidez da pele (orelhas, narinas, lábios): amolece o terminador da luz
+	if (q < 0.5 && !eye) {
+		BACKLIGHT = alb * vec3(0.32, 0.16, 0.11);
+	}
 	// olhos (UV.y > 19 marca o globo ocular): esclera/íris brilham nos infectados
 	if (eye) {
 		ROUGHNESS = 0.12;

@@ -39,6 +39,7 @@ var lod: int = 0
 var skin_col: Color
 var tear: float = 0.0
 var rng := RandomNumberGenerator.new()
+var tr: Array = []           # anéis do tronco (para o HumanoidDetails colar detalhes)
 var _tpl: HeadTemplate
 var _hc := Vector3.ZERO     # centro da cabeça no espaço do modelo
 var _hsc: float = 1.0       # escala da cabeça
@@ -61,8 +62,8 @@ static func compute_joints(ap: Dictionary) -> Array:
 	jt[SPINE] = Vector3(0, 1.1, 0.005)
 	jt[CHEST] = Vector3(0, 1.3, 0.01 + hunch * 0.02)
 	jt[NECK] = Vector3(0, 1.5, 0.0 + hunch * 0.03)
-	jt[HEAD] = Vector3(0, 1.595, -0.005 + hunch * 0.02)
-	jt[JAW] = Vector3(0, 1.64, -0.02 + hunch * 0.02)
+	jt[HEAD] = Vector3(0, 1.585, -0.005 + hunch * 0.02)
+	jt[JAW] = Vector3(0, 1.63, -0.02 + hunch * 0.02)
 	jt[UARM_L] = Vector3(-sh, 1.455 - asym, 0.0)
 	jt[FARM_L] = Vector3(-sh - 0.035 * bw, 1.165 - asym, 0.01)
 	jt[HAND_L] = Vector3(-sh - 0.05 * bw, 0.905 - asym, 0.0)
@@ -104,6 +105,7 @@ func _build(ap: Dictionary, lod_level: int) -> ArrayMesh:
 		skin_col = skin_col.lerp(Color(0.6, 0.62, 0.58), inf * 0.35)
 
 	_torso()
+	HumanoidDetails.new(self).top_details()
 	_neck()
 	_head()
 	_arms()
@@ -208,7 +210,9 @@ func _tube(pa: Vector3, pb: Vector3, rings: Array, sides: int, bone: int, child:
 	side = side.normalized()
 	var fwd := side.cross(axis).normalized()
 	var ring_start: Array = []
-	for r in rings:
+	var nr := rings.size()
+	for ri in nr:
+		var r: Array = rings[ri]
 		var t: float = r[0]
 		var rx: float = float(r[1]) * s
 		var rz: float = float(r[2]) * s
@@ -216,6 +220,13 @@ func _tube(pa: Vector3, pb: Vector3, rings: Array, sides: int, bone: int, child:
 		var mat: float = r[4]
 		var off: float = float(r[5]) * s if r.size() > 5 else 0.0
 		var center := pa + axis * (t * length) + fwd * off
+		# derivadas ao longo do eixo (diferença central) => normais que acompanham o afunilamento
+		var ra: Array = rings[maxi(ri - 1, 0)]
+		var rb: Array = rings[mini(ri + 1, nr - 1)]
+		var dl := maxf((float(rb[0]) - float(ra[0])) * length, 0.0001)
+		var drx := (float(rb[1]) - float(ra[1])) * s
+		var drz := (float(rb[2]) - float(ra[2])) * s
+		var doff := ((float(rb[5]) if rb.size() > 5 else 0.0) - (float(ra[5]) if ra.size() > 5 else 0.0)) * s
 		var wp := 0.0
 		var wc := 0.0
 		if parent >= 0 and blend0 > 0.0:
@@ -231,8 +242,14 @@ func _tube(pa: Vector3, pb: Vector3, rings: Array, sides: int, bone: int, child:
 			var ct := cos(th)
 			var st := sin(th)
 			var p := center + side * (ct * rx) + fwd * (st * rz)
-			var n := side * (ct / maxf(rx, 0.001)) + fwd * (st / maxf(rz, 0.001))
 			var tg := -side * (st * rx) + fwd * (ct * rz)
+			var ta := axis * dl + side * (ct * drx) + fwd * (st * drz + doff)
+			var n := tg.cross(ta)
+			var radial := side * ct * rx + fwd * st * rz
+			if n.dot(radial) < 0.0:
+				n = -n
+			if n.length_squared() < 0.0000001:
+				n = radial
 			var vc := col
 			var vm := mat
 			if clothing and mat > 0.1 and _torn(p):
@@ -289,7 +306,9 @@ func _torso() -> void:
 		[1.35, 0.182 - (0.012 if fem else 0.0), 0.112 + (0.01 if fem else 0.0), 0.0],
 		[1.42, 0.185 - (0.015 if fem else 0.0), 0.1, 0.005],
 		[1.47, 0.158 - (0.012 if fem else 0.0), 0.09, 0.01],
+		[1.49, 0.128 - (0.011 if fem else 0.0), 0.084, 0.01],
 		[1.51, 0.098 - (0.01 if fem else 0.0), 0.078, 0.01],
+		[1.5225, 0.085 - (0.009 if fem else 0.0), 0.0715, 0.0075],
 		[1.535, 0.07 - (0.008 if fem else 0.0), 0.064, 0.005],
 	]
 	var waist_y := 1.0
@@ -307,18 +326,7 @@ func _torso() -> void:
 	var ths: Array = []
 	for k in sides + 1:
 		ths.append(TAU * float(k) / float(sides))
-	var edges: Array = []
-	if top == "jacket":
-		edges = [asin(0.82), PI - asin(0.82)]
-	elif top == "labcoat":
-		for thr: float in LABCOAT_V.values():
-			edges.append(asin(thr))
-			edges.append(PI - asin(thr))
-	if lod == 0:
-		for e: float in edges:
-			ths.append(e - 0.006)
-			ths.append(e + 0.006)
-		ths.sort()
+
 	var nth := ths.size()
 	var ring_start: Array = []
 	var sc := s
@@ -331,12 +339,17 @@ func _torso() -> void:
 		var rz: float = float(r[2]) * sc * lerpf(1.0, gi, 0.6)
 		if ri == prof.size() - 1:
 			# anel do topo fica por dentro do pescoço (que vem do molde da cabeça)
-			rx = (0.052 if fem else 0.06) * sc
-			rz = (0.049 if fem else 0.056) * sc
+			rx = (0.066 if fem else 0.075) * sc
+			rz = (0.061 if fem else 0.069) * sc
 		if is_top and yy > 0.95:
 			rx += loose * sc
 			rz += loose * sc
 		var zoff: float = float(r[3]) * sc
+		# a queda do trapézio só vale para anéis largos (ombros); o anel do pescoço fica nivelado
+		var wk := smoothstep(0.07, 0.15, float(r[1]))
+		# decote: a frente do último anel desce (camisetas/camisas/jaleco); jaquetas têm gola própria
+		var dip := (0.024 * sc if top in ["tshirt", "longsleeve", "shirt", "labcoat", "gown"] else 0.0) * smoothstep(1.49, 1.54, yy)
+		tr.append({"yy": yy, "y": y, "rx": rx, "rz": rz, "zoff": zoff, "wk": wk, "dip": dip})
 		# pesos por altura
 		var w_h := 1.0 - smoothstep(0.98, 1.12, yy)
 		var w_c := smoothstep(1.18, 1.3, yy)
@@ -351,8 +364,8 @@ func _torso() -> void:
 			var st := sin(th)
 			var p := Vector3(ct * rx, y, -st * rz + zoff)
 			# trapézio: a linha dos ombros desce do pescoço até o acrômio
-			var drop := smoothstep(1.36, 1.515, yy) * pow(absf(ct), 1.5) * 0.052 * sc * (0.85 if fem else 1.0)
-			p.y -= drop
+			var drop := smoothstep(1.36, 1.515, yy) * pow(absf(ct), 1.5) * 0.052 * sc * (0.85 if fem else 1.0) * wk
+			p.y -= drop + dip * smoothstep(0.0, 0.85, st)
 			# trapézio sobe pela nuca: a gola de trás fica mais alta que a da frente
 			p.y += smoothstep(1.44, 1.51, yy) * maxf(0.0, -st) * 0.026 * sc
 			var n := Vector3(ct / maxf(rx, 0.001), 0.0, -st / maxf(rz, 0.001))
@@ -363,12 +376,7 @@ func _torso() -> void:
 			var tg := Vector3(-st * rx, 0.0, -ct * rz)
 			var col := tc if is_top else bc
 			var mat := top_mat if is_top else bot_mat
-			# camiseta por dentro / jaqueta aberta mostra a camisa interna na frente
-			if top == "jacket" and is_top and st > 0.82 and yy < 1.44:
-				col = tc2
-				mat = M_CLOTH
-			if top == "labcoat" and is_top and LABCOAT_V.has(yy) and st > float(LABCOAT_V[yy]):
-				col = tc2
+
 			# cinto
 			if bottom == "jeans" and absf(yy - 0.98) < 0.001 and not (top in ["jacket", "hoodie", "labcoat", "gown"]):
 				col = Color(0.1, 0.07, 0.05)
@@ -426,6 +434,10 @@ func _coat_skirt(col: Color, bottom_y: float) -> void:
 		# o anel de cima fica rente ao tronco (0,162 + folga) e depois abre
 		var rx := lerpf(0.172, 0.24, smoothstep(0.0, 1.0, t)) * bw * s
 		var rz := lerpf(0.11, 0.155, smoothstep(0.0, 1.0, t)) * s
+		# largura mínima: cobre o topo das coxas (senão a calça aparece pelos lados)
+		var fem_k: bool = a.get("female", false)
+		var thigh_out := (0.095 * bw * (1.06 if fem_k else 1.0) + 0.088 * float(a.get("girth", 1.0)) * (1.08 if fem_k else 1.0) * 1.06 + 0.014) * s
+		rx = maxf(rx, thigh_out)
 		var start := verts.size()
 		ring_start.append(start)
 		for k in sides + 1:
@@ -454,21 +466,30 @@ func _coat_skirt(col: Color, bottom_y: float) -> void:
 
 
 func _vest(col: Color) -> void:
-	var bw := float(a.get("build", 1.0))
-	var ys := [1.08, 1.2, 1.32, 1.43]
-	var sides := 16 if lod == 0 else 10
+	# colete/porta-placas: acompanha o contorno do tronco (folga de 1,8 cm) e afina rumo aos ombros
+	var det := HumanoidDetails.new(self)
+	var ys := [1.02, 1.1, 1.2, 1.3, 1.39, 1.45]
+	var sides := 20 if lod == 0 else 10
 	var ring_start: Array = []
-	for yy in ys:
-		var rx := (0.182 if yy > 1.25 else 0.168) * bw * s + 0.022 * s
-		var rz := 0.122 * s + 0.02 * s
+	for ri in ys.size():
+		var yy: float = ys[ri]
+		var rr: Dictionary = det._ring_at(yy) if not tr.is_empty() else {"y": yy * s, "rx": 0.16 * s, "rz": 0.1 * s, "zoff": 0.0}
+		var taper := 1.0 - 0.28 * smoothstep(1.36, 1.46, yy)
+		var rx := (float(rr["rx"]) + 0.018 * s) * taper
+		var rz := float(rr["rz"]) + 0.018 * s
+		var w_h := 1.0 - smoothstep(0.98, 1.12, yy)
+		var w_c := smoothstep(1.18, 1.3, yy)
 		var start := verts.size()
 		ring_start.append(start)
-		var w_c := smoothstep(1.18, 1.3, yy)
 		for k in sides + 1:
 			var th := TAU * float(k) / float(sides)
-			var p := Vector3(cos(th) * rx, float(yy) * s, -sin(th) * rz)
-			var n := Vector3(cos(th) / rx, 0.0, -sin(th) / rz)
-			_v(p, n, Vector3(-sin(th), 0, -cos(th)), Vector3.UP, Vector2(th * rx, yy), col, M_LEATHER, SPINE, 1.0 - w_c, CHEST, w_c)
+			var ct := cos(th)
+			var st := sin(th)
+			# decote do colete: abre um pouco na frente em cima
+			var open_v := smoothstep(1.36, 1.46, yy) * smoothstep(0.55, 1.0, st) * 0.03 * s
+			var p := Vector3(ct * rx, float(rr["y"]) - open_v, -st * rz + float(rr["zoff"]))
+			var n := Vector3(ct / rx, 0.0, -st / rz)
+			_v(p, n, Vector3(-st, 0, -ct), Vector3.UP, Vector2(th * rx, yy), col, M_LEATHER, HIPS, w_h, SPINE, 1.0 - w_h - w_c, CHEST, w_c)
 	for i in ring_start.size() - 1:
 		var r0: int = ring_start[i]
 		var r1: int = ring_start[i + 1]
@@ -478,18 +499,30 @@ func _vest(col: Color) -> void:
 
 
 func _neck() -> void:
-	# O pescoço de pele faz parte do molde da cabeça (HeadTemplate); aqui só a
-	# gola de jaquetas e moletons.
+	# O pescoço de pele faz parte do molde da cabeça (HeadTemplate); aqui só a gola
+	# (alta e dobrada em jaquetas/moletons; aro canelado nas demais) que esconde o
+	# encontro do tecido com a pele.
 	var top: String = a.get("top", "tshirt")
-	if not (top in ["jacket", "hoodie"]):
+	if top == "vest_only":
 		return
 	var fem: bool = a.get("female", false)
 	var gi := float(a.get("girth", 1.0))
-	var r := (0.05 if fem else 0.058) * lerpf(1.0, gi, 0.4)
 	var tc: Color = a.get("top_color", Color.GRAY)
-	var base := Vector3(0, j[NECK].y - 0.045 * s, j[NECK].z + 0.004 * s)
-	var rings := [[0.0, r * 1.55, r * 1.45, tc, M_CLOTH], [0.6, r * 1.36, r * 1.3, tc, M_CLOTH], [1.0, r * 1.28, r * 1.24, tc, M_CLOTH]]
-	_tube(base, base + Vector3(0, 0.07 * s, -0.004 * s), rings, 14 if lod == 0 else 8, NECK, -1, CHEST, false, false, 0.5, 0.0)
+	var sides := 16 if lod == 0 else 8
+	if top in ["jacket", "hoodie"]:
+		var r := (0.05 if fem else 0.058) * lerpf(1.0, gi, 0.4)
+		var base := Vector3(0, j[NECK].y - 0.045 * s, j[NECK].z + 0.004 * s)
+		var fold := tc.darkened(0.1)
+		var rings := [[0.0, r * 1.6, r * 1.5, tc, M_CLOTH], [0.5, r * 1.42, r * 1.34, tc, M_CLOTH], [0.84, r * 1.32, r * 1.26, tc, M_CLOTH],
+			[0.9, r * 1.42, r * 1.34, fold, M_CLOTH], [1.0, r * 1.36, r * 1.29, fold, M_CLOTH]]
+		_tube(base, base + Vector3(0, 0.078 * s, -0.004 * s), rings, sides, NECK, -1, CHEST, false, false, 0.5, 0.0)
+		return
+	return
+	var rib := tc.darkened(0.14)
+	var b0 := Vector3(0, 1.508 * s, 0.004 * s)
+	var rings2 := [[0.0, 0.074 if not fem else 0.066, 0.07 if not fem else 0.062, rib, M_CLOTH], [0.5, 0.07 if not fem else 0.062, 0.066 if not fem else 0.058, rib, M_CLOTH],
+		[1.0, 0.067 if not fem else 0.06, 0.063 if not fem else 0.056, rib, M_CLOTH]]
+	_tube(b0, b0 + Vector3(0, 0.04 * s, -0.003 * s), rings2, sides, NECK, -1, CHEST, false, false, 0.5, 0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -625,6 +658,7 @@ func _head() -> void:
 			var ec := c + Vector3(sgn * tpl.eye_c.x, tpl.eye_c.y, tpl.eye_c.z) * sc
 			_eye(ec, er, iris)
 			_eyelids(ec, er)
+	_brows(brow_col, fem)
 	_hair()
 	if bool(a.get("glasses", false)):
 		_glasses()
@@ -794,6 +828,30 @@ func _shell(th0: float, th1: float, cols_n: int, rows_n: int, lo: Callable, hi: 
 	_emit_grid(grid, _hc, HEAD, JAW, NECK)
 
 
+## Sobrancelhas: fitas finas de pelo sobre o arco superciliar, seguindo a superfície do
+## molde (raio a partir do centro da cabeça), mais grossas no início e afinando na ponta.
+func _brows(brow_col: Color, fem: bool) -> void:
+	if lod != 0 or _tpl == null:
+		return
+	var inf := float(a.get("infected", 0.0))
+	var col := brow_col.lerp(Color(0.32, 0.3, 0.3), inf * 0.7)
+	for sgn: float in [-1.0, 1.0]:
+		var pts: Array = []
+		for k in 6:
+			var t := float(k) / 5.0
+			var ax := lerpf(0.012, 0.055, t)
+			var xb := clampf((ax - 0.034) / 0.022, -1.0, 1.0)
+			var yb := 0.0265 + 0.0055 * (1.0 - xb * xb) + (0.003 if fem else 0.0) - 0.006 * t * t
+			var surf := _tpl._raycast(Vector3(sgn * ax, yb, -0.25).normalized())
+			pts.append(_hc + (surf + Vector3(0, 0.0007, -0.0011)) * _hsc)
+		for k in 5:
+			var t0 := float(k) / 5.0
+			var w0 := lerpf(1.0, 0.45, t0)
+			var w1 := lerpf(1.0, 0.45, float(k + 1) / 5.0)
+			var thick := 0.0052 if not fem else 0.0038
+			_tube(pts[k], pts[k + 1], [[0.0, 0.0022, thick * w0, col, M_SKIN], [1.0, 0.0022, thick * w1, col, M_SKIN]], 4, HEAD, -1, -1, k == 0, k == 4, 0.0, 0.0, false)
+
+
 func _hair() -> void:
 	var style: String = a.get("hair_style", "short")
 	if style == "bald":
@@ -826,9 +884,15 @@ func _hair() -> void:
 	var hl := 10 if lod == 0 else 5
 	var lo_f := func(_ang: float) -> float: return 0.0
 	var hi_f := func(ang: float) -> float: return _pw(tbl, ang)
-	var th_f := func(_ang: float, v: float, k: int, i: int) -> float:
+	# volume: mais alto na coroa, mais baixo (degradê) nas laterais e na nuca, borda que afina
+	var vol_top := 1.55 if style in ["short", "messy", "long", "bun", "ponytail"] else 1.0
+	var th_f := func(ang: float, v: float, k: int, i: int) -> float:
 		var nz := float(Util.hash2(i, k % hn, seed_v) % 1000) / 1000.0 if i > 0 else 0.5
-		return (thick + (nz - 0.5) * bump) * lerpf(1.0, 0.3, smoothstep(0.75, 1.0, v))
+		var crown := lerpf(vol_top, 1.0, smoothstep(0.0, 0.65, v))
+		var side := lerpf(1.0, 0.6, smoothstep(0.9, 1.5, ang) * (1.0 - smoothstep(2.2, 2.7, ang)))
+		if style == "long":
+			side = 1.0
+		return (thick + (nz - 0.5) * bump) * crown * side * lerpf(1.0, 0.2, smoothstep(0.7, 1.0, v))
 	var col_f := func(k: int, _i: int, v: float) -> Color:
 		# listras finas de mechas no sentido do penteado
 		var st := float(Util.hash2(k % hn, 3, seed_v) % 1000) / 1000.0
@@ -943,7 +1007,7 @@ func _arms() -> void:
 	var top: String = a.get("top", "tshirt")
 	var tc: Color = a.get("top_color", Color.GRAY)
 	var sk := skin_col
-	var sides := 10 if lod == 0 else 6
+	var sides := 14 if lod == 0 else 7
 	var loose := 0.012 if top in ["jacket", "hoodie", "labcoat"] else 0.0
 	for side: int in [0, 1]:
 		var ua := UARM_L if side == 0 else UARM_R
@@ -956,17 +1020,18 @@ func _arms() -> void:
 		var fore_rings: Array
 		match top:
 			"tshirt", "gown":
-				upper_rings = [[0.0, 0.062 * g, 0.058 * g, tc, M_CLOTH], [0.45, 0.056 * g, 0.052 * g, tc, M_CLOTH],
-					[0.46, 0.047 * g, 0.045 * g, sk, M_SKIN], [0.8, 0.043 * g, 0.041 * g, sk, M_SKIN], [1.0, 0.039 * g, 0.038 * g, sk, M_SKIN]]
-				fore_rings = [[0.0, 0.039 * g, 0.038 * g, sk, M_SKIN], [0.25, 0.041 * g, 0.037 * g, sk, M_SKIN], [1.0, 0.026 * g, 0.021 * g, sk, M_SKIN]]
+				upper_rings = [[0.0, 0.062 * g, 0.058 * g, tc, M_CLOTH], [0.14, 0.065 * g, 0.06 * g, tc, M_CLOTH], [0.3, 0.059 * g, 0.055 * g, tc, M_CLOTH], [0.45, 0.056 * g, 0.052 * g, tc, M_CLOTH],
+					[0.46, 0.047 * g, 0.045 * g, sk, M_SKIN], [0.62, 0.046 * g, 0.044 * g, sk, M_SKIN], [0.82, 0.042 * g, 0.041 * g, sk, M_SKIN], [1.0, 0.039 * g, 0.038 * g, sk, M_SKIN]]
+				fore_rings = [[0.0, 0.039 * g, 0.038 * g, sk, M_SKIN], [0.16, 0.043 * g, 0.039 * g, sk, M_SKIN], [0.45, 0.035 * g, 0.03 * g, sk, M_SKIN], [0.85, 0.026 * g, 0.021 * g, sk, M_SKIN], [1.0, 0.025 * g, 0.02 * g, sk, M_SKIN]]
 			"vest_only":
-				upper_rings = [[0.0, 0.05 * g, 0.048 * g, sk, M_SKIN], [1.0, 0.039 * g, 0.038 * g, sk, M_SKIN]]
-				fore_rings = [[0.0, 0.039 * g, 0.038 * g, sk, M_SKIN], [1.0, 0.026 * g, 0.021 * g, sk, M_SKIN]]
+				upper_rings = [[0.0, 0.05 * g, 0.048 * g, sk, M_SKIN], [0.14, 0.055 * g, 0.05 * g, sk, M_SKIN], [0.5, 0.046 * g, 0.044 * g, sk, M_SKIN], [1.0, 0.039 * g, 0.038 * g, sk, M_SKIN]]
+				fore_rings = [[0.0, 0.039 * g, 0.038 * g, sk, M_SKIN], [0.16, 0.043 * g, 0.039 * g, sk, M_SKIN], [0.45, 0.035 * g, 0.03 * g, sk, M_SKIN], [1.0, 0.025 * g, 0.02 * g, sk, M_SKIN]]
 			_:
 				var l := loose
-				upper_rings = [[0.0, 0.06 * g + l, 0.057 * g + l, tc, M_CLOTH], [0.5, 0.052 * g + l, 0.05 * g + l, tc, M_CLOTH], [1.0, 0.044 * g + l, 0.043 * g + l, tc, M_CLOTH]]
-				fore_rings = [[0.0, 0.044 * g + l, 0.043 * g + l, tc, M_CLOTH], [0.3, 0.043 * g + l, 0.04 * g + l, tc, M_CLOTH],
-					[0.9, 0.032 * g + l, 0.028 * g + l, tc, M_CLOTH], [0.91, 0.026 * g, 0.022 * g, sk, M_SKIN], [1.0, 0.026 * g, 0.021 * g, sk, M_SKIN]]
+				upper_rings = [[0.0, 0.06 * g + l, 0.057 * g + l, tc, M_CLOTH], [0.14, 0.064 * g + l, 0.06 * g + l, tc, M_CLOTH], [0.35, 0.057 * g + l, 0.054 * g + l, tc, M_CLOTH],
+					[0.65, 0.05 * g + l, 0.048 * g + l, tc, M_CLOTH], [0.88, 0.046 * g + l, 0.044 * g + l, tc, M_CLOTH], [1.0, 0.045 * g + l * 1.3, 0.043 * g + l * 1.3, tc, M_CLOTH]]
+				fore_rings = [[0.0, 0.045 * g + l * 1.3, 0.043 * g + l * 1.3, tc, M_CLOTH], [0.16, 0.046 * g + l, 0.042 * g + l, tc, M_CLOTH], [0.5, 0.038 * g + l, 0.034 * g + l, tc, M_CLOTH],
+					[0.86, 0.033 * g + l, 0.029 * g + l, tc, M_CLOTH], [0.9, 0.034 * g + l * 1.4, 0.03 * g + l * 1.4, tc.darkened(0.12), M_CLOTH], [0.91, 0.026 * g, 0.022 * g, sk, M_SKIN], [1.0, 0.025 * g, 0.021 * g, sk, M_SKIN]]
 		# deltoide: o braço nasce dentro do ombro e engrossa logo abaixo dele
 		var inward := Vector3(0.018 * s if side == 0 else -0.018 * s, 0.0, 0.0)
 		var ur2: Array = []
@@ -981,7 +1046,7 @@ func _arms() -> void:
 		for rg in upper_rings:
 			var rgd: Array = (rg as Array).duplicate()
 			var tt: float = rgd[0]
-			var bulge := 1.0 + 0.1 * exp(-pow((tt - 0.12) / 0.12, 2.0))
+			var bulge := 1.0 + 0.04 * exp(-pow((tt - 0.12) / 0.12, 2.0))
 			rgd[1] = float(rgd[1]) * bulge
 			rgd[2] = float(rgd[2]) * (1.0 + (bulge - 1.0) * 0.6)
 			ur2.append(rgd)
@@ -1033,7 +1098,7 @@ func _legs() -> void:
 	var bc: Color = a.get("bottom_color", Color.DARK_BLUE)
 	var bm := M_DENIM if bottom == "jeans" else M_CLOTH
 	var sk := skin_col
-	var sides := 10 if lod == 0 else 6
+	var sides := 14 if lod == 0 else 7
 	var g := gi
 	for side: int in [0, 1]:
 		var th_b := THIGH_L if side == 0 else THIGH_R
@@ -1043,14 +1108,14 @@ func _legs() -> void:
 		var knee: Vector3 = j[sh_b]
 		var ankle: Vector3 = j[ft_b]
 		var thr := 0.088 * g * (1.08 if fem else 1.0)
-		var thigh_rings := [[0.0, thr, thr, bc, bm], [0.3, thr * 0.9, thr * 0.94, bc, bm], [0.7, 0.064 * g, 0.066 * g, bc, bm], [1.0, 0.054 * g, 0.056 * g, bc, bm]]
+		var thigh_rings := [[0.0, thr, thr, bc, bm], [0.16, thr * 1.04, thr * 1.05, bc, bm], [0.5, thr * 0.88, thr * 0.92, bc, bm], [0.82, 0.064 * g, 0.066 * g, bc, bm], [1.0, 0.055 * g, 0.057 * g, bc, bm]]
 		var shin_rings: Array
 		if bottom == "shorts":
 			thigh_rings = [[0.0, thr, thr, bc, bm], [0.45, thr * 0.88, thr * 0.9, bc, bm], [0.46, thr * 0.8, thr * 0.82, sk, M_SKIN], [1.0, 0.05 * g, 0.052 * g, sk, M_SKIN]]
 			shin_rings = [[0.0, 0.05 * g, 0.052 * g, sk, M_SKIN], [0.3, 0.052 * g, 0.06 * g, sk, M_SKIN, 0.01], [1.0, 0.03 * g, 0.032 * g, sk, M_SKIN]]
 		else:
 			var flare := 0.004 if bottom == "jeans" else 0.0
-			shin_rings = [[0.0, 0.055 * g, 0.057 * g, bc, bm], [0.3, 0.056 * g, 0.061 * g, bc, bm, 0.006], [0.85, 0.043 * g + flare, 0.045 * g + flare, bc, bm], [1.0, 0.044 * g + flare, 0.046 * g + flare, bc, bm]]
+			shin_rings = [[0.0, 0.056 * g, 0.058 * g, bc, bm], [0.26, 0.059 * g, 0.066 * g, bc, bm, 0.009], [0.55, 0.05 * g, 0.054 * g, bc, bm, 0.004], [0.86, 0.041 * g + flare, 0.043 * g + flare, bc, bm], [1.0, 0.044 * g + flare * 1.6, 0.046 * g + flare * 1.6, bc, bm]]
 		var knee_over := knee + (knee - hip).normalized() * 0.025 * s
 		_tube(hip + Vector3(0, 0.05 * s, 0), knee_over, thigh_rings, sides, th_b, sh_b, HIPS, false, false, 0.25, 0.3)
 		_tube(knee, ankle + Vector3(0, 0.01 * s, 0), shin_rings, sides, sh_b, ft_b, th_b, false, false, 0.3, 0.3)
@@ -1074,13 +1139,34 @@ func _foot(ankle: Vector3, bone: int, parent: int) -> void:
 	_tube(heel, toe, rings, sides, bone, -1, parent, true, true, 0.3, 0.0, false)
 	if shoes == "boots":
 		_tube(ankle + Vector3(0, -0.03 * s, 0.005 * s), ankle + Vector3(0, 0.1 * s, 0.0), [[0.0, 0.05, 0.055, col, mat], [1.0, 0.047, 0.05, col, mat]], sides, bone, parent, -1, false, false, 0.0, 0.5, false)
+	if shoes != "barefoot" and lod == 0:
+		# solado de borracha (bota escura / tênis claro) e detalhes
+		var sole := Color(0.07, 0.07, 0.08) if shoes == "boots" else Color(0.86, 0.86, 0.84)
+		var hl := Vector3(ankle.x, 0.016 * s, ankle.z + 0.052 * s)
+		var tp := Vector3(ankle.x, 0.014 * s, ankle.z - 0.182 * s)
+		var srings := [[0.0, w * 0.82, 0.017, sole, M_LEATHER], [0.15, w * 1.04, 0.02, sole, M_LEATHER], [0.85, w * 1.06, 0.02, sole, M_LEATHER], [1.0, w * 0.8, 0.016, sole, M_LEATHER]]
+		_tube(hl, tp, srings, 10, bone, -1, parent, true, true, 0.3, 0.0, false)
+		var det := HumanoidDetails.new(self)
+		if shoes == "boots":
+			var lace := Color(0.13, 0.11, 0.09)
+			for t: float in [0.3, 0.42, 0.54, 0.66, 0.78]:
+				var zt := (ankle.z + 0.045 * s) + t * ((ankle.z - 0.17 * s) - (ankle.z + 0.045 * s))
+				var yt := lerpf(0.108, 0.061, (t - 0.25) / 0.75) * s
+				det.box(Vector3(ankle.x / s, yt / s, zt / s), Vector3(w * 0.55, 0.0032, 0.0035), lace, M_LEATHER, bone)
+			# cano: faixa superior mais escura e presilha
+			_tube(ankle + Vector3(0, 0.088 * s, 0.0), ankle + Vector3(0, 0.106 * s, 0.0), [[0.0, 0.052, 0.057, col.darkened(0.2), mat], [1.0, 0.05, 0.055, col.darkened(0.2), mat]], sides, bone, parent, -1, false, false, 0.0, 0.5, false)
+		else:
+			# bico do tênis
+			_ellipsoid(Vector3(ankle.x, 0.038 * s, ankle.z - 0.165 * s), Vector3(w * 0.78, 0.024, 0.034) * s, sole, M_LEATHER, bone, 1.0, 0, 0.0, 8, 5)
 
 
 # ---------------------------------------------------------------------------
 # Extras: mochila, colchonete, crescimentos fúngicos
 # ---------------------------------------------------------------------------
 func _clothing_extras() -> void:
-	if bool(a.get("backpack", false)):
+	if bool(a.get("backpack", false)) and lod == 0:
+		HumanoidDetails.new(self).backpack()
+	elif bool(a.get("backpack", false)):
 		var bc: Color = a.get("backpack_color", Color(0.2, 0.2, 0.2))
 		var bw := float(a.get("build", 1.0))
 		var zb := 0.115 * s * lerpf(1.0, float(a.get("girth", 1.0)), 0.6) + 0.07 * s

@@ -9,6 +9,10 @@ extends Node3D
 
 signal anim_event(event_name: String)
 
+## Custo acumulado de gerar malhas de personagem (diagnóstico dos testes).
+static var build_usec: int = 0
+static var build_count: int = 0
+
 var appearance: Dictionary = {}
 var skeleton: Skeleton3D
 var mesh_instance: MeshInstance3D
@@ -66,7 +70,12 @@ func set_lod(level: int) -> void:
 	lod = level
 	var ap := appearance
 	var key := Appearance.mesh_key(ap, level)
-	mesh_instance.mesh = Assets.cached_mesh(key, func() -> Mesh: return HumanoidMeshBuilder.build(ap, level))
+	mesh_instance.mesh = Assets.cached_mesh(key, func() -> Mesh:
+		var t0 := Time.get_ticks_usec()
+		var m := HumanoidMeshBuilder.build(ap, level)
+		build_usec += Time.get_ticks_usec() - t0
+		build_count += 1
+		return m)
 	_apply_shadow_setting()
 
 
