@@ -128,9 +128,38 @@ func _open_menu(action: String) -> void:
 			open(j, _menu_pause())
 
 
+## Qual das telas Mochila/Mapa/Diário está aberta ("" se outra).
+func _menu_kind() -> String:
+	if current is InventoryScreen:
+		return "inventory"
+	if current is MapScreen:
+		return "map"
+	if current is JournalScreen:
+		return "journal"
+	return ""
+
+
 ## Segurar Alt libera o cursor (para clicar nos botões do HUD); soltar recaptura.
+## No controle, L2/R2 passam entre Mochila, Mapa e Diário.
 func _input(event: InputEvent) -> void:
-	if player == null or is_screen_open() or player.cinematic or player.survival.dead:
+	if player == null:
+		return
+	if is_screen_open() and event is InputEventJoypadButton and (event.is_action_pressed("ui_page_next") or event.is_action_pressed("ui_page_prev")):
+		var kind := _menu_kind()
+		if kind != "":
+			get_viewport().set_input_as_handled()
+			var order := ["inventory", "map", "journal"]
+			var nxt: String = order[wrapi(order.find(kind) + (1 if event.is_action_pressed("ui_page_next") else -1), 0, order.size())]
+			var old := current
+			current = null
+			if old.has_method("close"):
+				old.call("close")
+			else:
+				old.queue_free()
+			AudioManager.play_ui("ui_click", -8.0)
+			_open_menu(nxt)
+		return
+	if is_screen_open() or player.cinematic or player.survival.dead:
 		return
 	if event.is_action_pressed("free_cursor"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

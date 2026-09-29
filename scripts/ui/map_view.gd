@@ -23,6 +23,10 @@ func _to_map(sp: Vector2) -> Vector2:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton or event is InputEventAction:
+		if _unhandled_key_or_pad(event):
+			accept_event()
+		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -44,8 +48,41 @@ func _gui_input(event: InputEvent) -> void:
 		queue_redraw()
 
 
-func _process(_d: float) -> void:
+func _ready() -> void:
+	focus_mode = Control.FOCUS_ALL
+	set_meta("pad_stick", true)   # o analógico esquerdo move o mapa (não o foco)
+
+
+func _process(d: float) -> void:
+	# controle: analógico esquerdo move, direito aproxima/afasta
+	if Pad.using_pad and has_focus():
+		var lv := Vector2(Input.get_joy_axis(Pad.device, JOY_AXIS_LEFT_X), Input.get_joy_axis(Pad.device, JOY_AXIS_LEFT_Y))
+		if lv.length() > 0.18:
+			center_px += lv * lv.length() * 520.0 / zoom * d
+		var ry := Input.get_joy_axis(Pad.device, JOY_AXIS_RIGHT_Y)
+		if absf(ry) > 0.2:
+			zoom = clampf(zoom * exp(-ry * 1.8 * d), 0.6, 8.0)
+		center_px = center_px.clamp(Vector2.ZERO, Vector2(MapScreen.SIZE, MapScreen.SIZE))
 	queue_redraw()
+
+
+## ✕ marca/desmarca o destino no centro da mira; △ volta para o jogador; □ apaga o destino.
+func _unhandled_key_or_pad(event: InputEvent) -> bool:
+	if event.is_action_pressed("ui_accept"):
+		var w := center_px / MapScreen.SIZE * WorldLayout.HALF * 2.0 - Vector2(WorldLayout.HALF, WorldLayout.HALF)
+		if screen.game.waypoint != Vector3.INF and Vector2(screen.game.waypoint.x, screen.game.waypoint.z).distance_to(w) < 30.0 / zoom * 3.0:
+			screen.game.waypoint = Vector3.INF
+		else:
+			screen.game.waypoint = Vector3(w.x, 0, w.y)
+		AudioManager.play_ui("ui_click", -8.0)
+		return true
+	if event.is_action_pressed("ui_tertiary"):
+		center_on(Vector2(screen.player.global_position.x, screen.player.global_position.z))
+		return true
+	if event.is_action_pressed("ui_secondary"):
+		screen.game.waypoint = Vector3.INF
+		return true
+	return false
 
 
 func _marker(world: Vector3) -> Vector2:
@@ -105,6 +142,12 @@ func _draw() -> void:
 	var dir := Vector2(f.x, f.z).normalized()
 	var side := Vector2(-dir.y, dir.x)
 	draw_colored_polygon(PackedVector2Array([pp + dir * 11.0, pp - dir * 6.0 + side * 6.0, pp - dir * 3.0, pp - dir * 6.0 - side * 6.0]), Color(1, 1, 1))
+	# mira do controle (o destino é marcado aqui)
+	if Pad.using_pad and has_focus():
+		var c := size * 0.5
+		for dv: Vector2 in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+			draw_line(c + dv * 5.0, c + dv * 14.0, Color(0, 0, 0, 0.6), 4.0)
+			draw_line(c + dv * 5.0, c + dv * 14.0, Color(1, 1, 1, 0.9), 2.0)
 	# escala
 	var m100 := 100.0 / (WorldLayout.HALF * 2.0) * MapScreen.SIZE * zoom
 	draw_line(Vector2(20, size.y - 20), Vector2(20 + m100, size.y - 20), Color(1, 1, 1, 0.7), 2.0)

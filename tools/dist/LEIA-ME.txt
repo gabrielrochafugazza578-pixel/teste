@@ -40,18 +40,37 @@ PLACA DE VÍDEO (NVIDIA)
   escolha o driver "nvidia-driver-XXX (recomendado)" e reinicie.
   Com o driver aberto (nouveau) o jogo abre, mas fica bem mais lento.
 
-CONTROLES (remapeáveis em Configurações → Controles)
+CONTROLES — TECLADO E MOUSE (remapeáveis em Configurações → Controles)
   WASD andar · Shift correr · C agachar · Espaço pular/escalar
   E interagir (segurar = ações longas)
   Mouse esq. atacar (segurar = pesado) · Mouse dir. defender/mirar
   Q esquivar · F empurrar · G arremessar distração
   L lanterna · H cura rápida · 1–4 atalhos
+  V câmera em 1ª / 3ª pessoa
   Tab inventário/fabricação · M mapa · J diário
   (ou segure Alt para liberar o mouse e clique nos botões Mochila/Diário/Mapa
   no canto inferior esquerdo)
   Esc pausa · Enter (segurar) pular cinemática
   F5 salvar rápido · F9 carregar rápido · F3 painel de desempenho · F1 esconder HUD
-  Gamepad (Xbox/PlayStation) também funciona.
+
+CONTROLE — PS4 / PS5 (entre parênteses: Xbox)
+  Basta ligar o controle (USB ou Bluetooth) antes ou durante o jogo; os ícones
+  da tela mudam sozinhos para ✕ ○ □ △ (ou A B X Y).
+  Analógico esquerdo andar · L3 (LS) correr · analógico direito câmera
+  R3 (RS) câmera em 1ª / 3ª pessoa
+  ✕ (A) pular/escalar · ○ (B) agachar · □ (X) interagir (segurar = ações longas)
+  R2 (RT) atacar/atirar · L2 (LT) defender/mirar · R1 (RB) empurrar · L1 (LB) esquivar
+  △ (Y) usar o atalho escolhido · segurar △ (Y) arremessar distração
+  ← / → escolher atalho · ↑ lanterna · ↓ cura rápida
+  Share (View) mochila · touchpad mapa · Options (Menu) pausa
+  No carro: R2 acelera · L2 freia/ré · ✕ freio de mão · △ buzina · □ sair · ↑ faróis
+  Nos menus: ✕ escolhe · ○ volta · □ e △ ações extras · L1/R1 abas ·
+  L2/R2 passam entre Mochila, Mapa e Diário · analógico direito rola listas
+  No mapa: analógico move · analógico direito zoom · ✕ marca destino
+  Configurações → Controles: vibração, estilo dos ícones, zona morta,
+  inverter eixo, assistência de mira e o esquema completo dos botões.
+  PS4/PS5 no Windows: funciona direto (sem DS4Windows); se usar DS4Windows,
+  os ícones podem aparecer como Xbox — escolha "PlayStation" em "Botões na tela".
 
 NOVIDADES DESTA VERSÃO
   - Casas, lojas, delegacia, escritórios e galpões por dentro com móveis,
@@ -74,6 +93,18 @@ NOVIDADES DESTA VERSÃO
     bate na janela, a mancha de sol no chão; à noite só o luar. Fora disso,
     só a lanterna. Menos "branca": sombras mais escuras e cores mais naturais.
   - Versão para Windows no mesmo pacote.
+  - Controle de videogame em tudo (jogo, menus, mochila, fabricação, troca,
+    mapa, diário, carro), com ícones de PlayStation ou Xbox e vibração.
+  - Câmera em 1ª pessoa (V ou R3), com o corpo visível.
+  - Ruas decoradas depois do surto: lixo espalhado, cones e cavaletes,
+    carrinhos de mercado, malas e bicicletas largadas, bueiros, remendos no
+    asfalto, bancas de jornal, cartazes nas paredes, fitas e placas de
+    quarentena nas barricadas.
+  - Carros novos: carroceria arredondada, faróis, grade, retrovisores,
+    rodas com raios, e versões limpa, empoeirada, destruída e queimada.
+  - Marcas de violência discretas: manchas de sangue, furos de bala nas
+    paredes, alguns restos cobertos. Tiros deixam furos, golpes e tiros em
+    infectados deixam respingos e os corpos deixam uma poça.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

@@ -36,7 +36,8 @@ func unbind() -> void:
 
 
 func _burned() -> bool:
-	return str(car.get("state", "")) == "burned"
+	# queimado ou tombado/capotado: não dá para ligar nem sifonar
+	return str(car.get("state", "")) == "burned" or absf(float(car.get("roll", 0.0))) > 0.5
 
 
 func _mode(player: Node) -> String:

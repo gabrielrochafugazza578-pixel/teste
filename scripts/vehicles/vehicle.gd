@@ -115,11 +115,18 @@ func _build() -> void:
 	cs2.position = Vector3(0, (roof + deck) * 0.5, -float(dims["hood"]) * 0.1)
 	add_child(cs2)
 	_body_mesh = MeshInstance3D.new()
-	_body_mesh.mesh = VehicleMeshBuilder.mesh(type, false, false)
+	var look := "clean" if GameState.world_phase == GameState.Phase.PRE else "dusty"
+	_body_mesh.mesh = VehicleMeshBuilder.mesh(type, false, false, look)
 	add_child(_body_mesh)
-	var paint_mat := (_body_mesh.mesh.surface_get_material(0) as StandardMaterial3D).duplicate() as StandardMaterial3D
-	paint_mat.albedo_color = paint
-	_body_mesh.set_surface_override_material(0, paint_mat)
+	var src_mat := _body_mesh.mesh.surface_get_material(0)
+	if src_mat is ShaderMaterial:
+		var pm := (src_mat as ShaderMaterial).duplicate() as ShaderMaterial
+		pm.set_shader_parameter("paint_color", paint)
+		_body_mesh.set_surface_override_material(0, pm)
+	elif src_mat is StandardMaterial3D:
+		var sm := (src_mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+		sm.albedo_color = paint
+		_body_mesh.set_surface_override_material(0, sm)
 	var hw := W * 0.5
 	for wz: float in [-wb * 0.5, wb * 0.5]:
 		for sgn: float in [-1.0, 1.0]:
@@ -132,7 +139,7 @@ func _build() -> void:
 			var front := wz < 0.0
 			var drive_mode: String = spec["drive"]
 			var drives := drive_mode == "all" or (drive_mode == "front" and front) or (drive_mode == "rear" and not front)
-			var p := Vector3((hw - 0.12) * sgn, wr, wz)
+			var p := Vector3((hw - 0.09) * sgn, wr, wz)
 			wn.position = p
 			_wheels.append({"pos": p, "front": front, "drive": drives, "node": wn, "spin": 0.0, "comp": 0.0, "side": sgn})
 	# faróis
@@ -352,6 +359,10 @@ func _read_input(delta: float) -> void:
 		return
 	var fwd := Input.get_action_strength("move_forward")
 	var back := Input.get_action_strength("move_back")
+	if Pad.using_pad:
+		# no controle: R2 acelera, L2 freia/dá ré (o analógico só esterça)
+		fwd = Input.get_action_strength("veh_throttle")
+		back = Input.get_action_strength("veh_brake")
 	var st := Input.get_action_strength("move_left") - Input.get_action_strength("move_right")
 	var v_fwd := -global_transform.basis.z.dot(linear_velocity)
 	throttle = 0.0
@@ -378,7 +389,7 @@ func _read_input(delta: float) -> void:
 		set_lights(not lights_on)
 	if not engine_on:
 		throttle = 0.0
-		if Input.is_action_just_pressed("move_forward"):
+		if Input.is_action_just_pressed("move_forward") or Input.is_action_just_pressed("veh_throttle"):
 			try_start()
 
 
@@ -480,6 +491,8 @@ func _run_over(inf: Infected, v: float) -> void:
 	inf.receive_hit(info)
 	body_hp = maxf(0.0, body_hp - v * 0.3)
 	AudioManager.play_3d("hit_flesh", inf.global_position + Vector3(0, 1.0, 0), 2.0)
+	if driver:
+		Pad.rumble(0.5, 0.35, 0.18)
 
 
 func _on_body_entered(b: Node) -> void:
@@ -506,6 +519,7 @@ func _on_body_entered(b: Node) -> void:
 	EventBus.make_noise(global_position, 20.0 + dv * 4.0, self, &"crash")
 	if driver:
 		driver.cam_rig.add_shake(clampf(dv * 0.06, 0.1, 0.8))
+		Pad.rumble(clampf(dv * 0.05, 0.2, 1.0), clampf(dv * 0.06, 0.2, 1.0), clampf(dv * 0.03, 0.15, 0.6))
 		if dv > 14.0:
 			driver.survival.damage((dv - 14.0) * 2.5, "blunt")
 	if body_hp <= 0.0 and engine_on:

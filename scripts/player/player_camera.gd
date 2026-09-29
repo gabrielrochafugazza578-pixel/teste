@@ -23,6 +23,11 @@ var height: float = 1.58
 var shoulder: float = 0.42
 var arm_length: float = 2.65
 var _smoothed_pos := Vector3.ZERO
+## 1ª pessoa: câmera nos olhos do Caio (corpo visível, cabeça escondida).
+var first_person: bool = false
+var fp: float = 0.0            # 0 = ombro, 1 = olhos (transição suave)
+var assist: float = 1.0        # <1 freia a mira do controle perto de um alvo
+var _look_boost: float = 0.0
 var _vehicle_idle: float = 0.0
 var _noise := FastNoiseLite.new()
 var _t: float = 0.0
@@ -47,6 +52,8 @@ func _ready() -> void:
 	cam.fov = Settings.get_fov()
 	spring.add_child(cam)
 	_noise.frequency = 1.3
+	first_person = str(Settings.controls.get("camera_mode", "third")) == "first"
+	fp = 1.0 if first_person else 0.0
 	EventBus.settings_changed.connect(func() -> void:
 		cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0))
 
@@ -66,8 +73,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		var inv := -1.0 if bool(Settings.controls.get("invert_y", false)) else 1.0
 		var mm := event as InputEventMouseMotion
 		yaw -= mm.relative.x * sens
-		pitch = clampf(pitch - mm.relative.y * sens * inv, -1.25, 0.95)
+		pitch = clampf(pitch - mm.relative.y * sens * inv, -1.25 - fp * 0.15, 0.95 + fp * 0.35)
 		_vehicle_idle = 0.0
+
+
+func toggle_view() -> void:
+	set_first_person(not first_person)
+
+
+func set_first_person(on: bool) -> void:
+	first_person = on
+	Settings.controls["camera_mode"] = "first" if on else "third"
+	Settings.save_settings()
+	EventBus.toast("Câmera em 1ª pessoa" if on else "Câmera em 3ª pessoa", "info")
+
+
+## A câmera está (quase toda) nos olhos: o dono esconde a cabeça.
+func fp_active() -> bool:
+	return fp > 0.55 and mode == "follow"
 
 
 func add_shake(amount: float) -> void:
@@ -97,19 +120,29 @@ func update_camera(delta: float) -> void:
 	if target == null:
 		return
 	_t += delta
-	# gamepad
+	# controle: zona morta radial, curva de resposta, aceleração quando o
+	# analógico fica no fim do curso, menos sensível mirando
 	if input_enabled:
-		var gx := Input.get_action_strength("look_right") - Input.get_action_strength("look_left")
-		var gy := Input.get_action_strength("look_down") - Input.get_action_strength("look_up")
-		var gs := float(Settings.controls.get("gamepad_sensitivity", 2.6))
-		if absf(gx) > 0.05 or absf(gy) > 0.05:
-			yaw -= gx * gs * delta
-			pitch = clampf(pitch - gy * gs * delta * 0.7, -1.25, 0.95)
+		var gv := Vector2(Input.get_joy_axis(Pad.device, JOY_AXIS_RIGHT_X), Input.get_joy_axis(Pad.device, JOY_AXIS_RIGHT_Y))
+		var dz := float(Settings.controls.get("pad_deadzone", 0.15))
+		var m := gv.length()
+		if m > dz:
+			var k := clampf((m - dz) / (1.0 - dz), 0.0, 1.0)
+			k = k * k * 0.55 + k * 0.45
+			gv = gv / m * k
+			_look_boost = move_toward(_look_boost, 1.0 if m > 0.93 else 0.0, delta * (1.6 if m > 0.93 else 6.0))
+			var gs := float(Settings.controls.get("gamepad_sensitivity", 2.6)) * (1.0 + _look_boost * 0.7) * lerpf(1.0, 0.5, aim) * assist
+			var inv := -1.0 if bool(Settings.controls.get("pad_invert_y", false)) else 1.0
+			yaw -= gv.x * gs * delta
+			pitch = clampf(pitch - gv.y * gs * delta * 0.72 * inv, -1.25 - fp * 0.15, 0.95 + fp * 0.35)
 			_vehicle_idle = 0.0
+		else:
+			_look_boost = 0.0
 	var tp := target.global_position
 	var h := height - crouch_amount * 0.45
 	var length := arm_length
 	var sh := shoulder
+	fp = move_toward(fp, 1.0 if first_person and mode == "follow" else 0.0, delta * 4.0)
 	if mode == "vehicle":
 		h = 2.1
 		length = 6.2
@@ -124,11 +157,16 @@ func update_camera(delta: float) -> void:
 	length = lerpf(length, 1.4, aim)
 	sh = lerpf(sh, 0.62, aim)
 	var desired := tp + Vector3(0, h, 0)
-	_smoothed_pos = _smoothed_pos.lerp(desired, 1.0 - exp(-delta * (18.0 if mode == "follow" else 8.0)))
+	if fp > 0.0 and target.has_method("eye_position"):
+		desired = desired.lerp(target.eye_position(flat_forward()), fp)
+		length = lerpf(length, 0.0, fp)
+		sh = lerpf(sh, 0.0, fp)
+	_smoothed_pos = _smoothed_pos.lerp(desired, 1.0 - exp(-delta * (18.0 + fp * 22.0 if mode == "follow" else 8.0)))
 	# balanço da cabeça (acessibilidade: head_bob)
-	var hb := float(Settings.accessibility.get("head_bob", 1.0)) * bob_amount
+	var hb := float(Settings.accessibility.get("head_bob", 1.0)) * bob_amount * (1.0 - fp * 0.6)
 	var bob := Vector3(0, sin(bob_phase * 2.0) * 0.025, 0) * hb
 	global_position = _smoothed_pos + bob
+	cam.near = lerpf(0.08, 0.04, fp)
 	pivot.rotation = Vector3(pitch, yaw, 0)
 	spring.spring_length = length
 	spring.position = Vector3(sh, 0, 0)

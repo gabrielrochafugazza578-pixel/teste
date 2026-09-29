@@ -69,7 +69,7 @@ func _ready() -> void:
 	var wv := UIKit.vbox(12)
 	win.add_child(wv)
 	# cabeçalho: título, peso, espaços, dica
-	var head := UIKit.header("backpack", "MOCHILA", "", "Tab", "Fechar")
+	var head := UIKit.header("backpack", "MOCHILA", "", "inventory", "Fechar")
 	var meters := UIKit.vbox(3)
 	meters.custom_minimum_size = Vector2(360, 0)
 	meters.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -119,6 +119,8 @@ func _ready() -> void:
 	_build_equipment()
 	_build_crafting()
 	_build_status()
+	wv.add_child(UIKit.pad_hints([["ui_accept", "Usar / equipar / transferir"], ["ui_secondary", "Mais ações"], ["ui_tertiary", "Atalho"],
+		["ui_tab_prev", ""], ["ui_tab_next", "Abas"], ["ui_page_prev", ""], ["ui_page_next", "Mapa / Diário"], ["ui_cancel", "Fechar"]]))
 	add_child(UIKit.center(win))
 	if other == null:
 		right_tabs.set_tab_hidden(0, true)
@@ -144,7 +146,7 @@ func _filter_button(i: int) -> Button:
 	b.icon = null
 	b.add_theme_font_size_override("font_size", 14)
 	b.custom_minimum_size = Vector2(0, 32)
-	b.focus_mode = Control.FOCUS_NONE
+	b.focus_mode = Control.FOCUS_ALL
 	b.pressed.connect(func() -> void:
 		_filter = i
 		for k in filter_row.get_child_count():
@@ -314,6 +316,7 @@ func _fill(grid: GridContainer, inv: Inventory, side: String, pad_to_capacity: b
 		sl.picked.connect(func(x: ItemSlot) -> void: _select(side, x.index))
 		sl.activated.connect(func(x: ItemSlot) -> void: _primary(side, x.index))
 		sl.secondary.connect(func(x: ItemSlot) -> void: _secondary(side, x.index))
+		sl.tertiary.connect(func(x: ItemSlot) -> void: _cycle_quick(side, x.index))
 		grid.add_child(sl)
 		shown += 1
 	if pad_to_capacity and _filter == 0:
@@ -613,11 +616,51 @@ func _primary(side: String, i: int) -> void:
 
 
 ## Botão direito: transfere quando há contêiner; senão usa/equipa.
+## No controle (□/X): leva o foco para os botões de ação do item.
 func _secondary(side: String, i: int) -> void:
+	if Pad.using_pad:
+		_select(side, i)
+		_focus_actions.call_deferred()
+		return
 	if other != null:
 		_transfer(side, i, -1)
 	else:
 		_primary(side, i)
+
+
+func _focus_actions() -> void:
+	for c in actions.get_children():
+		if c is Control and (c as Control).focus_mode == Control.FOCUS_ALL and not c.is_queued_for_deletion():
+			(c as Control).grab_focus()
+			return
+
+
+func _focus_selected_slot() -> void:
+	var grid := inv_grid if _sel_side == "inv" else other_grid
+	for c in grid.get_children():
+		if c is ItemSlot and (c as ItemSlot).index == _sel_index and not (c as ItemSlot).stack.is_empty():
+			(c as Control).grab_focus()
+			return
+	_focus_first()
+
+
+## △/Y no controle: põe o item no próximo atalho (1→2→3→4→nenhum).
+func _cycle_quick(side: String, i: int) -> void:
+	if side != "inv" or i < 0 or i >= player.inventory.stacks.size():
+		return
+	var id := str(player.inventory.stacks[i]["id"])
+	var cur := player.quick_slots.find(id)
+	for j in 4:
+		if player.quick_slots[j] == id:
+			player.quick_slots[j] = ""
+	var nxt := cur + 1
+	if nxt < 4:
+		player.quick_slots[nxt] = id
+		EventBus.toast("%s no atalho %d" % [ItemDB.item_name(id), nxt + 1], "info")
+	else:
+		EventBus.toast("%s fora dos atalhos" % ItemDB.item_name(id), "info")
+	AudioManager.play_ui("ui_click", -8.0)
+	_refresh()
 
 
 func _use(i: int) -> void:
@@ -715,6 +758,10 @@ func _refresh_crafting() -> void:
 			b.add_child(ck)
 		var rid: String = id
 		b.pressed.connect(func() -> void:
+			# controle: ✕ de novo na receita já escolhida fabrica
+			if Pad.using_pad and _craft_sel == rid:
+				_start_craft()
+				return
 			_craft_sel = rid
 			for k in craft_list.get_children():
 				(k as Button).button_pressed = k == b
@@ -798,6 +845,13 @@ func _process(delta: float) -> void:
 
 # ---------------------------------------------------------------------------
 func _input(event: InputEvent) -> void:
+	# ○/B nos botões de ação volta para a grade (em vez de fechar)
+	if event.is_action_pressed("ui_cancel") and event is InputEventJoypadButton:
+		var fo := get_viewport().gui_get_focus_owner()
+		if fo != null and actions.is_ancestor_of(fo):
+			get_viewport().set_input_as_handled()
+			_focus_selected_slot()
+			return
 	if event.is_action_pressed("inventory") or event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		close()

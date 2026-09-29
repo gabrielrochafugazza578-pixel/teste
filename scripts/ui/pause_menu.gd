@@ -18,7 +18,7 @@ func _ready() -> void:
 	p.custom_minimum_size = Vector2(420, 0)
 	_box = UIKit.vbox(8)
 	p.add_child(_box)
-	_box.add_child(UIKit.header("", "PAUSA", "", "Esc", "Voltar"))
+	_box.add_child(UIKit.header("", "PAUSA", "", "pause", "Voltar"))
 	# situação atual
 	var info := UIKit.card(12, UITheme.ACCENT)
 	var iv := UIKit.vbox(6)
@@ -77,6 +77,23 @@ func _help() -> void:
 		if int(defs[a][1]) >= 0:
 			t += "%s — %s\n" % [InputSetup.code_to_text(InputSetup.current_code(a)), defs[a][0]]
 	t += "\nSegure [E] em portas trancadas, carros e contêineres para ações longas.\nArraste itens com clique duplo no inventário.\nCama: dormir e salvar."
+	# controle (nomes no estilo do controle conectado)
+	var st := Pad.glyph_style()
+	t += "\n\nCONTROLE (%s)\n" % {"ps": "PlayStation", "xbox": "Xbox", "nintendo": "Nintendo"}.get(st, st)
+	for a in defs.keys():
+		var b := InputSetup.pad_button(a)
+		if b == -1 or str(a).begins_with("ui_") or str(a) in ["look_left", "look_right", "look_down", "move_back", "move_left", "move_right", "skip"]:
+			continue
+		var name_: String = defs[a][0]
+		if str(a) == "move_forward":
+			name_ = "Andar"
+		elif str(a) == "look_up":
+			name_ = "Câmera"
+		t += "%s — %s\n" % [InputSetup.pad_button_text(b, st), name_.replace(" (controle)", "")]
+	t += "Nos menus: %s escolhe, %s volta, %s/%s trocam de aba, %s/%s trocam entre Mochila, Mapa e Diário." % [
+		InputSetup.pad_button_text(JOY_BUTTON_A, st), InputSetup.pad_button_text(JOY_BUTTON_B, st),
+		InputSetup.pad_button_text(JOY_BUTTON_LEFT_SHOULDER, st), InputSetup.pad_button_text(JOY_BUTTON_RIGHT_SHOULDER, st),
+		InputSetup.pad_button_text(InputSetup.PAD_L2, st), InputSetup.pad_button_text(InputSetup.PAD_R2, st)]
 	r.body_text = t
 	_open(r)
 

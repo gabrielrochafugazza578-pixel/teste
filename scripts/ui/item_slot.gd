@@ -7,6 +7,7 @@ extends Control
 signal picked(slot: ItemSlot)
 signal activated(slot: ItemSlot)
 signal secondary(slot: ItemSlot)
+signal tertiary(slot: ItemSlot)      # △/Y no controle
 
 const SIZE := Vector2(96, 104)
 
@@ -67,6 +68,12 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 	elif event.is_action_pressed("ui_accept"):
 		activated.emit(self)
+		accept_event()
+	elif event.is_action_pressed("ui_secondary") and event is InputEventJoypadButton:
+		secondary.emit(self)
+		accept_event()
+	elif event.is_action_pressed("ui_tertiary") and event is InputEventJoypadButton:
+		tertiary.emit(self)
 		accept_event()
 
 

@@ -35,7 +35,7 @@ func _ready() -> void:
 	side.custom_minimum_size = Vector2(380, 760)
 	var sv := UIKit.vbox(8)
 	side.add_child(sv)
-	sv.add_child(UIKit.header("map", "MAPA", WorldLayout.district_name(game.world.district_at(player.global_position)), "M", "Fechar"))
+	sv.add_child(UIKit.header("map", "MAPA", WorldLayout.district_name(game.world.district_at(player.global_position)), "map", "Fechar"))
 	sv.add_child(UIKit.separator())
 	# legenda
 	var leg := GridContainer.new()
@@ -81,6 +81,9 @@ func _ready() -> void:
 		hints.add_child(UIKit.keycap(str(e[0])))
 		hints.add_child(UIKit.label(str(e[1]), 13, UITheme.TEXT_DIM))
 	sv.add_child(hints)
+	UIKit.pad_visibility(hints, false)
+	sv.add_child(UIKit.pad_hints([["move_forward", "Mover"], ["look_up", "Zoom"], ["ui_accept", "Marcar destino"], ["ui_secondary", "Apagar destino"],
+		["ui_tertiary", "Voltar para você"], ["ui_right", "Lista de locais"], ["ui_page_next", "Diário / Mochila"]], 18))
 	sv.add_child(UIKit.button("Fechar", close, 200))
 	h.add_child(side)
 	add_child(UIKit.center(h))
@@ -88,6 +91,7 @@ func _ready() -> void:
 		_tex = ImageTexture.create_from_image(_load_or_build(game.world.layout))
 	view.tex = _tex
 	view.center_on(Vector2(player.global_position.x, player.global_position.z))
+	view.grab_focus.call_deferred()
 	EventBus.ui_screen_opened.emit("map")
 
 

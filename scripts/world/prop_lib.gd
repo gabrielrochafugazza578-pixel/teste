@@ -22,7 +22,10 @@ const NAMES := ["bed", "bed_single", "bunk", "hospital_bed", "sofa", "armchair",
 	"trash_bags", "cardboard", "radio_tower", "floodlight", "power_pole", "billboard", "log", "crib", "rug",
 	"generator", "radio_set", "bookshelf", "stair_ramp", "tarp_shelter", "fence_chain_post", "gate_bar", "washing_machine",
 	"plant_pot", "floor_lamp", "picture", "wall_clock", "poster", "notice_board", "fluoro_lamp", "pendant_lamp", "office_chair",
-	"vending_machine", "water_cooler", "coat_rack", "mirror", "wall_shelf", "radiator", "gondola_hw", "gondola_ph"]
+	"vending_machine", "water_cooler", "coat_rack", "mirror", "wall_shelf", "radiator", "gondola_hw", "gondola_ph",
+	"traffic_cone", "road_barrier", "shopping_cart", "suitcase", "bicycle", "litter", "manhole", "manhole_open", "road_patch",
+	"mattress", "tire_single", "quarantine_sign", "tape_barrier", "wall_poster", "newspaper_stand",
+	"blood_pool", "blood_pool_2", "blood_smear", "blood_wall", "bullet_holes", "body_bag", "covered_body", "remains", "severed_arm", "bones"]
 
 
 static func warm() -> void:
@@ -95,6 +98,10 @@ static func collision_size(name: String) -> Vector3:
 		"barrel": return Vector3(0.62, 0.92, 0.62)
 		"generator": return Vector3(1.2, 0.9, 0.7)
 		"tent": return Vector3(2.2, 1.3, 2.4)
+		"road_barrier": return Vector3(1.6, 1.05, 0.5)
+		"shopping_cart": return Vector3(0.6, 1.0, 0.95)
+		"quarantine_sign": return Vector3(1.3, 1.6, 0.4)
+		"newspaper_stand": return Vector3(0.55, 1.1, 0.5)
 		"plant_pot": return Vector3(0.45, 0.9, 0.45)
 		"floor_lamp": return Vector3(0.36, 1.6, 0.36)
 		"vending_machine": return Vector3(0.95, 1.85, 0.82)
@@ -644,5 +651,205 @@ static func _build(name: String, b: MeshBuf) -> void:
 				b.box(Vector3(-0.4 + i * 0.09, 0.36, 0), Vector3(0.07, 0.52, 0.09), MET, 0.0, white)
 			b.box(Vector3(0, 0.1, 0), Vector3(0.9, 0.03, 0.03), MET, 0.0, white)
 			b.box(Vector3(0, 0.62, 0), Vector3(0.9, 0.03, 0.03), MET, 0.0, white)
+		"traffic_cone":
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.02, 0)), 0.16, 0.66, 12, PLA, 0.0, Color(0.95, 0.4, 0.08), false, 0.025)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.3, 0)), 0.105, 0.1, 12, PLA, 0.0, Color(0.95, 0.95, 0.92), false, 0.085)
+			b.box(Vector3(0, 0.02, 0), Vector3(0.4, 0.04, 0.4), PLA, 0.0, Color(0.15, 0.15, 0.15))
+		"road_barrier":
+			for sz: float in [-0.2, 0.2]:
+				for sx: float in [-0.7, 0.7]:
+					b.box_xf(Transform3D(Basis(Vector3.RIGHT, -0.25 * signf(sz)), Vector3(sx, 0.5, sz * 0.5)), Vector3(0.05, 1.02, 0.05), MET, 0.0, Color(0.85, 0.85, 0.85))
+			for k in 2:
+				var y := 0.62 + k * 0.3
+				for i in 6:
+					var cc := Color(0.85, 0.12, 0.08) if i % 2 == 0 else Color(0.95, 0.95, 0.93)
+					b.box(Vector3(-0.625 + i * 0.25, y, -0.12), Vector3(0.25, 0.16, 0.025), PLA, 0.0, cc)
+		"shopping_cart":
+			b.box(Vector3(0, 0.62, 0), Vector3(0.52, 0.02, 0.82), MET, 0.0, steel)
+			for sx: float in [-0.26, 0.26]:
+				b.box(Vector3(sx, 0.8, 0), Vector3(0.015, 0.36, 0.82), MET, 0.3, steel)
+			b.box(Vector3(0, 0.8, 0.41), Vector3(0.52, 0.36, 0.015), MET, 0.3, steel)
+			b.box(Vector3(0, 0.78, -0.41), Vector3(0.52, 0.32, 0.015), MET, 0.3, steel)
+			for i in 6:
+				b.box(Vector3(-0.2 + i * 0.08, 0.8, 0), Vector3(0.006, 0.34, 0.8), MET, 0.0, steel)
+			b.box(Vector3(0, 1.02, 0.5), Vector3(0.56, 0.035, 0.035), PLA, 0.0, Color(0.8, 0.12, 0.1))
+			for sx: float in [-0.22, 0.22]:
+				for sz: float in [-0.35, 0.35]:
+					b.box(Vector3(sx, 0.32, sz), Vector3(0.02, 0.6, 0.02), MET, 0.0, steel)
+					b.cylinder(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(sx + 0.02, 0.05, sz)), 0.05, 0.04, 8, PLA, 0.0, black)
+		"suitcase":
+			b.box(Vector3(0, 0.12, 0), Vector3(0.65, 0.24, 0.42), FAB, 0.4, Color(0.2, 0.25, 0.35))
+			b.box(Vector3(0, 0.245, 0.0), Vector3(0.6, 0.01, 0.38), FAB, 0.4, Color(0.15, 0.19, 0.27))
+			b.box(Vector3(0, 0.12, -0.215), Vector3(0.14, 0.03, 0.02), MET, 0.0, black)
+			# roupas saindo
+			b.box_xf(Transform3D(Basis(Vector3.UP, 0.4), Vector3(0.35, 0.02, 0.3)), Vector3(0.4, 0.03, 0.3), FAB, 0.7, Color(0.6, 0.5, 0.45))
+		"bicycle":
+			# deitada no chão (quadro no plano XZ)
+			var fc := Color(0.15, 0.3, 0.55)
+			for wx: float in [-0.52, 0.52]:
+				for k in 14:
+					var a0 := TAU * float(k) / 14.0
+					var a1 := TAU * float(k + 1) / 14.0
+					b.tube(Vector3(wx + cos(a0) * 0.33, 0.03, sin(a0) * 0.33), Vector3(wx + cos(a1) * 0.33, 0.03, sin(a1) * 0.33), 0.02, 0.02, 4, MET, 0.0, black, false)
+				b.tube(Vector3(wx, 0.03, -0.33), Vector3(wx, 0.03, 0.33), 0.004, 0.004, 3, MET, 0.0, steel, false)
+				b.tube(Vector3(wx - 0.33, 0.03, 0), Vector3(wx + 0.33, 0.03, 0), 0.004, 0.004, 3, MET, 0.0, steel, false)
+			for seg in [[Vector3(-0.52, 0.05, 0), Vector3(-0.05, 0.05, -0.05)], [Vector3(-0.05, 0.05, -0.05), Vector3(0.4, 0.05, -0.3)], [Vector3(0.4, 0.05, -0.3), Vector3(0.52, 0.05, 0)],
+					[Vector3(-0.05, 0.05, -0.05), Vector3(-0.15, 0.05, -0.45)], [Vector3(-0.15, 0.05, -0.45), Vector3(0.4, 0.05, -0.3)]]:
+				b.tube(seg[0], seg[1], 0.02, 0.02, 5, MET, 0.0, fc, false)
+			b.box(Vector3(-0.17, 0.06, -0.5), Vector3(0.22, 0.05, 0.08), FAB, 0.0, black)
+		"litter":
+			var r := RandomNumberGenerator.new()
+			r.seed = 404
+			for i in 18:
+				var p := Vector3(r.randf_range(-1.1, 1.1), 0.012 + i * 0.0006, r.randf_range(-1.1, 1.1))
+				var kind := r.randf()
+				if kind < 0.55:
+					b.box_xf(Transform3D(Basis(Vector3.UP, r.randf() * TAU), p), Vector3(r.randf_range(0.15, 0.3), 0.003, r.randf_range(0.2, 0.32)), PLA, r.randf(),
+						Color(0.95, 0.93, 0.86).lerp(Color(0.7, 0.62, 0.45), r.randf()))
+				elif kind < 0.75:
+					b.cylinder(Transform3D(Basis(Vector3.UP, r.randf() * TAU) * Basis(Vector3.BACK, PI * 0.5), p + Vector3(0, 0.03, 0)), 0.033, 0.11, 6, MET, r.randf(), Color.from_hsv(r.randf(), 0.6, 0.7))
+				elif kind < 0.9:
+					b.box_xf(Transform3D(Basis.from_euler(Vector3(r.randf(), r.randf() * TAU, r.randf())), p + Vector3(0, 0.03, 0)), Vector3(0.07, 0.06, 0.06), PLA, r.randf(), Color(0.9, 0.9, 0.85))
+				else:
+					b.box_xf(Transform3D(Basis(Vector3.UP, r.randf() * TAU), p), Vector3(0.3, 0.02, 0.22), FAB, r.randf(), Color.from_hsv(r.randf(), 0.3, 0.85))
+		"manhole", "manhole_open":
+			var mc := Color(0.3, 0.3, 0.3)
+			if name == "manhole":
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, 0)), 0.34, 0.014, 16, MET, 0.4, mc)
+				for i in 5:
+					b.box(Vector3(-0.2 + i * 0.1, 0.015, 0), Vector3(0.02, 0.004, 0.5), MET, 0.0, mc * 0.7)
+			else:
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, 0)), 0.34, 0.012, 16, TIL, 0.0, Color(0.01, 0.01, 0.01))
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, 0)), 0.38, 0.01, 16, CON, 0.0, Color(0.45, 0.44, 0.42), false)
+				b.cylinder(Transform3D(Basis(Vector3.UP, 0.3), Vector3(0.55, 0.0, 0.25)), 0.34, 0.03, 16, MET, 0.4, mc)
+		"road_patch":
+			var r := RandomNumberGenerator.new()
+			r.seed = 77
+			var pts: Array = []
+			for i in 12:
+				var a := TAU * float(i) / 12.0
+				var rr := r.randf_range(0.6, 1.0)
+				pts.append(Vector3(cos(a) * rr * 1.1, 0.008, sin(a) * rr * 0.7))
+			for i in 12:
+				b.tri(Vector3(0, 0.008, 0), pts[i], pts[(i + 1) % 12], Vector3.UP, Vector2(0, 0), Vector2((pts[i] as Vector3).x, (pts[i] as Vector3).z),
+					Vector2((pts[(i + 1) % 12] as Vector3).x, (pts[(i + 1) % 12] as Vector3).z), _c(Assets.L_ASPHALT), 0.6, Color(0.55, 0.55, 0.56))
+		"mattress":
+			b.box_xf(Transform3D(Basis(Vector3.RIGHT, 0.04), Vector3(0, 0.1, 0)), Vector3(0.95, 0.18, 1.95), FAB, 0.3, Color(0.82, 0.78, 0.66))
+			b.box(Vector3(0.2, 0.2, 0.3), Vector3(0.5, 0.01, 0.6), FAB, 0.8, Color(0.5, 0.42, 0.3))
+		"tire_single":
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, 0)), 0.33, 0.21, 14, MET, 0.0, black)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, 0)), 0.2, 0.215, 12, MET, 0.0, Color(0.03, 0.03, 0.03))
+		"quarantine_sign":
+			for sx: float in [-0.55, 0.55]:
+				b.box(Vector3(sx, 0.75, 0), Vector3(0.06, 1.5, 0.06), MET, 0.0, steel)
+			b.box(Vector3(0, 1.2, -0.035), Vector3(1.25, 0.55, 0.02), MET, 0.2, Color(0.95, 0.85, 0.2))
+			b.box(Vector3(0, 1.2, -0.047), Vector3(1.1, 0.12, 0.004), PLA, 0.0, Color(0.1, 0.1, 0.1))
+			for i in 5:
+				b.box_xf(Transform3D(Basis(Vector3.BACK, 0.7), Vector3(-0.5 + i * 0.25, 0.4, -0.035)), Vector3(0.1, 0.35, 0.02), PLA, 0.0, Color(0.85, 0.12, 0.08))
+		"tape_barrier":
+			for sx: float in [-1.4, 1.4]:
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(sx, 0, 0)), 0.03, 1.0, 6, MET, 0.0, steel)
+			for i in 8:
+				var cc := Color(0.95, 0.85, 0.1) if i % 2 == 0 else Color(0.08, 0.08, 0.08)
+				var x0 := -1.4 + i * 0.35
+				b.box_xf(Transform3D(Basis(Vector3.BACK, 0.04 * sin(float(i))), Vector3(x0 + 0.175, 0.9 - 0.08 * sin(float(i) / 7.0 * PI), 0)), Vector3(0.35, 0.07, 0.004), PLA, 0.0, cc)
+		"wall_poster":
+			b.box(Vector3(0, 0, 0), Vector3(0.42, 0.6, 0.004), PLA, 0.6, Color(0.93, 0.9, 0.82))
+			b.box(Vector3(0, 0.15, -0.003), Vector3(0.3, 0.22, 0.002), PLA, 0.2, Color(0.45, 0.4, 0.36))
+			b.box(Vector3(0, -0.12, -0.003), Vector3(0.34, 0.05, 0.002), PLA, 0.1, Color(0.7, 0.1, 0.08))
+			b.box(Vector3(0, -0.22, -0.003), Vector3(0.3, 0.03, 0.002), PLA, 0.1, Color(0.2, 0.2, 0.2))
+		"newspaper_stand":
+			b.box(Vector3(0, 0.55, 0), Vector3(0.5, 1.1, 0.45), MET, 0.2, Color(0.2, 0.35, 0.6))
+			b.box(Vector3(0, 0.8, -0.226), Vector3(0.4, 0.3, 0.004), TIL, 0.0, Color(0.3, 0.35, 0.4))
+		# --- marcas de violência (discretas) ---------------------------------------
+		"blood_pool", "blood_pool_2", "blood_smear":
+			var r := RandomNumberGenerator.new()
+			r.seed = hash(name)
+			var n := 16
+			var ex := 1.0 if name != "blood_smear" else 0.28
+			var rs: Array = []
+			for i in n:
+				rs.append(r.randf_range(0.55, 1.0) * (0.55 if name == "blood_pool" else 0.8))
+			for ring in 3:
+				var sc: float = [1.0, 0.72, 0.4][ring]
+				var cc: Color = [Color(0.3, 0.05, 0.04), Color(0.22, 0.02, 0.02), Color(0.15, 0.01, 0.01)][ring]
+				var y := 0.01 + ring * 0.0007
+				var pts: Array = []
+				for i in n:
+					var a := TAU * float(i) / float(n)
+					pts.append(Vector3(cos(a) * float(rs[i]) * sc, y, sin(a) * float(rs[i]) * sc * ex))
+				for i in n:
+					var p0: Vector3 = pts[i]
+					var p1: Vector3 = pts[(i + 1) % n]
+					b.tri(Vector3(0, y, 0), p0, p1, Vector3.UP, Vector2.ZERO, Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), TIL, 0.0, cc)
+			# respingos em volta
+			for i in 9:
+				var a := r.randf() * TAU
+				var d := r.randf_range(0.6, 1.2)
+				var sz := r.randf_range(0.03, 0.08)
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(cos(a) * d, 0.009, sin(a) * d * ex)), sz, 0.002, 6, TIL, 0.0, Color(0.25, 0.03, 0.02))
+		"blood_wall":
+			# respingo vertical (frente para -Z, encostado na parede)
+			var r := RandomNumberGenerator.new()
+			r.seed = 91
+			b.box(Vector3(0, 0, 0), Vector3(0.35, 0.28, 0.002), TIL, 0.0, Color(0.28, 0.04, 0.03))
+			for i in 14:
+				var a := r.randf() * TAU
+				var d := r.randf_range(0.15, 0.55)
+				var sz := r.randf_range(0.02, 0.07)
+				b.box_xf(Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * d, sin(a) * d * 0.7, -0.001)), Vector3(sz * 2.5, sz, 0.002), TIL, 0.0, Color(0.3, 0.04, 0.03))
+			for i in 4:
+				var x := r.randf_range(-0.15, 0.15)
+				var ln := r.randf_range(0.2, 0.6)
+				b.box(Vector3(x, -0.14 - ln * 0.5, -0.0012), Vector3(0.018, ln, 0.002), TIL, 0.0, Color(0.25, 0.03, 0.02))
+		"bullet_holes":
+			var r := RandomNumberGenerator.new()
+			r.seed = 13
+			for i in 9:
+				var p := Vector3(r.randf_range(-0.5, 0.5), r.randf_range(-0.35, 0.35), -0.002)
+				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), p), 0.035, 0.003, 8, CON, 0.0, Color(0.6, 0.58, 0.55))
+				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), p + Vector3(0, 0, -0.001)), 0.012, 0.003, 6, TIL, 0.0, Color(0.02, 0.02, 0.02))
+		"body_bag":
+			b.box_xf(Transform3D(Basis.IDENTITY, Vector3(0, 0.1, 0)), Vector3(0.55, 0.2, 1.8), FAB, 0.2, Color(0.08, 0.08, 0.09))
+			b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0.11, -0.95)), 0.2, 0.1, 10, FAB, 0.2, Color(0.08, 0.08, 0.09))
+			b.box(Vector3(0, 0.205, 0), Vector3(0.02, 0.01, 1.7), MET, 0.0, Color(0.5, 0.5, 0.5))
+		"covered_body":
+			# corpo sob um lençol, com mancha de sangue
+			var sheet := Color(0.88, 0.87, 0.82)
+			b.box_xf(Transform3D(Basis.IDENTITY, Vector3(0, 0.09, 0.2)), Vector3(0.6, 0.18, 1.1), FAB, 0.4, sheet)
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0.0, -0.55)), 0.15, 0.22, 10, FAB, 0.4, sheet)
+			b.box_xf(Transform3D(Basis(Vector3.UP, 0.1), Vector3(0.12, 0.07, 0.95)), Vector3(0.18, 0.14, 0.4), FAB, 0.4, sheet)
+			b.box_xf(Transform3D(Basis(Vector3.UP, -0.1), Vector3(-0.12, 0.07, 0.95)), Vector3(0.18, 0.14, 0.4), FAB, 0.4, sheet)
+			b.box(Vector3(0.05, 0.182, 0.0), Vector3(0.3, 0.004, 0.35), FAB, 0.0, Color(0.45, 0.07, 0.05))
+			# pés de fora
+			for sx: float in [-0.1, 0.1]:
+				b.box(Vector3(sx, 0.06, 1.2), Vector3(0.1, 0.12, 0.12), FAB, 0.0, Color(0.15, 0.12, 0.1))
+		"remains":
+			# restos: roupas rasgadas, sangue seco e ossos
+			b.box_xf(Transform3D(Basis(Vector3.UP, 0.3), Vector3(0, 0.02, 0)), Vector3(0.55, 0.04, 0.7), FAB, 0.6, Color(0.3, 0.3, 0.33))
+			b.box_xf(Transform3D(Basis(Vector3.UP, -0.2), Vector3(0.1, 0.02, 0.6)), Vector3(0.35, 0.035, 0.6), FAB, 0.6, Color(0.25, 0.22, 0.18))
+			b.box(Vector3(-0.05, 0.043, 0.1), Vector3(0.3, 0.003, 0.3), FAB, 0.0, Color(0.3, 0.06, 0.04))
+			for i in 3:
+				var a := 0.4 + i * 0.9
+				b.tube(Vector3(0.2 + i * 0.05, 0.03, -0.1), Vector3(0.2 + i * 0.05 + cos(a) * 0.3, 0.03, -0.1 + sin(a) * 0.3), 0.018, 0.015, 5, PLA, 0.0, Color(0.85, 0.8, 0.68))
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(-0.3, 0.0, -0.35)), 0.09, 0.14, 8, PLA, 0.0, Color(0.82, 0.78, 0.66), true, 0.07)
+		"severed_arm":
+			var sk := Color(0.62, 0.48, 0.42)
+			b.tube(Vector3(0, 0.05, 0), Vector3(0.28, 0.045, 0.05), 0.045, 0.04, 8, FAB, 0.0, Color(0.3, 0.32, 0.36))
+			b.tube(Vector3(0.28, 0.045, 0.05), Vector3(0.52, 0.035, 0.08), 0.037, 0.03, 8, PLA, 0.0, sk)
+			b.box_xf(Transform3D(Basis(Vector3.UP, -0.2), Vector3(0.6, 0.025, 0.1)), Vector3(0.14, 0.04, 0.09), PLA, 0.0, sk)
+			b.cylinder(Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(0.005, 0.05, 0)), 0.043, 0.01, 8, TIL, 0.0, Color(0.35, 0.03, 0.02))
+			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0.1, 0.0, 0.05)), 0.25, 0.004, 10, TIL, 0.0, Color(0.22, 0.02, 0.02))
+		"bones":
+			var bc := Color(0.84, 0.8, 0.7)
+			var r := RandomNumberGenerator.new()
+			r.seed = 5
+			for i in 5:
+				var a := r.randf() * TAU
+				var p := Vector3(r.randf_range(-0.3, 0.3), 0.02, r.randf_range(-0.3, 0.3))
+				var d := Vector3(cos(a), 0, sin(a)) * r.randf_range(0.12, 0.25)
+				b.tube(p - d, p + d, 0.016, 0.014, 5, PLA, 0.0, bc)
+			b.cylinder(Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.25, 0.07, -0.2)), 0.085, 0.13, 8, PLA, 0.0, bc, true, 0.075)
+			b.box(Vector3(0.25, 0.1, -0.29), Vector3(0.1, 0.03, 0.02), PLA, 0.0, Color(0.1, 0.09, 0.08))
 		_:
 			b.box(Vector3(0, 0.25, 0), Vector3(0.5, 0.5, 0.5), WOOD, 0.0, Color(0.6, 0.5, 0.4))

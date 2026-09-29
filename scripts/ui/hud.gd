@@ -24,7 +24,7 @@ var objective_title: Label
 var objective_text: Label
 var objective_dist: Label
 var prompt_box: HBoxContainer
-var prompt_key: PanelContainer
+var prompt_key: InputPrompt
 var prompt: Label
 var hold_bar: ProgressBar
 var eye: Control
@@ -40,6 +40,8 @@ var ammo_label: Label
 var slots: HBoxContainer
 var slot_icons: Array = []
 var slot_counts: Array = []
+var slot_keys: Array = []
+var slot_hint: HBoxContainer
 var vehicle_box: VBoxContainer
 var vehicle_label: Label
 var fuel_bar: ProgressBar
@@ -272,7 +274,7 @@ func _build() -> void:
 	pc.custom_minimum_size = Vector2(600, 0)
 	prompt_box = UIKit.hbox(10)
 	prompt_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	prompt_key = UIKit.keycap("E", 16)
+	prompt_key = InputPrompt.make("interact", 22)
 	prompt_box.add_child(prompt_key)
 	prompt = UIKit.label("", 19, UITheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	prompt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
@@ -323,6 +325,7 @@ func _build() -> void:
 	var wb := UIKit.vbox(8)
 	_anchor(wb, Control.PRESET_BOTTOM_RIGHT, Vector2(-420, -150))
 	wb.custom_minimum_size = Vector2(400, 0)
+	wb.grow_vertical = Control.GROW_DIRECTION_BEGIN   # a dica do controle cresce para cima
 	weapon_card = _hud_card(10)
 	weapon_card.size_flags_horizontal = Control.SIZE_SHRINK_END
 	var wh2 := UIKit.hbox(10)
@@ -358,6 +361,7 @@ func _build() -> void:
 		var kc := UIKit.keycap(str(i + 1), 11)
 		kc.position = Vector2(-2, -2)
 		inner.add_child(kc)
+		slot_keys.append(kc)
 		var cnt := UIKit.label("", 12, UITheme.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
 		cnt.position = Vector2(4, 38)
 		cnt.size = Vector2(48, 16)
@@ -367,6 +371,15 @@ func _build() -> void:
 		slot_icons.append(ic)
 		slot_counts.append(cnt)
 	wb.add_child(slots)
+	# controle: ←/→ escolhe o atalho, △/Y usa (segurar arremessa)
+	slot_hint = UIKit.hbox(6)
+	slot_hint.alignment = BoxContainer.ALIGNMENT_END
+	slot_hint.add_child(InputPrompt.make("slot_prev", 16))
+	slot_hint.add_child(InputPrompt.make("slot_next", 16))
+	slot_hint.add_child(UIKit.label("escolher", 12, UITheme.TEXT_DIM))
+	slot_hint.add_child(InputPrompt.make("pad_use", 16))
+	slot_hint.add_child(UIKit.label("usar · segurar: arremessar", 12, UITheme.TEXT_DIM))
+	wb.add_child(slot_hint)
 	add_child(wb)
 	# ---- veículo
 	vehicle_box = UIKit.vbox(4)
@@ -426,6 +439,7 @@ func _build() -> void:
 	bn.name = "Banner"
 	add_child(bn)
 	_refresh_menu_keys()
+	Pad.device_changed.connect(_on_device_changed)
 
 
 ## Botão clicável do HUD (Mochila/Diário/Mapa): ícone + nome + tecla.
@@ -460,11 +474,24 @@ func _menu_button(glyph: String, text: String, action: String) -> Button:
 	return b
 
 
+func _on_device_changed(_p: bool) -> void:
+	_refresh_menu_keys()
+
+
 func _refresh_menu_keys() -> void:
 	for b in menu_bar.get_children():
 		var k := b.get_node("Key") as Label
-		k.text = "[%s]" % InputSetup.key_text(str(b.get_meta("action")))
+		var act := str(b.get_meta("action"))
+		if Pad.using_pad:
+			var pt := InputSetup.pad_text(act, Pad.glyph_style())
+			k.text = ("[%s]" % pt) if pt != "—" else ("[L2/R2]" if Pad.glyph_style() == "ps" else "[LT/RT]")
+		else:
+			k.text = "[%s]" % InputSetup.key_text(act)
 	cursor_hint.text = "Segure %s para usar o mouse" % InputSetup.key_text("free_cursor")
+	for kc in slot_keys:
+		(kc as Control).visible = not Pad.using_pad
+	if slot_hint:
+		slot_hint.visible = Pad.using_pad
 
 
 # ---------------------------------------------------------------------------
@@ -502,7 +529,7 @@ func _process(delta: float) -> void:
 	_fade_hud = move_toward(_fade_hud, 0.35 if _idle_t > 6.0 else 1.0, delta * 1.5)
 	vitals.modulate.a = _fade_hud
 	menu_bar.modulate.a = maxf(_fade_hud, 0.6) if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else 1.0
-	cursor_hint.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _fade_hud > 0.9
+	cursor_hint.visible = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _fade_hud > 0.9 and not Pad.using_pad
 	var vals := {"health": s.health, "stamina": s.stamina / maxf(s.max_stamina(), 1.0) * 100.0, "hunger": s.hunger, "thirst": s.thirst, "energy": s.energy}
 	for k in vals.keys():
 		(bars[k] as ProgressBar).value = vals[k]
@@ -538,7 +565,11 @@ func _process(delta: float) -> void:
 			objective_dist.text = ""
 	else:
 		objective_card.visible = false
-	# dica
+	# dica (no carro não mostra "Dirigir" do próprio carro)
+	if player.in_vehicle != null:
+		prompt_box.visible = false
+	elif _last_prompt != "":
+		prompt_box.visible = true
 	hold_bar.visible = _hold_p > 0.01
 	hold_bar.value = _hold_p
 	if player.current_interactable == null or not is_instance_valid(player.current_interactable):
@@ -585,6 +616,14 @@ func _process(delta: float) -> void:
 			ic.item_id = ""
 			ic.glyph = ""
 			cnt.text = ""
+		# atalho escolhido no controle
+		var card := slots.get_child(i) as PanelContainer
+		var chosen := Pad.using_pad and i == player.selected_slot
+		if not card.has_meta("normal_box"):
+			card.set_meta("normal_box", card.get_theme_stylebox("panel"))
+		if bool(card.get_meta("chosen", false)) != chosen:
+			card.set_meta("chosen", chosen)
+			card.add_theme_stylebox_override("panel", UITheme.box(Color(0.2, 0.16, 0.08, 0.9), UITheme.ACCENT, 2, 8, 4) if chosen else card.get_meta("normal_box"))
 	(crosshair as HUDCrosshair).active = player.aiming
 	crosshair.queue_redraw()
 	# veículo
@@ -627,7 +666,7 @@ func _on_prompt(t: String) -> void:
 	prompt.text = t
 	prompt_box.visible = t != ""
 	if t != "":
-		(prompt_key.get_child(0) as Label).text = InputSetup.key_text("interact")
+		prompt_key.queue_redraw()
 
 
 func _on_subtitle(text: String, speaker: String, duration: float) -> void:

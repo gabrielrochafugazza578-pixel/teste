@@ -110,7 +110,7 @@ func _make_rows() -> void:
 		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(nm)
-		var kc := UIKit.keycap(InputSetup.key_text("interact"), 11)
+		var kc := InputPrompt.make("interact", 15)
 		kc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		kc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(kc)

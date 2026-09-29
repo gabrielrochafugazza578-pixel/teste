@@ -30,7 +30,7 @@ func _ready() -> void:
 	p.add_child(v)
 	var att := npc.attitude()
 	var att_t: String = {"friendly": "Amigável — preços melhores", "neutral": "Neutra", "wary": "Desconfiada — preços piores", "hostile": "Hostil"}.get(att, att)
-	var head := UIKit.header("people", "TROCA — " + npc.display_name.to_upper(), "", "Esc", "Sair")
+	var head := UIKit.header("people", "TROCA — " + npc.display_name.to_upper(), "", "pause", "Sair")
 	var att_col := UITheme.GOOD if att == "friendly" else (UITheme.DANGER if att in ["wary", "hostile"] else UITheme.TEXT_DIM)
 	var chip := UIKit.chip("Atitude: " + att_t, att_col, 14)
 	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -42,6 +42,8 @@ func _ready() -> void:
 	tip.add_child(UIKit.keycap("Botão direito"))
 	tip.add_child(UIKit.label("remove. O número no canto é o valor de cada unidade.", 14, UITheme.TEXT_DIM))
 	v.add_child(tip)
+	UIKit.pad_visibility(tip, false)
+	v.add_child(UIKit.pad_hints([["ui_accept", "Adicionar 1"], ["ui_secondary", "Tirar 1"], ["ui_tertiary", "Fechar negócio"], ["ui_cancel", "Sair"]]))
 	var h := UIKit.hbox(16)
 	h.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	h.add_child(_side("Você oferece", true))
@@ -137,14 +139,26 @@ func _fill(g: GridContainer, inv: Inventory, sel: Dictionary, mine: bool) -> flo
 				if mb == MOUSE_BUTTON_LEFT or mb == MOUSE_BUTTON_RIGHT:
 					_click(dsel, dinv, sl.index, mb == MOUSE_BUTTON_RIGHT)
 			elif e.is_action_pressed("ui_accept"):
-				_click(dsel, dinv, sl.index, false))
+				_click(dsel, dinv, sl.index, false)
+			elif e.is_action_pressed("ui_secondary") and e is InputEventJoypadButton:
+				_click(dsel, dinv, sl.index, true))
 		g.add_child(sl)
 	return total
 
 
 func _refresh() -> void:
+	# a grade é recriada: guarda qual célula tinha o foco (controle/teclado)
+	var fo := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
+	var f_left := fo is ItemSlot and left_grid.is_ancestor_of(fo)
+	var f_idx := (fo as ItemSlot).index if fo is ItemSlot else -1
 	var gv := _fill(left_grid, player.inventory, give, true)
 	var tv := _fill(right_grid, npc.trade_inv, take, false)
+	if f_idx >= 0 or (fo == null and Pad.using_pad):
+		var g := left_grid if (f_left or f_idx < 0) else right_grid
+		for c in g.get_children():
+			if c is ItemSlot and ((c as ItemSlot).index == f_idx or f_idx < 0):
+				(c as Control).grab_focus.call_deferred()
+				break
 	give_label.text = "Você oferece: %.0f" % gv
 	take_label.text = "Você pede: %.0f" % tv
 	var ok := gv >= tv and (gv > 0.0 or tv > 0.0)
@@ -162,6 +176,11 @@ func _confirm() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_tertiary") and event is InputEventJoypadButton:
+		get_viewport().set_input_as_handled()
+		if not confirm.disabled:
+			_confirm()
+		return
 	if event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		close()

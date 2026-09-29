@@ -75,6 +75,12 @@ var controls := {
 	"invert_y": false,
 	"toggle_sprint": false,
 	"toggle_crouch": true,
+	"vibration": 1.0,
+	"pad_glyphs": 0,          # 0 automático, 1 PlayStation, 2 Xbox, 3 Nintendo
+	"pad_invert_y": false,
+	"pad_deadzone": 0.15,
+	"aim_assist": true,
+	"camera_mode": "third",   # "third" | "first"
 	"bindings": {},
 }
 

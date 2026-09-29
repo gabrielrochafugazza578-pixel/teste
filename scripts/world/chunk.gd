@@ -318,33 +318,52 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		if world != null and world.has_method("is_car_claimed") and world.is_car_claimed(str(car["uid"])):
 			continue
 		cars.append(car)
-		var burned: bool = car["state"] == "burned"
-		var key := str(car["type"]) + ("_b" if burned else "")
+		# aparência: limpo antes do surto; empoeirado, destruído ou queimado depois
+		var look := "clean"
+		if phase != GameState.Phase.PRE:
+			look = "dusty"
+			if car["state"] == "burned":
+				look = "burned"
+			elif car["state"] == "abandoned" and absi(Util.hash_str(str(car["uid"]))) % 10 < 6:
+				look = "wreck"
+			# alguns destroços tombados de lado ou capotados
+			var hv := absi(Util.hash_str(str(car["uid"]) + "roll"))
+			if look == "wreck" and hv % 9 == 0 and str(car["type"]) in ["compact", "sedan", "hatch", "suv", "pickup"]:
+				car["roll"] = PI * 0.5 * (1.0 if hv % 2 == 0 else -1.0)
+			elif look == "burned" and hv % 7 == 0 and str(car["type"]) in ["compact", "sedan", "hatch"]:
+				car["roll"] = PI
+		var key := str(car["type"]) + "|" + look
 		if not by_type.has(key):
 			by_type[key] = []
 		by_type[key].append(car)
 	for key in by_type.keys():
 		var list: Array = by_type[key]
-		var burned := str(key).ends_with("_b")
-		var type := str(key).trim_suffix("_b")
+		var parts := str(key).split("|")
+		var type := parts[0]
+		var look := parts[1]
+		var burned := look == "burned"
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_colors = true
-		mm.mesh = VehicleMeshBuilder.mesh(type, burned)
+		mm.mesh = VehicleMeshBuilder.mesh(type, burned, true, look)
 		mm.instance_count = list.size()
 		for i in list.size():
 			var car: Dictionary = list[i]
-			var car_basis := Basis(Vector3.UP, float(car["yaw"])) * Basis(Vector3.RIGHT, float(car.get("pitch", 0.0)))
-			mm.set_instance_transform(i, Transform3D(car_basis, car["pos"]))
-			var col: Color = car["color"]
-			if burned:
-				col = Color(0.12, 0.1, 0.09)
-			elif phase == GameState.Phase.POST:
-				col = col.lerp(Color(0.35, 0.32, 0.28), 0.35)
-			mm.set_instance_color(i, col)
 			var dims := VehicleMeshBuilder.dims(type)
+			var roll := float(car.get("roll", 0.0))
+			var car_basis := Basis(Vector3.UP, float(car["yaw"])) * Basis(Vector3.RIGHT, float(car.get("pitch", 0.0))) * Basis(Vector3.BACK, roll)
+			var cpos: Vector3 = car["pos"]
+			if absf(roll) > 3.0:
+				cpos.y += float(dims["roof"]) - 0.12      # capotado: apoiado no teto amassado
+			elif absf(roll) > 1.0:
+				cpos.y += float(dims["W"]) * 0.5          # de lado
+			mm.set_instance_transform(i, Transform3D(car_basis, cpos))
+			var col: Color = car["color"]
+			if phase == GameState.Phase.POST and not burned:
+				col = col.lerp(Color(0.35, 0.32, 0.28), 0.18)
+			mm.set_instance_color(i, col)
 			var sz := Vector3(float(dims["W"]), float(dims["roof"]) * 0.8, float(dims["L"]))
-			p["colliders"].append([Transform3D(car_basis, (car["pos"] as Vector3) + car_basis * Vector3(0, sz.y * 0.5, 0)), sz])
+			p["colliders"].append([Transform3D(car_basis, cpos + car_basis * Vector3(0, sz.y * 0.5, 0)), sz])
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.visibility_range_end = 260.0

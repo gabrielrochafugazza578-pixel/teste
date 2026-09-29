@@ -637,6 +637,172 @@ static func _grass(layout: WorldLayout, c: Vector2i, opts: Dictionary) -> Array:
 # ---------------------------------------------------------------------------
 # Camada de fase (carros, entulho, barricadas, mato, acampamentos)
 # ---------------------------------------------------------------------------
+## Decoração das ruas: bueiros e remendos no asfalto (sempre), cartazes nas
+## fachadas e bancas de jornal; depois do surto, lixo espalhado, cones e cavaletes,
+## carrinhos de mercado, malas, bicicletas largadas e marcas discretas de
+## violência (manchas de sangue, furos de bala, restos cobertos). Usa um gerador
+## próprio para não mexer na posição dos carros.
+static func _street_clutter(layout: WorldLayout, c: Vector2i, rect: Rect2, phase: int, props: Dictionary, colliders: Array, cars: Array) -> void:
+	var r := Util.rng(Util.hash2(c.x, c.y, 9100 + phase))
+	var pre := phase == GameState.Phase.PRE
+	var post := phase == GameState.Phase.POST
+	var none := Color(1, 1, 1, 0)
+	# --- asfalto e pista ---------------------------------------------------------------
+	for si in layout.chunk_roads.get(c, []):
+		var seg: Dictionary = layout.roads[si]
+		var kind: String = seg["kind"]
+		if kind in ["tunnel", "bridge", "dirt"]:
+			continue
+		var a: Vector2 = seg["a"]
+		var b: Vector2 = seg["b"]
+		var tt := _clip(a, b, rect)
+		if tt.x >= tt.y:
+			continue
+		var len := a.distance_to(b)
+		var dir := (b - a) / maxf(len, 0.001)
+		var side := Vector2(-dir.y, dir.x)
+		var hw: float = seg["hw"]
+		var ya: float = seg["ya"]
+		var yb: float = seg["yb"]
+		var yaw_road := atan2(-dir.x, -dir.y)
+		var urban := WorldLayout.URBAN.has_point((a + b) * 0.5)
+		var t := tt.x * len + r.randf() * 8.0
+		while t < tt.y * len:
+			var y := lerpf(ya, yb, t / len)
+			var roll := r.randf()
+			if roll < (0.3 if urban else 0.08) and kind != "highway":
+				var p := a + dir * t + side * r.randf_range(-hw * 0.35, hw * 0.35)
+				var open := not pre and r.randf() < 0.15
+				_add_prop(props, "manhole_open" if open else "manhole", Transform3D(Basis(Vector3.UP, r.randf() * TAU), Vector3(p.x, y + 0.004, p.y)))
+			elif roll < 0.55:
+				var p := a + dir * t + side * r.randf_range(-hw + 1.0, hw - 1.0)
+				_add_prop(props, "road_patch", Transform3D(Basis(Vector3.UP, yaw_road + r.randf_range(-0.4, 0.4)).scaled(Vector3.ONE * r.randf_range(0.7, 1.6)), Vector3(p.x, y, p.y)))
+			if not pre:
+				var p := a + dir * (t + r.randf() * 6.0) + side * r.randf_range(-hw + 0.6, hw - 0.6)
+				var v := r.randf()
+				if v < (0.42 if urban else 0.12):
+					_add_prop(props, "litter", Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.7, 1.3)), Vector3(p.x, y, p.y)))
+				elif v < 0.36 and urban:
+					# cones espalhados (alguns tombados)
+					for k in r.randi_range(2, 5):
+						var q := p + dir * r.randf_range(-3.0, 3.0) + side * r.randf_range(-1.2, 1.2)
+						var bs := Basis(Vector3.UP, r.randf() * TAU)
+						var yy := y
+						if r.randf() < 0.35:
+							bs = bs * Basis(Vector3.BACK, PI * 0.5)
+							yy += 0.16
+						_add_prop(props, "traffic_cone", Transform3D(bs, Vector3(q.x, yy, q.y)))
+				elif v < 0.39 and urban:
+					_add_prop(props, "road_barrier", Transform3D(Basis(Vector3.UP, yaw_road + PI * 0.5 + r.randf_range(-0.5, 0.5)), Vector3(p.x, y, p.y)), none, colliders, true)
+				elif v < 0.43:
+					_add_prop(props, "tire_single", Transform3D(Basis(Vector3.UP, r.randf() * TAU), Vector3(p.x, y, p.y)))
+				elif v < (0.455 if post else 0.47):
+					_add_prop(props, "blood_smear", Transform3D(Basis(Vector3.UP, yaw_road + r.randf_range(-0.6, 0.6)).scaled(Vector3.ONE * r.randf_range(0.8, 1.3)), Vector3(p.x, y, p.y)))
+			t += r.randf_range(10.0, 18.0)
+	if not pre:
+		# em volta de carros abandonados/queimados: cacos, sangue ou um corpo coberto
+		for car in cars:
+			var st: String = car["state"]
+			if st == "parked" or r.randf() > 0.22:
+				continue
+			var cp: Vector3 = car["pos"]
+			var yaw: float = car["yaw"]
+			var left := Vector3(cos(yaw), 0, -sin(yaw))
+			var dp := cp + left * (1.6 if r.randf() < 0.5 else -1.6) + Vector3(-sin(yaw), 0, -cos(yaw)) * r.randf_range(-0.6, 0.4)
+			var pick := r.randf()
+			var pn := "litter" if pick < 0.45 else ("blood_pool_2" if pick < 0.7 else ("covered_body" if pick < 0.82 and phase == GameState.Phase.SILENCE else ("remains" if pick < 0.9 else "traffic_cone")))
+			_add_prop(props, pn, Transform3D(Basis(Vector3.UP, yaw + r.randf_range(-0.5, 0.5)), dp))
+	# --- calçadas --------------------------------------------------------------------
+	for bid in layout.chunk_blocks.get(c, []):
+		var blk: Dictionary = layout.blocks[bid]
+		var br: Rect2 = blk["rect"]
+		var dist: String = blk["district"]
+		var core := dist in ["centro", "centro_sul", "bairro_alto"]
+		var sides := [[Vector2(br.position.x, br.position.y), Vector2(1, 0), Vector2(0, -1), br.size.x],
+			[Vector2(br.end.x, br.position.y), Vector2(0, 1), Vector2(1, 0), br.size.y],
+			[Vector2(br.end.x, br.end.y), Vector2(-1, 0), Vector2(0, 1), br.size.x],
+			[Vector2(br.position.x, br.end.y), Vector2(0, -1), Vector2(-1, 0), br.size.y]]
+		for sd in sides:
+			var o: Vector2 = sd[0]
+			var dir: Vector2 = sd[1]
+			var rn: Vector2 = sd[2]
+			var slen: float = sd[3]
+			var yaw_to_road := Util.dir_to_yaw(Vector3(rn.x, 0, rn.y))
+			var t := 4.0 + r.randf() * 6.0
+			while t < slen - 3.0:
+				var inset := r.randf_range(0.9, WorldLayout.SIDEWALK - 0.6)
+				var p := o + dir * t - rn * inset
+				t += r.randf_range(8.0, 14.0)
+				if not rect.has_point(p) or layout.building_at(Vector3(p.x, 0, p.y), 0.4) >= 0:
+					continue
+				var y := layout.ground_height(p.x, p.y)
+				var p3 := Vector3(p.x, y, p.y)
+				var v := r.randf()
+				if core and v < 0.03:
+					_add_prop(props, "newspaper_stand", Transform3D(Basis(Vector3.UP, yaw_to_road), Vector3(p.x, y, p.y) + Vector3(-rn.x, 0, -rn.y) * (WorldLayout.SIDEWALK - inset - 0.5)), none, colliders, true)
+					continue
+				if pre:
+					continue
+				var yw := Basis(Vector3.UP, r.randf() * TAU)
+				if v < 0.25:
+					_add_prop(props, "litter", Transform3D(yw.scaled(Vector3.ONE * r.randf_range(0.6, 1.1)), p3))
+				elif v < 0.31:
+					_add_prop(props, "trash_bags" if r.randf() < 0.6 else "cardboard", Transform3D(yw, Vector3(p.x, y, p.y) + Vector3(-rn.x, 0, -rn.y) * (WorldLayout.SIDEWALK - inset - 0.45)))
+				elif v < 0.35 and core:
+					_add_prop(props, "shopping_cart", Transform3D(yw, p3), none, colliders, true)
+				elif v < 0.39:
+					_add_prop(props, "suitcase", Transform3D(yw, p3))
+				elif v < 0.42:
+					_add_prop(props, "bicycle", Transform3D(yw, p3))
+				elif v < 0.435:
+					_add_prop(props, "mattress", Transform3D(yw, p3))
+				elif v < 0.46:
+					_add_prop(props, "blood_pool" if r.randf() < 0.6 else "blood_pool_2", Transform3D(yw, p3))
+				elif v < 0.47:
+					_add_prop(props, "covered_body" if phase == GameState.Phase.SILENCE else ("remains" if r.randf() < 0.6 else "bones"), Transform3D(yw, p3))
+				elif v < 0.474 and post:
+					_add_prop(props, "severed_arm", Transform3D(yw, p3))
+	# --- fachadas: cartazes, sangue e furos de bala -------------------------------------
+	for bi in layout.buildings_owned_by(c):
+		var b: Dictionary = layout.buildings[bi]
+		var btype: String = b["type"]
+		if btype in ["stadium", "barn"]:
+			continue
+		var br: Rect2 = b["rect"]
+		var base: float = b["base"]
+		var di := BuildingGen.door_info(b)
+		var door: Vector3 = di[0]
+		var n_post := (r.randi_range(0, 3) if btype not in ["house"] else (1 if r.randf() < 0.25 else 0))
+		var n_marks := 0 if pre else (r.randi_range(0, 2) if btype in ["police", "hospital", "clinic", "market", "shop"] else (1 if r.randf() < 0.3 else 0))
+		for k in n_post + n_marks:
+			var sd := r.randi() % 4
+			var p := Vector3.ZERO
+			var yaw := 0.0
+			match sd:
+				0:
+					p = Vector3(r.randf_range(br.position.x + 1.0, br.end.x - 1.0), 0, br.position.y - 0.03)
+					yaw = 0.0
+				1:
+					p = Vector3(br.end.x + 0.03, 0, r.randf_range(br.position.y + 1.0, br.end.y - 1.0))
+					yaw = -PI * 0.5
+				2:
+					p = Vector3(r.randf_range(br.position.x + 1.0, br.end.x - 1.0), 0, br.end.y + 0.03)
+					yaw = PI
+				_:
+					p = Vector3(br.position.x - 0.03, 0, r.randf_range(br.position.y + 1.0, br.end.y - 1.0))
+					yaw = PI * 0.5
+			if Vector2(p.x - door.x, p.z - door.z).length() < 2.2:
+				continue
+			if k < n_post:
+				p.y = base + r.randf_range(1.3, 1.9)
+				_add_prop(props, "wall_poster", Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, r.randf_range(-0.06, 0.06)), p))
+			else:
+				p.y = base + r.randf_range(0.8, 1.6)
+				var pn := "bullet_holes" if r.randf() < 0.55 else "blood_wall"
+				var roll := r.randf() * TAU if pn == "bullet_holes" else r.randf_range(-0.15, 0.15)
+				_add_prop(props, pn, Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, roll), p))
+
+
 static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Dictionary:
 	var props := {}
 	var colliders: Array = []
@@ -690,6 +856,7 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 					"color": Color.from_hsv(r.randf(), r.randf_range(0.1, 0.7), r.randf_range(0.25, 0.9)), "state": state,
 					"uid": "car_%d_%d_%d" % [c.x, c.y, int(t * 10.0)]})
 			t += r.randf_range(7.0, 14.0)
+	_street_clutter(layout, c, rect, phase, props, colliders, cars)
 	if phase == GameState.Phase.PRE:
 		return {"props": props, "colliders": colliders, "cars": cars, "vines": vines}
 	# entulho, lixo, papéis
@@ -707,7 +874,7 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 		_add_prop(props, pn, Transform3D(Basis(Vector3.UP, r.randf() * TAU), Vector3(p.x, y, p.y)), Color(1, 1, 1, 0), colliders, pn == "debris_pile")
 	if not post:
 		return {"props": props, "colliders": colliders, "cars": cars, "vines": vines}
-	# barricadas em cruzamentos do centro e perto de territórios
+	# barricadas em cruzamentos do centro e perto de territórios (com fita e aviso de quarentena)
 	for pi in layout.chunk_patches.get(c, []):
 		var pr: Rect2 = layout.patches[pi]
 		var pc := pr.get_center()
@@ -722,6 +889,10 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 				var p := pc + (Vector2(off, pr.size.y * 0.5 + 1.0) if axis_x else Vector2(pr.size.x * 0.5 + 1.0, off))
 				var pn: String = ["sandbags", "concrete_barrier", "barricade_wood", "sandbags"][r.randi() % 4]
 				_add_prop(props, pn, Transform3D(Basis(Vector3.UP, 0.0 if axis_x else PI * 0.5), Vector3(p.x, 0.02, p.y)), Color(1, 1, 1, 0), colliders, true)
+			var sp := pc + (Vector2(6.0, pr.size.y * 0.5 + 3.2) if axis_x else Vector2(pr.size.x * 0.5 + 3.2, 6.0))
+			_add_prop(props, "quarantine_sign", Transform3D(Basis(Vector3.UP, 0.0 if axis_x else PI * 0.5), Vector3(sp.x, 0.02, sp.y)), Color(1, 1, 1, 0), colliders, true)
+			var tp := pc + (Vector2(-5.5, pr.size.y * 0.5 + 2.4) if axis_x else Vector2(pr.size.x * 0.5 + 2.4, -5.5))
+			_add_prop(props, "tape_barrier", Transform3D(Basis(Vector3.UP, (0.0 if axis_x else PI * 0.5) + r.randf_range(-0.2, 0.2)), Vector3(tp.x, 0.02, tp.y)))
 	# trepadeiras nas fachadas
 	for bi in layout.buildings_owned_by(c):
 		var b: Dictionary = layout.buildings[bi]

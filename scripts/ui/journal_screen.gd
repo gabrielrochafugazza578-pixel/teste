@@ -25,7 +25,7 @@ func _ready() -> void:
 	var v := UIKit.vbox(10)
 	p.add_child(v)
 	var ch: Dictionary = StoryDB.CHAPTERS.get(GameState.chapter, {})
-	v.add_child(UIKit.header("book", "DIÁRIO", "Capítulo %d — %s" % [GameState.chapter, str(ch.get("title", ""))], "J", "Fechar"))
+	v.add_child(UIKit.header("book", "DIÁRIO", "Capítulo %d — %s" % [GameState.chapter, str(ch.get("title", ""))], "journal", "Fechar"))
 	tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.custom_minimum_size = Vector2(1260, 640)
@@ -36,6 +36,8 @@ func _ready() -> void:
 	_build_notes()
 	_build_people()
 	_build_factions()
+	v.add_child(UIKit.pad_hints([["ui_tab_prev", ""], ["ui_tab_next", "Abas"], ["look_up", "Rolar"], ["ui_accept", "Escolher"],
+		["ui_page_prev", ""], ["ui_page_next", "Mochila / Mapa"], ["ui_cancel", "Fechar"]]))
 	add_child(UIKit.center(p))
 	EventBus.ui_screen_opened.emit("journal")
 

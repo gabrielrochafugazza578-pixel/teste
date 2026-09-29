@@ -80,10 +80,49 @@ static func header(glyph: String, title_text: String, sub: String = "", hint_key
 	if hint_key != "":
 		var kh := hbox(6)
 		kh.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		kh.add_child(keycap(hint_key))
+		if InputMap.has_action(hint_key):
+			# no controle as telas fecham com ○/B
+			kh.add_child(InputPrompt.make(hint_key, 20, "ui_cancel"))
+		else:
+			kh.add_child(keycap(hint_key))
 		kh.add_child(label(hint, 14, UITheme.TEXT_DIM))
 		h.add_child(kh)
 	return h
+
+
+## Botão/tecla de uma ação, que muda sozinho entre teclado e controle.
+static func action_cap(action: String, size: float = 18.0, pad_action: String = "") -> InputPrompt:
+	return InputPrompt.make(action, size, pad_action)
+
+
+## Barra de dicas do controle ([ação, texto], ...): só aparece enquanto o jogador
+## usa o controle.
+static func pad_hints(pairs: Array, size: float = 20.0) -> HFlowContainer:
+	var h := HFlowContainer.new()
+	h.add_theme_constant_override("h_separation", 18)
+	h.add_theme_constant_override("v_separation", 6)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for pr in pairs:
+		var it := hbox(6)
+		it.add_child(InputPrompt.make(str(pr[0]), size))
+		var l := label(str(pr[1]), 14, UITheme.TEXT_DIM)
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		it.add_child(l)
+		h.add_child(it)
+	h.visible = Pad.using_pad
+	pad_visibility(h, true)
+	return h
+
+
+## Mostra `c` só no controle (on_pad = true) ou só no teclado/mouse (false),
+## acompanhando a troca de aparelho; desliga o sinal quando `c` sai da árvore.
+static func pad_visibility(c: CanvasItem, on_pad: bool) -> void:
+	c.visible = Pad.using_pad == on_pad
+	var cb := func(on: bool) -> void: c.visible = on == on_pad
+	Pad.device_changed.connect(cb)
+	c.tree_exiting.connect(func() -> void:
+		if Pad.device_changed.is_connected(cb):
+			Pad.device_changed.disconnect(cb), CONNECT_ONE_SHOT)
 
 
 ## Tecla desenhada ("E", "Tab", "Esc").
@@ -168,6 +207,7 @@ static func dim_bg(alpha: float = 0.6) -> ColorRect:
 	r.color = Color(0, 0, 0, alpha)
 	full_rect(r)
 	r.mouse_filter = Control.MOUSE_FILTER_STOP
+	r.set_meta("screen_bg", true)   # o controle (PadInput) acha a tela de cima por aqui
 	return r
 
 

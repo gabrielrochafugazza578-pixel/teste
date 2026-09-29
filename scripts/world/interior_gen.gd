@@ -1499,6 +1499,23 @@ func _decay(rr: Rect2, tp: String, y_off: float, doors: Array, amount: float = 1
 			_wall_brick(wd, rng.randf_range(0.6, len - 0.6), y_off, doors)
 		if rng.randf() < 0.18:
 			_wall_blood(wd, rng.randf_range(0.5, len - 0.5), y_off, doors)
+		if rng.randf() < (0.2 if tp in ["cell", "armory", "lobby", "reception", "ward", "corridor"] else 0.06):
+			var bs := rng.randf_range(0.6, len - 0.6)
+			if not _wall_has_door(wd, bs, 0.6, doors):
+				var n2: Vector2 = wd["n"]
+				var q: Vector2 = (wd["o"] as Vector2) + (wd["dir"] as Vector2) * bs + n2 * 0.012
+				mesh.append(PropLib.buf("bullet_holes"), Transform3D(Basis(Vector3.UP, fr.yaw_for(n2.x, n2.y)) * Basis(Vector3.BACK, rng.randf() * TAU),
+					fr.p(q.x, q.y, y_off + rng.randf_range(0.9, 1.7))))
+	# restos humanos: raros (um corpo coberto, ossada ou saco num canto)
+	if tp not in ["bathroom", "corridor", "kids", "closet"] and area > 6.0 and rng.randf() < (0.1 if tp in ["ward", "cell", "cold_storage", "isolation"] else 0.03):
+		var q := _rand_in(rr, 0.9)
+		var wp := fr.p(q.x, q.y, fy)
+		if _spot_free(wp, 0.9):
+			var pick := rng.randf()
+			var pn := "body_bag" if tp in ["ward", "cold_storage", "isolation"] and pick < 0.6 else ("covered_body" if pick < 0.45 else ("remains" if pick < 0.8 else "bones"))
+			mesh.append(PropLib.buf(pn), Transform3D(Basis(Vector3.UP, rng.randf() * TAU), wp))
+			if pn != "body_bag" and rng.randf() < 0.7:
+				_stain(fr.p(q.x + 0.2, q.y, fy + 0.001), rng.randf_range(0.5, 0.8), floor_code, Color(0.36, 0.08, 0.06))
 	if _graffiti_n < 3 and rng.randf() < (0.22 if tp not in ["bathroom", "kids"] else 0.08):
 		var wd: Dictionary = walls[rng.randi() % walls.size()]
 		if float(wd["len"]) > 1.6:

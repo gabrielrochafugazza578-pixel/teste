@@ -74,6 +74,11 @@ func _process(delta: float) -> void:
 	bottom.size = Vector2(size.x, h)
 	bottom.position = Vector2(0, size.y - h)
 	var sk := get_node("Skip") as Control
+	if _hint_t > 0.0:
+		if Pad.using_pad:
+			skip_hint.text = "Segure [%s] para pular" % InputSetup.pad_text("skip", Pad.glyph_style())
+		else:
+			skip_hint.text = "Segure [%s] para pular" % InputSetup.code_to_text(InputSetup.current_code("skip"))
 	_hint_t -= delta
 	if skippable and letterbox_target > 0.0:
 		if Input.is_action_pressed("skip") or Input.is_action_pressed("pause"):

@@ -23,6 +23,14 @@ var anim_interval: float = 0.0
 var _accum: float = 0.0
 var _attachments: Dictionary = {}
 var frozen: bool = false
+## 1ª pessoa: encolhe a cabeça (e o que está preso nela) para a câmera ficar
+## nos olhos sem ver o próprio rosto por dentro.
+var hide_head: bool = false:
+	set(v):
+		if hide_head == v:
+			return
+		hide_head = v
+		_apply_head()
 
 
 func setup(ap: Dictionary, lod_level: int = 0) -> void:
@@ -93,12 +101,26 @@ func tick(delta: float) -> void:
 		return
 	animator.update(_accum)
 	_accum = 0.0
+	if hide_head:
+		_apply_head()
 
 
 func force_update() -> void:
 	if animator:
 		animator.update(maxf(_accum, 0.016))
 		_accum = 0.0
+		if hide_head:
+			_apply_head()
+
+
+func _apply_head() -> void:
+	if skeleton == null:
+		return
+	var i := skeleton.find_bone("head")
+	if i >= 0:
+		skeleton.set_bone_pose_scale(i, Vector3.ONE * (0.001 if hide_head else 1.0))
+	if _attachments.has("head"):
+		(_attachments["head"] as Node3D).visible = not hide_head
 
 
 func play(action_name: String, speed_mult: float = 1.0, restart: bool = true) -> bool:

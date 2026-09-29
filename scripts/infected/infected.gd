@@ -777,6 +777,11 @@ func die(info: DamageInfo = null) -> void:
 	_knock = knock_vector(info) * 0.7 if info else Vector3.ZERO
 	body.play("death" if _rng.randf() < 0.5 else "death_front", 1.0)
 	AudioManager.play_3d("body_fall", global_position, -2.0, _rng.randf_range(0.8, 1.1), 30.0)
+	# poça de sangue quando o corpo já está no chão
+	if info and info.kind in ["sharp", "bullet", "heavy"] or _rng.randf() < 0.4:
+		get_tree().create_timer(1.1, false).timeout.connect(func() -> void:
+			if is_instance_valid(self) and is_inside_tree():
+				Decals.pool(get_parent(), global_position + _knock * 0.2, [get_rid()]))
 	var killer: Node = info.source if info else null
 	GameState.add_stat("infected_killed")
 	EventBus.enemy_killed.emit(kind, global_position, killer)

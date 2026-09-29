@@ -164,7 +164,29 @@ func _build_controls() -> void:
 	v.add_child(UIKit.row("Inverter eixo Y", UIKit.check(bool(c["invert_y"]), func(on: bool) -> void: c["invert_y"] = on)))
 	v.add_child(UIKit.row("Correr: alternar (em vez de segurar)", UIKit.check(bool(c["toggle_sprint"]), func(on: bool) -> void: c["toggle_sprint"] = on)))
 	v.add_child(UIKit.row("Agachar: alternar (em vez de segurar)", UIKit.check(bool(c["toggle_crouch"]), func(on: bool) -> void: c["toggle_crouch"] = on)))
+	v.add_child(UIKit.row("Câmera em 1ª pessoa (V / R3 troca no jogo)", UIKit.check(str(c.get("camera_mode", "third")) == "first", func(on: bool) -> void:
+		c["camera_mode"] = "first" if on else "third"
+		var g: Node = SaveManager.game
+		if g != null and is_instance_valid(g) and g.get("player") != null:
+			var pc: PlayerCamera = g.player.cam_rig
+			pc.first_person = on)))
 	v.add_child(UIKit.separator())
+	v.add_child(UIKit.section("Controle (PlayStation, Xbox e outros)"))
+	var pad_name := Input.get_joy_name(Pad.device) if not Input.get_connected_joypads().is_empty() else "nenhum conectado"
+	v.add_child(UIKit.label("Controle detectado: %s" % pad_name, 15, UITheme.TEXT_DIM))
+	v.add_child(UIKit.row("Botões na tela", UIKit.options(["Automático", "PlayStation (✕ ○ □ △)", "Xbox (A B X Y)", "Nintendo"], int(c.get("pad_glyphs", 0)), func(i: int) -> void:
+		c["pad_glyphs"] = i
+		Pad.device_changed.emit(Pad.using_pad))))
+	v.add_child(UIKit.row("Vibração", UIKit.slider(0.0, 1.0, 0.05, float(c.get("vibration", 1.0)), func(x: float) -> void:
+		c["vibration"] = x
+		if x > 0.0:
+			Input.start_joy_vibration(Pad.device, 0.3 * x, 0.5 * x, 0.2))))
+	v.add_child(UIKit.row("Inverter eixo Y do analógico", UIKit.check(bool(c.get("pad_invert_y", false)), func(on: bool) -> void: c["pad_invert_y"] = on)))
+	v.add_child(UIKit.row("Zona morta do analógico", UIKit.slider(0.05, 0.35, 0.01, float(c.get("pad_deadzone", 0.15)), func(x: float) -> void: c["pad_deadzone"] = x)))
+	v.add_child(UIKit.row("Assistência de mira (controle)", UIKit.check(bool(c.get("aim_assist", true)), func(on: bool) -> void: c["aim_assist"] = on)))
+	v.add_child(_pad_layout())
+	v.add_child(UIKit.separator())
+	v.add_child(UIKit.section("Teclado e mouse"))
 	v.add_child(UIKit.label("Clique numa ação e pressione a nova tecla (Esc cancela).", 15, UITheme.TEXT_DIM))
 	var defs := InputSetup.defaults()
 	for action in defs.keys():
@@ -180,6 +202,25 @@ func _build_controls() -> void:
 	v.add_child(UIKit.button("Restaurar teclas padrão", func() -> void:
 		Settings.reset_bindings()
 		_rebuild_tab(2), 280))
+
+
+## Esquema do controle: botão (desenhado no estilo do controle) + o que faz.
+func _pad_layout() -> Control:
+	var g := GridContainer.new()
+	g.columns = 4
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 6)
+	for e in [["move_forward", "Andar"], ["look_up", "Câmera"], ["sprint", "Correr (clique)"], ["toggle_camera", "1ª / 3ª pessoa"],
+			["jump", "Pular / escalar"], ["crouch", "Agachar"], ["interact", "Interagir (segurar: ações longas)"], ["pad_use", "Usar atalho (segurar: arremessar)"],
+			["attack", "Atacar / atirar"], ["block", "Defender / mirar"], ["shove", "Empurrar"], ["dodge", "Esquivar"],
+			["flashlight", "Lanterna / faróis"], ["quick_heal", "Cura rápida"], ["slot_prev", "Atalho anterior"], ["slot_next", "Próximo atalho"],
+			["inventory", "Mochila"], ["map", "Mapa"], ["pause", "Pausa"], ["horn", "Buzina (no carro)"],
+			["veh_throttle", "Acelerar (no carro)"], ["veh_brake", "Frear / ré (no carro)"], ["handbrake", "Freio de mão (no carro)"], ["ui_page_next", "Menus: trocar de tela"]]:
+		var ip := InputPrompt.make(str(e[0]), 22)
+		ip.set_meta("force_pad", true)
+		g.add_child(ip)
+		g.add_child(UIKit.label(str(e[1]), 14, UITheme.TEXT_DIM))
+	return g
 
 
 func _start_rebind(action: String, b: Button) -> void:

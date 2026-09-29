@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 EventBus="*res://scripts/core/event_bus.gd"
 Settings="*res://scripts/core/settings.gd"
+Pad="*res://scripts/core/pad_input.gd"
 GameState="*res://scripts/core/game_state.gd"
 ItemDB="*res://scripts/inventory/item_db.gd"
 SimScheduler="*res://scripts/core/sim_scheduler.gd"

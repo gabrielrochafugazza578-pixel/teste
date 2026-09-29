@@ -20,6 +20,9 @@ var survival := Survival.new()
 var inventory: Inventory
 var equipment: Dictionary = {"weapon": {}, "back": {}, "torso": {}, "hands": {}, "head": {}, "feet": {}, "light": {}}
 var quick_slots: Array = ["", "", "", ""]
+var selected_slot: int = 0          # atalho escolhido no controle (←/→ no d-pad, △ usa)
+var _pad_use_t: float = -1.0        # △ segurado: tempo; passa de 0,35 s = arremessa
+var _pad_sprint: bool = false       # L3 trava a corrida até soltar o analógico
 var world: World = null
 var control_enabled: bool = true
 var cinematic: bool = false
@@ -376,6 +379,18 @@ func _finish_use() -> void:
 	_pending_use = {}
 
 
+## Controle: escolhe o atalho (pula os vazios quando há algum preenchido).
+func select_slot(i: int) -> void:
+	var step := 1 if i > selected_slot else -1
+	var k := wrapi(i, 0, 4)
+	for _n in 4:
+		if str(quick_slots[k]) != "" and inventory.has(str(quick_slots[k])):
+			break
+		k = wrapi(k + step, 0, 4)
+	selected_slot = k
+	AudioManager.play_ui("ui_click", -12.0)
+
+
 func use_quick_slot(i: int) -> void:
 	var id: String = quick_slots[i]
 	if id == "":
@@ -433,8 +448,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			crouching = true
 	elif event.is_action_released("crouch") and not bool(Settings.controls.get("toggle_crouch", true)):
 		crouching = false
-	if event.is_action_pressed("sprint") and bool(Settings.controls.get("toggle_sprint", false)):
-		_sprint_toggle = not _sprint_toggle
+	if event.is_action_pressed("sprint"):
+		if event is InputEventJoypadButton:
+			_pad_sprint = not _pad_sprint
+		elif bool(Settings.controls.get("toggle_sprint", false)):
+			_sprint_toggle = not _sprint_toggle
+	if event.is_action_pressed("toggle_camera"):
+		cam_rig.toggle_view()
+	if event.is_action_pressed("slot_prev") or event.is_action_pressed("slot_next"):
+		select_slot(selected_slot + (1 if event.is_action_pressed("slot_next") else -1))
+	if event.is_action_pressed("pad_use"):
+		_pad_use_t = 0.0
+	elif event.is_action_released("pad_use") and _pad_use_t >= 0.0:
+		if _pad_use_t < 0.35:
+			use_quick_slot(selected_slot)
+		_pad_use_t = -1.0
 	if event.is_action_pressed("jump"):
 		_try_jump_or_climb()
 	if event.is_action_pressed("attack"):
@@ -521,7 +549,9 @@ func _physics_process(delta: float) -> void:
 		if v2.length() > 1.0:
 			v2 = v2.normalized()
 		wish = cam_rig.flat_right() * v2.x - cam_rig.flat_forward() * v2.y
-		want_sprint = (Input.is_action_pressed("sprint") or _sprint_toggle) and v2.length() > 0.3
+		if v2.length() < 0.2:
+			_pad_sprint = false
+		want_sprint = (Input.is_action_pressed("sprint") or _sprint_toggle or _pad_sprint) and v2.length() > 0.3
 	var mag := wish.length()
 	var wl := _water_level()
 	swimming = wl > -100.0 and global_position.y < wl - 1.25
@@ -597,7 +627,7 @@ func _physics_process(delta: float) -> void:
 			survival.damage((impact_v - 19.0) * 4.5, "heavy")
 	_step_up(desired, delta)
 	# orientação do corpo
-	var face_cam := blocking or aiming or _attack_active or (_busy_t > 0.0 and _pending_use.is_empty())
+	var face_cam := blocking or aiming or _attack_active or (_busy_t > 0.0 and _pending_use.is_empty()) or cam_rig.first_person
 	var fdir := Vector3.ZERO
 	if cinematic and cine_face != Vector3.ZERO and hv.length() < 0.3:
 		fdir = cine_face
@@ -664,6 +694,10 @@ func splinted_ok() -> bool:
 
 func _timers(delta: float) -> void:
 	_busy_t = maxf(0.0, _busy_t - delta)
+	if _pad_use_t >= 0.0:
+		_pad_use_t += delta
+		if _pad_use_t >= 0.35 and _pad_use_t - delta < 0.35:
+			_throw()
 	if _busy_t <= 0.0 and not _pending_use.is_empty() and not body.animator.is_playing():
 		_finish_use()
 	_dodge_t = maxf(0.0, _dodge_t - delta)
@@ -826,7 +860,9 @@ func _detect_surface() -> String:
 # ---------------------------------------------------------------------------
 func _process(delta: float) -> void:
 	cam_rig.input_enabled = control_enabled and not cinematic
+	_aim_assist()
 	cam_rig.update_camera(delta)
+	body.hide_head = cam_rig.fp_active() and not cinematic and in_vehicle == null
 	if cinematic or survival.dead:
 		return
 	_scan_t -= delta
@@ -1112,6 +1148,9 @@ func _process_hits() -> void:
 		var snd := "hit_sharp" if w["kind"] == "sharp" else "hit_blunt"
 		AudioManager.play_3d(snd, info.point, 0.0)
 		HitFx.spawn(get_parent(), info.point, info.direction, strong, t is Infected)
+		Pad.rumble(0.35 if strong else 0.2, 0.45 if strong else 0.1, 0.16 if strong else 0.09)
+		if t is Infected and (strong or w["kind"] == "sharp"):
+			Decals.splatter(get_parent(), info.point, info.direction, strong, [get_rid(), (t as CollisionObject3D).get_rid()])
 		cam_rig.add_shake(0.25 if strong else 0.12)
 		EventBus.combat_hit.emit(self, t, dmg)
 		EventBus.make_noise(global_position, 11.0, self, &"combat")
@@ -1304,11 +1343,16 @@ func _fire_ranged() -> void:
 			info.blockable = false
 			col.receive_hit(info)
 			HitFx.spawn(get_parent(), hp, -dir, info.headshot, col is Infected)
+			if col is Infected and col is CollisionObject3D:
+				Decals.splatter(get_parent(), hp, dir, info.headshot, [get_rid(), (col as CollisionObject3D).get_rid()])
 			if not hit_once.has(col.get_instance_id()):
 				hit_once[col.get_instance_id()] = true
 				EventBus.combat_hit.emit(self, col, info.amount)
 		else:
 			HitFx.spawn(get_parent(), hp + (hit["normal"] as Vector3) * 0.02, hit["normal"], false, false)
+			# cenário (corpos do PhysicsServer não têm nó) ou StaticBody; carros e gente não
+			if not silent and not (col is RigidBody3D) and not (col is CharacterBody3D):
+				Decals.bullet_hole(get_parent(), hp, hit["normal"])
 			if silent and randf() < float(r.get("recover", 0.0)):
 				var ip := ItemPickup.new()
 				get_parent().add_child(ip)
@@ -1317,6 +1361,7 @@ func _fire_ranged() -> void:
 	AudioManager.play_3d("bow_shot" if silent else "gun_shot", global_position, (-4.0 if silent else (2.0 if pellets > 1 else 0.0)), pitch)
 	EventBus.make_noise(global_position, float(r["noise"]), self, &"gunshot" if not silent else &"bow")
 	cam_rig.add_shake((0.1 if silent else 0.3) * float(r.get("kick", 1.0)))
+	Pad.rumble(0.25 if silent else 0.5, 0.0 if silent else clampf(0.35 * float(r.get("kick", 1.0)) * (1.6 if pellets > 1 else 1.0), 0.2, 1.0), 0.1 if silent else 0.14)
 	cam_rig.pitch = clampf(cam_rig.pitch + (0.0 if silent else 0.012 * float(r.get("kick", 1.0))), -1.3, 1.3)
 	if not silent:
 		_muzzle_flash()
@@ -1374,6 +1419,7 @@ func receive_hit(info: DamageInfo) -> void:
 	survival.damage(dmg, info.kind, info.infection_chance * (1.0 - armor * 0.8))
 	EventBus.player_damaged.emit(dmg, attacker)
 	cam_rig.add_shake(clampf(dmg / 25.0, 0.1, 0.7))
+	Pad.rumble(clampf(dmg / 30.0, 0.25, 0.9), clampf(dmg / 25.0, 0.3, 1.0), clampf(dmg / 60.0, 0.15, 0.45))
 	AudioManager.play_3d("hit_flesh", global_position, -2.0)
 	var local := body.global_transform.basis.inverse() * info.direction
 	body.animator.flinch(local, clampf(dmg / 15.0, 0.3, 1.5))
@@ -1451,6 +1497,14 @@ func _follow_vehicle() -> void:
 		in_vehicle = null
 		return
 	var seat: Vector3 = v.seat_position() if v.has_method("seat_position") else v.global_position
+	# afunda no banco o bastante para a cabeça ficar abaixo do teto (a pose sentada
+	# varia com a altura do personagem e o teto com o modelo do carro)
+	if v is Vehicle:
+		# osso da cabeça fica na base do crânio: topo do gorro ≈ +0,33 m
+		var roof_y := (v.global_transform * Vector3(0, float((v as Vehicle).dims["roof"]) - 0.5, 0)).y
+		var h_rel := body.bone_global_position("head").y - global_position.y
+		if h_rel > 0.4 and h_rel < 2.0:
+			seat.y = minf(seat.y, roof_y - h_rel)
 	global_position = seat
 	_yaw = v.global_rotation.y
 	body.rotation.y = _yaw
@@ -1498,6 +1552,30 @@ func teleport(pos: Vector3) -> void:
 	_air_t = 0.0
 	_knockback = Vector3.ZERO
 	_knock_last = Vector3.ZERO
+
+
+## Controle mirando arma de fogo: a câmera fica mais lenta com um infectado na mira
+## (facilita acompanhar o alvo sem "grudar" nele).
+func _aim_assist() -> void:
+	var on := Pad.using_pad and aiming and bool(Settings.controls.get("aim_assist", true)) and in_vehicle == null
+	if not on:
+		cam_rig.assist = 1.0
+		return
+	var from := cam_rig.cam.global_position
+	var q := PhysicsRayQueryParameters3D.create(from, from + cam_rig.look_dir() * 45.0, 1 | (1 << 2) | (1 << 3))
+	q.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	var on_target := not hit.is_empty() and hit["collider"] is Infected and (hit["collider"] as Infected).is_alive()
+	cam_rig.assist = lerpf(cam_rig.assist, 0.45 if on_target else 1.0, 0.25)
+
+
+## Olhos (1ª pessoa): um pouco acima e à frente da base do crânio.
+func eye_position(fwd: Vector3) -> Vector3:
+	var hp := body.bone_global_position("head")
+	# olhando para baixo a cabeça vai à frente do peito (senão a câmera vê a gola
+	# e a mochila por dentro); o corpo e as pernas continuam à vista
+	var down := clampf(-cam_rig.pitch, 0.0, 1.4)
+	return hp + Vector3(0, 0.1 - down * 0.05, 0) + fwd * (0.13 + down * 0.19)
 
 
 func set_yaw(y: float) -> void:

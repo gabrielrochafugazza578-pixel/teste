@@ -24,18 +24,36 @@ Primeira execução: o jogo **gera as texturas PBR na GPU** (Texture2DArray, 16 
 
 ### Controles (remapeáveis em Configurações → Controles)
 
-| Ação | Teclado/mouse | Gamepad |
-|---|---|---|
-| Mover / correr / agachar | WASD / Shift / C | Analógico esq. / L3 / R3 |
-| Pular, escalar, transpor | Espaço | A |
-| Interagir (segurar = ações longas) | E | X |
-| Atacar (segurar = pesado) / Defender, mirar | Mouse esq. / Mouse dir. | RT / LT |
-| Esquivar / Empurrar / Arremessar distração | Q / F / G | B / RB / LB |
-| Lanterna / Cura rápida / Atalhos | L / H / 1–4 | ↑ / ↓ |
-| Inventário e fabricação / Mapa / Diário | Tab / M / J (ou os botões do HUD) | Back |
-| Liberar o cursor para clicar nos botões do HUD (segurar) | Alt | |
-| Pausa / Pular cinemática (segurar) | Esc / Enter | Start / Y |
-| Salvar/carregar rápido / Painel de desempenho / Esconder HUD | F5 / F9 / F3 / F1 | |
+| Ação | Teclado/mouse | PlayStation | Xbox |
+|---|---|---|---|
+| Mover / câmera | WASD / mouse | analógico esq. / dir. | analógico esq. / dir. |
+| Correr / agachar | Shift / C | L3 (clique trava a corrida) / ○ | LS / B |
+| Câmera 1ª ↔ 3ª pessoa | V | R3 | RS |
+| Pular, escalar, transpor | Espaço | ✕ | A |
+| Interagir (segurar = ações longas) | E | □ | X |
+| Atacar (segurar = pesado) / Defender, mirar | Mouse esq. / Mouse dir. | R2 / L2 | RT / LT |
+| Empurrar / Esquivar | F / Q | R1 / L1 | RB / LB |
+| Arremessar distração | G | △ segurado | Y segurado |
+| Atalhos | 1–4 | ←/→ escolhe, △ usa | ←/→ escolhe, Y usa |
+| Lanterna (faróis no carro) / Cura rápida | L / H | ↑ / ↓ | ↑ / ↓ |
+| Mochila e fabricação / Mapa / Diário | Tab / M / J (ou os botões do HUD) | Share / touchpad / L2-R2 nos menus | View / — / LT-RT nos menus |
+| Veículo: acelerar / frear-ré / freio de mão / buzina / sair | W / S / Espaço / R / E | R2 / L2 / ✕ / △ / □ | RT / LT / A / Y / X |
+| Pausa / Pular cinemática (segurar) | Esc / Enter | Options / △ | Menu / Y |
+| Liberar o cursor para clicar nos botões do HUD (segurar) | Alt | | |
+| Salvar/carregar rápido / Painel de desempenho / Esconder HUD | F5 / F9 / F3 / F1 | | |
+
+**Controle** (`scripts/core/pad_input.gd`, autoload `Pad`): qualquer controle SDL (DualShock 4, DualSense,
+Xbox, Switch Pro, genéricos). O jogo percebe o que está sendo usado (teclado/mouse ou controle) e troca os
+ícones da tela sozinho (`InputPrompt` desenha ✕ ○ □ △ coloridos no PlayStation, A B X Y no Xbox). Os
+gatilhos viram "botões" com histerese (um aperto = um golpe/tiro), o analógico esquerdo navega nos menus
+com repetição, o direito rola listas; nos menus ✕ escolhe, ○ volta, □/△ ações extras, L1/R1 abas e L2/R2
+trocam entre Mochila, Mapa e Diário. No mapa o analógico move e ✕ marca destino. Câmera com zona morta
+radial, curva de resposta, aceleração no fim do curso e assistência de mira leve (a câmera desacelera com um
+infectado na mira). Vibração em golpes, tiros, dano e batidas de carro. Opções em Configurações → Controles.
+
+**1ª pessoa** (V / R3): a câmera vai para os olhos do Caio (o osso da cabeça é encolhido para não ver o rosto
+por dentro), o corpo segue a câmera e continua visível; olhando para baixo a câmera avança um pouco para
+não atravessar a gola. No carro a câmera volta para trás do veículo.
 
 ---
 
