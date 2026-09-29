@@ -102,6 +102,10 @@ var _tgt := [Vector3.ZERO, Vector3.ZERO]   # tornozelo alvo (espaço do corpo, s
 var _tgt_pitch := [0.0, 0.0]
 var _tgt_yaw := [0.0, 0.0]
 var _ankle_rest := [Vector3.ZERO, Vector3.ZERO]
+var _arm_scale: float = 1.0
+var _foot_toe: float = 0.2
+var _foot_heel: float = 0.07
+var _foot_ankle: float = 0.085
 var _len1: float = 0.425
 var _len2: float = 0.42
 var _leg_ik_on: bool = true
@@ -128,8 +132,20 @@ func _init(skel: Skeleton3D, appearance: Dictionary = {}) -> void:
 		var th_r := HumanoidMeshBuilder.THIGH_R
 		_len1 = _rest_o[HumanoidMeshBuilder.SHIN_L].length()
 		_len2 = _rest_o[HumanoidMeshBuilder.FOOT_L].length()
+		# passada, oscilação do quadril etc. escalam pelo comprimento REAL da perna do esqueleto
+		height_scale = (_len1 + _len2) / 0.8458
+		_arm_scale = (_rest_o[HumanoidMeshBuilder.HAND_L].length() + _rest_o[HumanoidMeshBuilder.FARM_L].length()) / 0.552
 		_ankle_rest[0] = _rest_o[0] + _rest_o[th_l] + _rest_o[HumanoidMeshBuilder.SHIN_L] + _rest_o[HumanoidMeshBuilder.FOOT_L]
 		_ankle_rest[1] = _rest_o[0] + _rest_o[th_r] + _rest_o[HumanoidMeshBuilder.SHIN_R] + _rest_o[HumanoidMeshBuilder.FOOT_R]
+	if str(appearance.get("model", "")) == "caio_glb":
+		var ft := CaioModel.foot()
+		_foot_toe = ft.x
+		_foot_heel = ft.y
+		_foot_ankle = ft.z
+	else:
+		_foot_toe = 0.2 * height_scale
+		_foot_heel = 0.07 * height_scale
+		_foot_ankle = 0.085 * height_scale
 	_build_contact_points()
 	_style_name = style
 	_sp = _style_params(style)
@@ -149,8 +165,8 @@ func _build_contact_points() -> void:
 	var s := height_scale
 	var HB := HumanoidMeshBuilder
 	_pts = [
-		[HB.FOOT_L, Vector3(0, -0.085, 0.07) * s, 0.0], [HB.FOOT_L, Vector3(0, -0.085, -0.2) * s, 0.0],
-		[HB.FOOT_R, Vector3(0, -0.085, 0.07) * s, 0.0], [HB.FOOT_R, Vector3(0, -0.085, -0.2) * s, 0.0],
+		[HB.FOOT_L, Vector3(0, -_foot_ankle, _foot_heel), 0.0], [HB.FOOT_L, Vector3(0, -_foot_ankle, -_foot_toe), 0.0],
+		[HB.FOOT_R, Vector3(0, -_foot_ankle, _foot_heel), 0.0], [HB.FOOT_R, Vector3(0, -_foot_ankle, -_foot_toe), 0.0],
 		[HB.SHIN_L, Vector3.ZERO, 0.075 * s], [HB.SHIN_R, Vector3.ZERO, 0.075 * s],
 		[HB.HIPS, Vector3(0, -0.02, 0) * s, 0.13 * s], [HB.SPINE, Vector3.ZERO, 0.12 * s],
 		[HB.CHEST, Vector3.ZERO, 0.15 * s], [HB.CHEST, Vector3(0, 0, 0.2) * s, 0.12 * s],
@@ -274,7 +290,7 @@ static func _foot_pitch(u: float, duty: float, gw: float) -> float:
 ## Quanto o tornozelo sobe quando o pé gira sobre a ponta/calcanhar.
 func _ankle_rise(pitch_deg: float, ay: float) -> float:
 	var a := absf(pitch_deg) * DEG
-	var l := (0.2 if pitch_deg < 0.0 else 0.07) * height_scale
+	var l := _foot_toe if pitch_deg < 0.0 else _foot_heel
 	return l * sin(a) + ay * (cos(a) - 1.0)
 
 
@@ -637,7 +653,7 @@ func _apply_action(dt: float) -> void:
 		var g1: Vector3 = p1[hk] if hin1 else p0[hk]
 		var gm: Vector3 = pm.get(hk, g0)
 		var gn: Vector3 = pn.get(hk, g1)
-		_hand_tgt[side] = _spline(gm, g0, g1, gn, f, seg, seg_prev, seg_next) * height_scale
+		_hand_tgt[side] = _spline(gm, g0, g1, gn, f, seg, seg_prev, seg_next) * _arm_scale
 		var hpres := 1.0 if (hin0 and hin1) else ((1.0 - f) if hin0 else f)
 		_arm_ov[side] = maxf(float(_arm_ov[side]), w * hpres)
 	if p0.has("p") or p1.has("p"):

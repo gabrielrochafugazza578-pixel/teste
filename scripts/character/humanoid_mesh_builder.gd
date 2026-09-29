@@ -49,6 +49,8 @@ var _hsc: float = 1.0       # escala da cabeça
 # API
 # ---------------------------------------------------------------------------
 static func compute_joints(ap: Dictionary) -> Array:
+	if str(ap.get("model", "")) == "caio_glb":
+		return CaioModel.joints()
 	var sc := float(ap.get("height", 1.75)) / 1.78
 	var bw := float(ap.get("build", 1.0))
 	var fem: bool = ap.get("female", false)
@@ -82,6 +84,8 @@ static func compute_joints(ap: Dictionary) -> Array:
 
 
 static func build(ap: Dictionary, lod_level: int = 0) -> ArrayMesh:
+	if str(ap.get("model", "")) == "caio_glb":
+		return CaioModel.build_mesh()
 	var b := HumanoidMeshBuilder.new()
 	return b._build(ap, lod_level)
 

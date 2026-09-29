@@ -104,8 +104,19 @@ tests/         parse_check, visual_test, bench_chunks, smoke_test (gameplay + ab
 tools/         check.sh, bake_cinematic.gd
 ```
 
-Todos os assets (texturas, malhas, personagens, animações, sons, música) são **gerados pelo próprio jogo**
-a partir de código — não há arquivos de terceiros com licença restrita.
+Os assets (texturas, malhas, animações, sons, música) são **gerados pelo próprio jogo** a partir de código.
+A única exceção é o modelo do Caio: `assets/models/caio_survivor.bin` é o GLB "sobrevivente pós-apocalíptico"
+fornecido pelo autor do projeto (extensão `.bin` para o Godot não tentar importá-lo; o jogo lê o arquivo
+direto em `CaioModel`).
+
+### Caio (modelo GLB)
+
+* `CaioModel` lê o GLB em tempo de execução (sem importador), converte Z-up → Y-up, agrupa cada peça
+  (calça, botas, jaqueta, mochila, luvas, boné...) no osso certo do esqueleto de 18 ossos e monta **uma malha
+  skinada** com o mesmo shader dos outros personagens — por isso toda a biblioteca de animações, o IK dos pés
+  e os pontos de encaixe de arma/lanterna funcionam nele sem mudança.
+* Mochila, cinto e bolsos ficam presos ao tronco; as pernas usam pesos suaves no quadril e no joelho.
+* O `ProceduralAnimator` deriva a escala de passada do comprimento real das pernas do modelo.
 
 ### Personagens (sem cara de boneco)
 

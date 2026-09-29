@@ -30,6 +30,7 @@ static func base() -> Dictionary:
 static func caio() -> Dictionary:
 	var a := base()
 	a["id"] = "caio"
+	a["model"] = "caio_glb"   # modelo próprio (assets/models/caio_survivor.bin), não o gerado por código
 	a["height"] = 1.8
 	a["build"] = 1.03
 	a["skin"] = Color(0.66, 0.48, 0.36)
@@ -254,7 +255,7 @@ static func infected(kind: String, seed_value: int) -> Dictionary:
 ## Chave estável para cache de malha.
 static func mesh_key(a: Dictionary, lod: int) -> String:
 	var parts := []
-	for k: String in ["id", "height", "build", "girth", "female", "hair_style", "beard", "top", "bottom",
+	for k: String in ["model", "id", "height", "build", "girth", "female", "hair_style", "beard", "top", "bottom",
 			"shoes", "backpack", "bedroll", "glasses", "hat", "mask", "vest", "gloves", "tear", "hunch", "growths", "blind", "asym", "seed"]:
 		parts.append(str(a.get(k, "")))
 	for k: String in ["skin", "hair_color", "top_color", "top2_color", "bottom_color", "shoes_color", "backpack_color", "hat_color", "vest_color"]:
