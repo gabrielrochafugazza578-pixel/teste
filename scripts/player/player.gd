@@ -31,8 +31,8 @@ var aiming: bool = false
 var in_vehicle: Node = null
 var flashlight: SpotLight3D
 var flash_fill: OmniLight3D
-const FLASH_ENERGY := 9.0
-const FILL_ENERGY := 1.3
+const FLASH_ENERGY := 7.0
+const FILL_ENERGY := 0.22
 var flashlight_on: bool = false
 var interact_area: Area3D
 var current_interactable: Node = null
@@ -127,22 +127,22 @@ func _ready() -> void:
 	# facho longo e largo (queda de distância suave) + um brilho de rebote em volta,
 	# senão o cone some atrás do próprio Caio na câmera de ombro
 	flashlight = SpotLight3D.new()
-	flashlight.spot_range = 34.0
-	flashlight.spot_angle = 36.0
-	flashlight.spot_angle_attenuation = 0.8
-	flashlight.spot_attenuation = 0.55
+	flashlight.spot_range = 30.0
+	flashlight.spot_angle = 32.0
+	flashlight.spot_angle_attenuation = 1.25
+	flashlight.spot_attenuation = 0.85
 	flashlight.light_energy = FLASH_ENERGY
-	flashlight.light_color = Color(1.0, 0.95, 0.85)
-	flashlight.light_specular = 0.4
+	flashlight.light_color = Color(1.0, 0.9, 0.74)
+	flashlight.light_specular = 0.25
 	flashlight.shadow_enabled = bool(Settings.get_shadow_params()["local_shadows"])
 	flashlight.visible = false
 	add_child(flashlight)
 	flashlight.top_level = true
 	flash_fill = OmniLight3D.new()
-	flash_fill.omni_range = 6.5
+	flash_fill.omni_range = 4.5
 	flash_fill.omni_attenuation = 0.8
 	flash_fill.light_energy = FILL_ENERGY
-	flash_fill.light_color = Color(0.95, 0.92, 0.85)
+	flash_fill.light_color = Color(1.0, 0.88, 0.72)
 	flash_fill.light_specular = 0.0
 	flash_fill.shadow_enabled = false
 	flash_fill.position = Vector3(0.0, 0.0, -1.6)

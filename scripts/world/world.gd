@@ -36,6 +36,11 @@ var forced_interiors: Dictionary = {}
 var claimed_cars: Dictionary = {}
 var ready_first: bool = false
 var light_pool: Array = []
+## Luz natural que entra pelas janelas dos interiores próximos (sem energia na cidade):
+## claridade do céu de dia, luar à noite e a mancha do sol no piso quando ele bate na janela.
+var window_pool: Array = []
+var sunpatch_pool: Array = []
+var _win_timer: float = 0.0
 var _eval_timer: float = 0.0
 var _last_focus := Vector3(INF, 0, INF)
 var _light_timer: float = 0.0
@@ -58,6 +63,27 @@ func _ready() -> void:
 		l.visible = false
 		add_child(l)
 		light_pool.append(l)
+	for i in 4:
+		var s := SpotLight3D.new()
+		s.shadow_enabled = false
+		s.spot_angle = 68.0
+		s.spot_angle_attenuation = 1.2
+		s.spot_attenuation = 1.3
+		s.light_specular = 0.15
+		s.visible = false
+		add_child(s)
+		window_pool.append(s)
+	for i in 2:
+		var s := SpotLight3D.new()
+		s.shadow_enabled = false
+		s.spot_angle = 16.0
+		s.spot_angle_attenuation = 0.6
+		s.spot_attenuation = 0.4
+		s.spot_range = 8.0
+		s.light_specular = 0.3
+		s.visible = false
+		add_child(s)
+		sunpatch_pool.append(s)
 
 
 ## Espera as tarefas de geração em andamento antes de sair (encerrar o jogo
@@ -153,6 +179,10 @@ func _process(delta: float) -> void:
 	if _light_timer <= 0.0:
 		_light_timer = 0.5
 		_update_light_pool()
+	_win_timer -= delta
+	if _win_timer <= 0.0:
+		_win_timer = 0.2
+		_update_window_lights()
 
 
 func _evaluate() -> void:
@@ -755,6 +785,90 @@ func _on_phase_changed(p: int) -> void:
 			var r: Rect2 = (layout.buildings[bi]["rect"] as Rect2).grow(2.0)
 			if not r.has_point(Vector2(f.x, f.z)):
 				ch.remove_interior(bi)
+
+
+# ---------------------------------------------------------------------------
+# Luz natural pelas janelas (só perto do jogador; sem sombras, baratas)
+# ---------------------------------------------------------------------------
+func _update_window_lights() -> void:
+	var f := SimScheduler.focus_position
+	var dl := TimeManager.daylight()
+	var sh := TimeManager.sun_height()
+	var sd := TimeManager.sun_direction()
+	var wm := WeatherManager
+	var clouds: float = wm.clouds
+	var cand: Array = []
+	# só com o jogador dentro de um prédio: de fora não se vê o interior, e cada luz a mais
+	# conta no limite de luzes por malha do Compatibility (a lanterna não pode ficar de fora)
+	if not is_indoors(f) or layout.in_tunnel(f):
+		for l in window_pool:
+			(l as SpotLight3D).visible = false
+		for l in sunpatch_pool:
+			(l as SpotLight3D).visible = false
+		return
+	var fc := Vector2i(floori(f.x / WorldLayout.CHUNK), floori(f.z / WorldLayout.CHUNK))
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var c := fc + Vector2i(dx, dz)
+			if not chunks.has(c):
+				continue
+			var ch: Chunk = chunks[c]
+			for bi in ch.interiors.keys():
+				var d: Dictionary = ch.interiors[bi].get("data", {})
+				for w in d.get("windows", []):
+					var wp: Vector3 = w["pos"]
+					# prioriza o mesmo andar do jogador
+					var dy := absf(wp.y - 1.6 - f.y) * 3.0
+					var dd := Vector2(wp.x - f.x, wp.z - f.z).length() + dy
+					if dd < 16.0:
+						cand.append([dd, w])
+	cand.sort_custom(func(a, b): return float(a[0]) < float(b[0]))
+	var low := int(Settings.graphics["preset"]) <= 1
+	# lanterna + brilho dela + estas ≤ 6 (max_lights_per_object)
+	var n_sky := 2 if low else 3
+	var n_sun := 1
+	# cor e força: céu de dia (branco-azulado, mais cinza nublado), âmbar no entardecer, luar à noite
+	var dusk := clampf(1.0 - absf(sh) * 3.2, 0.0, 1.0) * smoothstep(-0.25, 0.05, sh)
+	# a claridade que entra é rebatida da rua e dos prédios: neutra, levemente quente
+	var sky_col := Color(1.0, 0.96, 0.9).lerp(Color(0.86, 0.88, 0.9), clouds * 0.6).lerp(Color(1.0, 0.78, 0.6), dusk * 0.45)
+	var moon_col := Color(0.42, 0.5, 0.78)
+	var day_e := 1.9 * dl * (1.0 - clouds * 0.35 - float(wm.darkness) * 0.3)
+	var night_e := 0.16 * (1.0 - clouds * 0.65) * (1.0 - dl)
+	var energy := day_e + night_e
+	var col := moon_col.lerp(sky_col, clampf(dl * 1.6, 0.0, 1.0))
+	var si := 0
+	var pi := 0
+	var sun_in := sh > 0.04 and clouds < 0.75
+	var sun_e := (0.6 + dl * 2.2) * (1.0 - clouds * 0.8) * smoothstep(0.04, 0.12, sh)
+	var sun_col := Color(1.0, 0.9, 0.74).lerp(Color(1.0, 0.68, 0.42), dusk * 0.8)
+	for c in cand:
+		var w: Dictionary = c[1]
+		var wp: Vector3 = w["pos"]
+		var n: Vector3 = w["n"]
+		var boarded := bool(w.get("boarded", false))
+		if si < n_sky:
+			var l: SpotLight3D = window_pool[si]
+			si += 1
+			var aim := (n * 0.9 + Vector3.DOWN * 0.45).normalized()
+			l.global_transform = Transform3D(Basis.looking_at(aim, Vector3.UP), wp)
+			l.spot_range = float(w.get("depth", 4.0)) + 1.5
+			l.light_color = col
+			l.light_energy = energy * (0.3 if boarded else 1.0)
+			l.visible = l.light_energy > 0.01
+		# o sol só entra se estiver do lado de fora desta janela
+		if sun_in and pi < n_sun and not boarded and sd.dot(-n) > 0.2:
+			var s: SpotLight3D = sunpatch_pool[pi]
+			pi += 1
+			s.global_transform = Transform3D(Basis.looking_at(-sd, Vector3.UP if absf(sd.y) < 0.98 else Vector3.FORWARD), wp - n * 0.1)
+			s.light_color = sun_col
+			s.light_energy = sun_e
+			s.visible = true
+		if si >= n_sky and (pi >= n_sun or not sun_in):
+			break
+	for i in range(si, window_pool.size()):
+		(window_pool[i] as SpotLight3D).visible = false
+	for i in range(pi, sunpatch_pool.size()):
+		(sunpatch_pool[i] as SpotLight3D).visible = false
 
 
 # ---------------------------------------------------------------------------

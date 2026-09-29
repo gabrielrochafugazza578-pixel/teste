@@ -46,13 +46,20 @@ Primeira execução: o jogo **gera as texturas PBR na GPU** (Texture2DArray, 16 
 * **Predefinições**: MUITO BAIXO, BAIXO, MÉDIO, ALTO, ULTRA + ajuste individual (resolução, texturas, sombras,
   distância de visão/objetos, vegetação, partículas, pós, densidade de NPCs e infectados, clima, reflexos,
   MSAA, VSync, limite de FPS, FOV).
+* **Iluminação sem energia** (depois do surto): nenhuma lâmpada acesa. Céu e sol com tonemap ACES e sombras
+  mais escuras; noite só com luar. Dentro dos prédios a luz ambiente cai para ~15% (neutra, não o azul do céu)
+  e quem ilumina é a janela: `World._update_window_lights` liga até 3 spots de claridade (dia) ou luar (noite)
+  nas janelas mais próximas do jogador e 1 spot de mancha de sol quando o sol bate naquela janela; janelas
+  tapadas deixam passar menos. A malha do interior é dividida em pedaços de ~8 m por andar (feito na thread)
+  para cada pedaço receber só as luzes próximas — lanterna + brilho + janelas cabem no limite de 6 luzes por
+  malha do Compatibility. A exposição se adapta um pouco ao escuro e reduz com a lanterna acesa em lugar fechado.
 * **Texturas**: 2 `Texture2DArray` (albedo+rugosidade / normal+AO+metal) compartilhadas por todo o mundo;
   256–2048 px por camada (≈ 11–720 MB) — BAIXO usa 512 px ≈ 45 MB. Cada camada tem detalhe próprio (asfalto
   com agregado, remendos e rachaduras; concreto com juntas e poros; tijolo com lascas e eflorescência; reboco
   com escorridos e descascado; madeira com veios, nós e pregos; piso com peças trincadas…) e o shader quebra
   a repetição das camadas orgânicas com uma segunda amostra girada. As armas usam um atlas à parte
   (`Assets.weapon_a/b`: nogueira, aço escovado, polímero, borracha). Interiores recebem uma luz indireta
-  falsa e quente (`interior_fill`) em vez de ficarem só com o azul do céu.
+  falsa opcional (`interior_fill`, desligada por padrão: a luz dos interiores vem das janelas).
 * **Draw calls**: cada chunk de 64 m é mesclado em poucas malhas com um único material; props repetidos em
   **MultiMesh**; vegetação/grama instanciada; *visibility ranges*; *occlusion culling* com `ArrayOccluder3D`.
   Medido: 100–230 draw calls, ~80 MB de VRAM na cidade.
@@ -278,3 +285,14 @@ godot --headless --path . --export-release "Windows Desktop" "build/windows/O In
 ```
 
 Sem templates, `tools/build_linux.sh` empacota o jogo num `.pck` e o executa com o binário oficial do Godot.
+
+**Pacote único Windows + Linux** (a pessoa escolhe a pasta do seu sistema):
+
+```bash
+GODOT=/caminho/godot tools/build_all.sh    # → build/O_Inicio_do_Fim_Windows_e_Linux.zip
+```
+
+O `.zip` traz `Windows/` (`O Inicio do Fim.exe` + `.pck`), `Linux/` (`o_inicio_do_fim.x86_64` + `.pck` +
+`jogar.sh`, com o bit de execução preservado), `LEIA-ME.txt` e `licencas/`. Precisa dos *export templates*
+4.7.2 de Linux e de Windows (`windows_release_x86_64.exe`). Não há código específico de sistema: saves ficam
+em `~/.local/share/o_inicio_do_fim/` (Linux) e `%APPDATA%\o_inicio_do_fim\` (Windows).

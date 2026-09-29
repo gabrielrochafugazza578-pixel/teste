@@ -322,6 +322,7 @@ func _process(delta: float) -> void:
 			if GameState.discover(id):
 				EventBus.location_discovered.emit(id)
 	# interiores / acústica
+	env.torch_on = player.flashlight_on
 	var indoor := world.is_indoors(p) or is_underground()
 	player.indoors = indoor
 	if indoor != _last_indoor:

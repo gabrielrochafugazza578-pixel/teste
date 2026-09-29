@@ -12,6 +12,8 @@ var indoor: float = 0.0
 var indoor_target: float = 0.0
 var mood_saturation: float = 0.85
 var exposure: float = 1.0
+## Lanterna do jogador acesa (Game atualiza): ajusta a adaptação ao escuro.
+var torch_on: bool = false
 var override_fog: float = -1.0
 var flash: float = 0.0
 var underground: bool = false   # Setor 7: sem sol/céu
@@ -28,7 +30,7 @@ func _ready() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_white = 6.0
+	env.tonemap_white = 8.0
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	env.fog_sky_affect = 0.65
@@ -134,20 +136,30 @@ func _update(delta: float) -> void:
 	sun.look_at_from_position(Vector3.ZERO, -light_dir, Vector3.UP if absf(light_dir.y) < 0.99 else Vector3.FORWARD)
 	# sol some e a lua entra a partir de zero: sem salto de luz na troca de direção
 	if night:
-		sun.light_color = Color(0.62, 0.7, 0.92)
-		sun.light_energy = 0.6 * smoothstep(-0.05, -0.2, sh) * (1.0 - clouds * 0.45) + flash * 2.5
+		# luar: frio e fraco; a cidade não tem energia, então a noite é escura de verdade
+		sun.light_color = Color(0.5, 0.6, 0.88)
+		sun.light_energy = 0.5 * smoothstep(-0.05, -0.2, sh) * (1.0 - clouds * 0.6) + flash * 2.5
 	else:
-		sun.light_color = Color(1.0, 0.95, 0.88).lerp(Color(1.0, 0.62, 0.38), dusk)
-		sun.light_energy = (0.3 + dl * 1.4) * smoothstep(-0.05, 0.04, sh) * (1.0 - clouds * 0.4 - dark * 0.25) + flash * 2.0
+		sun.light_color = Color(1.0, 0.93, 0.82).lerp(Color(1.0, 0.6, 0.34), dusk)
+		sun.light_energy = (0.3 + dl * 1.45) * smoothstep(-0.05, 0.04, sh) * (1.0 - clouds * 0.45 - dark * 0.25) + flash * 2.0
 	sun.shadow_opacity = clampf(1.0 - clouds * 0.6, 0.35, 1.0) if not night else 0.6
 	# --- ambiente ---------------------------------------------------------
-	var amb := hor.lerp(zen, 0.5)
-	amb = amb.lerp(Color(0.2, 0.22, 0.25), 0.25)
-	env.ambient_light_color = amb
-	# noite "de jogo": azulada e escura, mas com formas legíveis sem lanterna
-	var night_amb := Color(0.16, 0.19, 0.28)
-	env.ambient_light_color = amb.lerp(night_amb, 1.0 - dl)
-	env.ambient_light_energy = lerpf(1.75, 1.15, dl) * lerpf(1.0, 0.62, indoor) + flash * 1.5
+	# luz do céu nas sombras: vem mais do zênite (azulado) que do horizonte alaranjado,
+	# e dessaturada (céu de cidade, poeira) para não "lavar" tudo de branco
+	var amb := zen.lerp(hor, 0.35)
+	amb = amb.lerp(Color(0.4, 0.42, 0.45), 0.3)
+	# noite: só o luar e o céu estrelado (sem luz de rua)
+	var night_amb := Color(0.085, 0.1, 0.155)
+	var amb_c := amb.lerp(night_amb, 1.0 - dl)
+	# dentro: a pouca luz que sobra é rebatida (neutra/quente), não o azul do céu
+	amb_c = amb_c.lerp(Color(0.46, 0.44, 0.41) * (0.25 + dl * 0.75), indoor * 0.7)
+	env.ambient_light_color = amb_c
+	# crepúsculo: o céu ainda clareia um pouco depois que o sol se põe
+	var twilight := smoothstep(-0.26, -0.03, sh) * (1.0 - smoothstep(-0.03, 0.12, sh))
+	# dentro dos prédios quase não chega céu: quem ilumina são as janelas e a lanterna
+	var amb_out := lerpf(1.1, 0.82, dl) + twilight * 0.9
+	var amb_in := lerpf(0.2, 0.13, dl) + twilight * 0.08
+	env.ambient_light_energy = lerpf(amb_out, amb_in, indoor) + flash * 1.5
 	env.ambient_light_sky_contribution = 0.0
 	# --- neblina ------------------------------------------------------------
 	var vd := Settings.get_view_distance()
@@ -160,11 +172,16 @@ func _update(delta: float) -> void:
 	env.fog_light_energy = 0.8 + dl * 0.35
 	env.fog_sun_scatter = 0.12 * dl * (1.0 - clouds)
 	# --- cor / tonemap ---------------------------------------------------------
-	env.adjustment_saturation = mood_saturation * lerpf(1.0, 0.8, clouds * 0.5)
-	env.adjustment_contrast = lerpf(0.95, 1.06, dl)
-	env.adjustment_brightness = 1.0 + (1.0 - dl) * 0.06
+	env.adjustment_saturation = mood_saturation * lerpf(0.95, 0.8, clouds * 0.5)
+	env.adjustment_contrast = lerpf(1.0, 1.1, dl)
+	env.adjustment_brightness = 1.0
 	var bright := Settings.get_brightness()
-	env.tonemap_exposure = exposure * bright * lerpf(1.2, 2.5, 1.0 - dl) * lerpf(1.0, 1.15, indoor)
+	# o olho se adapta um pouco ao escuro (sem auto-exposição no renderer Compatibility)
+	var adapt := lerpf(1.0, lerpf(1.1, 1.45, dl), indoor)
+	# lanterna acesa em lugar fechado: a vista se acostuma com o facho (sem estourar de perto)
+	if torch_on:
+		adapt *= lerpf(1.0, 0.72, indoor * (1.0 - dl))
+	env.tonemap_exposure = exposure * bright * lerpf(1.05, 2.2, 1.0 - dl) * adapt
 	if underground:
 		sun.visible = false
 		env.background_mode = Environment.BG_COLOR

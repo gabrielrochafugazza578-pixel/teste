@@ -290,7 +290,6 @@ func world_material(kind: String = "exterior") -> ShaderMaterial:
 			m.set_shader_parameter("enable_windows", false)
 			m.set_shader_parameter("enable_puddles", false)
 			m.set_shader_parameter("grime", 0.55)
-			m.set_shader_parameter("interior_fill", 0.2)
 		"props":
 			m.set_shader_parameter("use_instance_tint", true)
 			m.set_shader_parameter("enable_windows", false)
@@ -300,7 +299,6 @@ func world_material(kind: String = "exterior") -> ShaderMaterial:
 			m.set_shader_parameter("enable_windows", false)
 			m.set_shader_parameter("enable_puddles", false)
 			m.set_shader_parameter("grime", 0.5)
-			m.set_shader_parameter("interior_fill", 0.16)
 		"roads":
 			m.set_shader_parameter("enable_windows", false)
 		_:
@@ -436,7 +434,6 @@ func item_material() -> ShaderMaterial:
 		return _mats["item"]
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/weapon.gdshader")
-	m.set_shader_parameter("fill", 0.16)
 	_mats["item"] = _track(m)
 	return m
 

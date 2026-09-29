@@ -164,6 +164,7 @@ var _room_props: Array = []
 var _col0: int = 0
 var _door_u: float = -100.0
 var _graffiti_n: int = 0
+var _rooms0: Array = []
 
 
 func _build(b: Dictionary) -> Dictionary:
@@ -172,7 +173,7 @@ func _build(b: Dictionary) -> Dictionary:
 	glass = MeshBuf.new()
 	panes = MeshBuf.new()
 	out = {"mesh": mesh, "glass": glass, "panes": panes, "doors": [], "containers": [], "lights": [], "markers": {},
-		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}}
+		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": []}
 	fr = make_frame(b)
 	rng = Util.rng(int(b["seed"]) * 31 + 17)
 	context = str(b.get("interior", b["type"]))
@@ -198,6 +199,7 @@ func _build(b: Dictionary) -> Dictionary:
 			layout = _layout_market(door_u)
 		_:
 			layout = _layout_bsp(door_u)
+	_rooms0 = layout["rooms"]
 	_emit_shell_inner(door_u, door_w, dh)
 	_emit_rooms(layout, 0.0)
 	# porta principal (nó animado)
@@ -212,6 +214,12 @@ func _build(b: Dictionary) -> Dictionary:
 		_upper_floor(layout)
 	else:
 		_ceiling(Rect2(), 0.0)
+	# malha em pedaços de ~8 m por andar (feito aqui, na thread): cada pedaço recebe só as
+	# luzes perto dele (janelas, lanterna) — o Compatibility limita luzes por malha
+	if mesh.vertex_count() > 12000:
+		var base := fr.base
+		out["mesh_parts"] = mesh.split_by(func(c: Vector3) -> Vector3i:
+			return Vector3i(floori(c.x / 8.0), floori((c.y - base) / 2.8), floori(c.z / 8.0)))
 	# limite de itens soltos por prédio (cada um é um nó; prédios enormes teriam centenas)
 	var pk0: Array = out["pickups"]
 	var cap := clampi(int(fr.width * fr.depth / 14.0), 10, 40)
@@ -440,23 +448,41 @@ func _emit_shell_inner(door_u: float, door_w: float, dh: float) -> void:
 		mesh.wall_with_holes(Vector2(a.x, a.z), Vector2(bb.x, bb.z), fr.base, H, n, holes, wall_code, seedf, tint, fr.base)
 		# "painéis de janela" (luz do dia entrando) nas paredes externas
 		if context != "bunker" and context != "lab":
-			var len := wa.distance_to(wb)
-			var step := 3.1
-			var u := step * 0.5 + fposmod(len, step) * 0.5
-			while u < len - 0.8:
-				var skip := i == 0 and absf(u - (door_u if i == 0 else 0.0)) < door_w + 0.6
-				if not skip and rng.randf() < 0.85:
-					var dir := (wb - wa).normalized()
-					var c2 := wa + dir * u
-					var pa := c2 - dir * 0.55
-					var pb := c2 + dir * 0.55
-					var p0 := fr.p(pa.x, pa.y, 0.0) + n * 0.01
-					var p1 := fr.p(pb.x, pb.y, 0.0) + n * 0.01
-					panes.quad(p0 + Vector3(0, 1.0, 0), p1 + Vector3(0, 1.0, 0), p1 + Vector3(0, 2.2, 0), p0 + Vector3(0, 2.2, 0), n,
-						Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1), 0.0, rng.randf(), Color(1, 1, 1))
-					if ruined:
-						_window_decay(fr.p(c2.x, c2.y, 0.0), fr.d3(dir.x, dir.y).normalized(), n)
-				u += step
+			_wall_panes(wa, wb, n2, 0.0, _rooms0, door_u if i == 0 else -100.0, door_w)
+
+
+## Janelas de uma parede externa: painel claro (o lado de fora) + registro para a
+## luz real que entra por ela (World: luz do dia/luar, mancha de sol no piso).
+func _wall_panes(wa: Vector2, wb: Vector2, n2: Vector2, y_off: float, rooms: Array, door_u: float, door_w: float) -> void:
+	var n := fr.d3(n2.x, n2.y).normalized()
+	var len := wa.distance_to(wb)
+	var step := 3.1
+	var u := step * 0.5 + fposmod(len, step) * 0.5
+	var dir := (wb - wa).normalized()
+	while u < len - 0.8:
+		var c2 := wa + dir * u
+		var skip := absf(c2.x - door_u) < door_w + 0.6 and absf(n2.y) > 0.5 and n2.y > 0.0
+		if not skip and rng.randf() < 0.85:
+			var pa := c2 - dir * 0.55
+			var pb := c2 + dir * 0.55
+			var p0 := fr.p(pa.x, pa.y, y_off) + n * 0.01
+			var p1 := fr.p(pb.x, pb.y, y_off) + n * 0.01
+			panes.quad(p0 + Vector3(0, 1.0, 0), p1 + Vector3(0, 1.0, 0), p1 + Vector3(0, 2.2, 0), p0 + Vector3(0, 2.2, 0), n,
+				Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1), 0.0, rng.randf(), Color(1, 1, 1))
+			var boarded := false
+			if ruined:
+				boarded = _window_decay(fr.p(c2.x, c2.y, y_off), fr.d3(dir.x, dir.y).normalized(), n)
+			# profundidade do cômodo atrás da janela (até onde a luz vai)
+			var depth := 4.0
+			var probe := c2 + n2 * 0.6
+			for room in rooms:
+				var rr: Rect2 = room["rect"]
+				if rr.has_point(probe):
+					depth = rr.size.y if absf(n2.y) > 0.5 else rr.size.x
+					break
+			out["windows"].append({"pos": fr.p(c2.x, c2.y, y_off + 1.6) + n * 0.12, "n": n, "along": fr.d3(dir.x, dir.y).normalized(),
+				"depth": clampf(depth, 2.0, 9.0), "boarded": boarded})
+		u += step
 
 
 func _emit_rooms(layout: Dictionary, y_off: float) -> void:
@@ -707,6 +733,7 @@ func _upper_floor(ground: Dictionary) -> void:
 		var a := fr.p(wa.x, wa.y, 0.0)
 		var bb := fr.p(wb.x, wb.y, 0.0)
 		mesh.wall(Vector2(a.x, a.z), Vector2(bb.x, bb.z), fr.base + fh + 0.02, fh, fr.d3(n2.x, n2.y).normalized(), wall_code, 0.1, Color(0.86, 0.84, 0.8), 0.0, fr.base)
+		_wall_panes(wa, wb, n2, fh + 0.02, rooms, -100.0, 0.0)
 	fh = saved
 	_ceiling(Rect2(), fh + 0.02)
 	out["markers"]["upstairs"] = Transform3D(Basis.IDENTITY, fr.p(fr.width * 0.5, fr.depth * 0.5, fh + 0.05))
@@ -1382,7 +1409,7 @@ func _place_tipped(pn: String, pos: Vector3, yaw: float, tip: Basis, collide: bo
 
 
 ## Tábuas pregadas e cacos de vidro sob algumas janelas.
-func _window_decay(base: Vector3, along: Vector3, n: Vector3) -> void:
+func _window_decay(base: Vector3, along: Vector3, n: Vector3) -> bool:
 	var WOOD := Assets.uv2_code(Assets.L_WOOD)
 	var r := rng.randf()
 	if r < 0.3:
@@ -1393,8 +1420,10 @@ func _window_decay(base: Vector3, along: Vector3, n: Vector3) -> void:
 			var bs := Basis(along, n.cross(along).normalized(), n).orthonormalized() * Basis(Vector3.BACK, tilt)
 			mesh.box_xf(Transform3D(bs, base + Vector3(0, h, 0) + n * (0.03 + i * 0.022)), Vector3(1.45, 0.12, 0.02), WOOD, rng.randf(),
 				Color(0.62, 0.5, 0.36).darkened(rng.randf() * 0.25))
+		return true
 	elif r < 0.55:
 		_glass_shards(base + n * 0.35, 0.45, along, n)
+	return false
 
 
 func _glass_shards(c: Vector3, spread: float, along: Vector3, n: Vector3) -> void:

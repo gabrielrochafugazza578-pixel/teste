@@ -398,10 +398,18 @@ func apply_interior(bi: int, idata: Dictionary, b: Dictionary) -> Node3D:
 	add_child(root)
 	var mesh: MeshBuf = idata["mesh"]
 	if not mesh.is_empty():
-		var mi := MeshInstance3D.new()
-		mi.mesh = mesh.to_mesh()
-		mi.material_override = Assets.world_material("interior")
-		root.add_child(mi)
+		# em pedaços de ~8 m por andar: cada pedaço só recebe as luzes perto dele
+		# (janelas, lanterna) e o renderer Compatibility tem limite de luzes por malha
+		var parts: Dictionary = idata.get("mesh_parts", {})
+		if parts.is_empty():
+			parts = {0: mesh}
+		for k in parts.keys():
+			var mi := MeshInstance3D.new()
+			mi.mesh = (parts[k] as MeshBuf).to_mesh()
+			mi.material_override = Assets.world_material("interior")
+			# forro e paredes têm uma face só: sombra dos dois lados, senão o sol atravessa o teto
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+			root.add_child(mi)
 	var glass: MeshBuf = idata["glass"]
 	if not glass.is_empty():
 		var gi := MeshInstance3D.new()
