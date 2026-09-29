@@ -88,6 +88,10 @@ func _ready() -> void:
 	loading.set_progress(1.0, "")
 	GameState.in_game = true
 	ready_to_play = true
+	print("O Início do Fim: jogo pronto (%s, %s)" % [OS.get_name(), RenderingServer.get_video_adapter_name()])
+	# CI: abre, espera o mundo ficar pronto e fecha sozinho
+	if "--ci-quit" in OS.get_cmdline_user_args():
+		get_tree().create_timer(8.0).timeout.connect(func() -> void: get_tree().quit(0))
 	if new_game and not GameState.skip_opening:
 		loading.get_parent().queue_free()
 		_start_opening()

@@ -296,3 +296,7 @@ O `.zip` traz `Windows/` (`O Inicio do Fim.exe` + `.pck`), `Linux/` (`o_inicio_d
 `jogar.sh`, com o bit de execução preservado), `LEIA-ME.txt` e `licencas/`. Precisa dos *export templates*
 4.7.2 de Linux e de Windows (`windows_release_x86_64.exe`). Não há código específico de sistema: saves ficam
 em `~/.local/share/o_inicio_do_fim/` (Linux) e `%APPDATA%\o_inicio_do_fim\` (Windows).
+
+No GitHub, `.github/workflows/build.yml` faz o mesmo a cada push neste branch: exporta as duas versões, publica
+o `.zip` como *artifact* da execução (Actions → Build Windows + Linux → Artifacts) e abre o `.exe` num runner
+Windows (`--headless`) procurando erros de script no `godot.log`.

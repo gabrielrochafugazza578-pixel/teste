@@ -54,11 +54,12 @@ jobs:
         run: |
           Expand-Archive -Path O_Inicio_do_Fim_Windows_e_Linux.zip -DestinationPath .
           Set-Location "O_Inicio_do_Fim/Windows"
-          $p = Start-Process -FilePath ".\O Inicio do Fim.exe" -ArgumentList "--headless","--quit-after","1800","--","--skip-menu","--skip-opening" -PassThru
-          if (-not $p.WaitForExit(240000)) { $p.Kill(); Write-Host "Ainda rodando depois de 240 s (ok, sem travar na abertura)" }
+          $p = Start-Process -FilePath ".\O Inicio do Fim.exe" -ArgumentList "--headless","--","--skip-menu","--skip-opening","--ci-quit" -PassThru
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); Write-Host "Não fechou em 300 s" }
           $log = Join-Path $env:APPDATA "o_inicio_do_fim\logs\godot.log"
           if (-not (Test-Path $log)) { Write-Error "Log não encontrado: o jogo não iniciou"; exit 1 }
           Get-Content $log -Tail 60
           $bad = Select-String -Path $log -Pattern "SCRIPT ERROR|Parse Error|Failed to load"
           if ($bad) { $bad | ForEach-Object { Write-Host $_.Line }; Write-Error "Erros de script no Windows"; exit 1 }
+          if (-not (Select-String -Path $log -Pattern "jogo pronto" -Quiet)) { Write-Error "O mundo não chegou a ficar pronto"; exit 1 }
           Write-Host "Windows: jogo iniciou sem erros de script."
