@@ -62,6 +62,7 @@ var _queued_attack: int = -1         # golpe apertado durante o anterior (-1 nad
 var _queued_t: float = 0.0
 var _melee_target: Node3D = null     # alvo da mira assistida do golpe atual
 var _lunge_t: float = 0.0
+var _lunge_stop: float = 1.0         # o passo para quando o alvo entra nesta distância
 var _lmb_down_t: float = -1.0
 var _block_t: float = -10.0
 var _busy_t: float = 0.0
@@ -536,8 +537,12 @@ func _physics_process(delta: float) -> void:
 	hv = hv.move_toward(desired, accel * delta * maxf(target_speed, 2.0))
 	if _dodge_t > 0.0:
 		hv = _dodge_vel
-	elif _lunge_t > 0.0:
-		hv = Vector3(-sin(_yaw), 0, -cos(_yaw)) * 3.2
+	elif _lunge_t > 0.0 and _melee_target != null and is_instance_valid(_melee_target):
+		var gap := Vector2(_melee_target.global_position.x - global_position.x, _melee_target.global_position.z - global_position.z).length()
+		if gap > _lunge_stop:
+			hv = Vector3(-sin(_yaw), 0, -cos(_yaw)) * 3.2
+		else:
+			_lunge_t = 0.0
 	_knock_last = _knockback
 	hv += _knockback
 	_knockback = _knockback.move_toward(Vector3.ZERO, delta * 14.0)
@@ -1039,6 +1044,7 @@ func _aim_at_target(reach: float) -> void:
 	body.rotation.y = _yaw
 	if tt.length() > reach * 0.85:
 		_lunge_t = 0.16
+		_lunge_stop = reach * 0.7
 
 
 func _on_anim_event(e: String) -> void:

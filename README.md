@@ -32,7 +32,8 @@ Primeira execução: o jogo **gera as texturas PBR na GPU** (Texture2DArray, 16 
 | Atacar (segurar = pesado) / Defender, mirar | Mouse esq. / Mouse dir. | RT / LT |
 | Esquivar / Empurrar / Arremessar distração | Q / F / G | B / RB / LB |
 | Lanterna / Cura rápida / Atalhos | L / H / 1–4 | ↑ / ↓ |
-| Inventário e fabricação / Mapa / Diário | Tab / M / J | Back |
+| Inventário e fabricação / Mapa / Diário | Tab / M / J (ou os botões do HUD) | Back |
+| Liberar o cursor para clicar nos botões do HUD (segurar) | Alt | |
 | Pausa / Pular cinemática (segurar) | Esc / Enter | Start / Y |
 | Salvar/carregar rápido / Painel de desempenho / Esconder HUD | F5 / F9 / F3 / F1 | |
 
@@ -185,8 +186,13 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
 * **Loot contextual**: casa, mercado, farmácia, hospital, oficina, posto, delegacia, escola, laboratório…
 * **Fabricação e reparo**: sobrevivência, medicamentos, culinária (no fogo), armas, ferramentas, estruturas
   (fogueira, coletor de chuva, baú, esconderijo, cama, bancada, alarme de latas, barricadas), reparos e melhorias.
-* **Combate corpo a corpo tático**: leves/pesados em combo, bloqueio e aparo, esquiva, empurrão, reações,
-  atordoamento, derrubadas, ataques furtivos; desgaste de armas; armas de fogo barulhentas e arco silencioso.
+* **Combate corpo a corpo tático**: leves/pesados, combo leve-leve-finalização (o 3º golpe seguido é mais
+  forte), cliques durante um golpe entram na fila, mira assistida (o Caio vira para o infectado mais próximo à
+  frente e dá um passo curto se ele estiver um pouco longe), bloqueio e aparo, esquiva, empurrão, reações,
+  atordoamento, derrubadas, ataques furtivos; respingo no acerto e marcador na mira; desgaste de armas; armas
+  de fogo barulhentas e arco silencioso. **Sem agarrão**: os infectados arranham e mordem, mas não prendem o
+  jogador. O empurrão de um golpe é uma velocidade inicial com atrito (não acumula): tapa ~5–10 cm, taco
+  ~0,4 m, marreta pesada ~1 m (`tests/combat.tscn` mede por arma).
 * **Infectados originais** com percepção (visão, audição, luz, obstáculos, ruído, distância, outros
   infectados): Errante, Febril (corre), Sentinela (grita e chama), Colosso (investida), Rastejante
   (emboscada), Hospedeiro (esporos). Evoluem a partir do capítulo 6.
@@ -200,6 +206,15 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
 * **Dia/noite e clima dinâmico** afetam luz, visibilidade, temperatura, infectados e sobreviventes.
 * **História** em 7 capítulos (O Retorno, Silêncio, NEXUS, Os Sobreviventes, A Verdade, Evolução,
   O Início do Fim), missões secundárias, decisões (travessia, destino da mãe, final) e 3 finais.
+* **Interface do jogo** (o menu inicial mantém o visual próprio): tema `UITheme.game_theme()`, ícones
+  vetoriais desenhados em código para itens e HUD (`UIIcons`), HUD em cartões (vitais com ícones, relógio e
+  clima, objetivo com distância, tecla na dica, arma e atalhos com ícones, botões Mochila/Diário/Mapa),
+  inventário e troca em grade (`ItemSlot`) com filtros e condição, diário com aba **Progresso** (capítulos,
+  história, descobertas, estatísticas) e missões em cartões com barra de objetivos.
+* **Prédios com relevo** (`BuildingGen._relief`, só perto: LOD 0 completo, LOD 1 o grosso): embasamento,
+  pilares de canto, cornija, marquise e faixa de letreiro no térreo comercial, montantes entre vitrines,
+  sacadas e peitoris alinhados às janelas dos residenciais, brises nos escritórios e alpendre nas casas.
+  Custa ~860 triângulos e ~3 ms de geração (em thread) por chunk do centro; desligado no preset MUITO BAIXO.
 * **Salvamento**: posição, inventário, equipamento, progresso, missões, decisões, veículos, estruturas,
   contêineres, portas, itens largados, facções, clima, horário e população.
 
@@ -212,7 +227,11 @@ GODOT=/caminho/godot tools/check.sh                                 # compila to
 godot --headless --path . res://tests/smoke_test.tscn -- --no-audio  # gameplay: andar, telas, fabricar, salvar/carregar
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/smoke_test.tscn -- --opening --shots=/tmp/shots
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/visual_test.tscn -- --out=/tmp/shots
-godot --headless --path . res://tests/bench_chunks.tscn             # tempo de geração dos chunks
+godot --headless --path . res://tests/bench_chunks.tscn             # tempo de geração dos chunks (e custo do relevo)
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/combat.tscn -- --out=/tmp/combate   # acerto/dano/empurrão por arma
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/ui.tscn -- --out=/tmp/ui            # fotos de todas as telas do jogo
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/light.tscn -- --out=/tmp/luz        # iluminação: dia, noite, interior, Setor 7
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/buildings.tscn -- --out=/tmp/predios # fachadas de perto e do alto
 ```
 
 ## Build

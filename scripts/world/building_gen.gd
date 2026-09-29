@@ -65,7 +65,7 @@ static func door_height(b: Dictionary) -> float:
 	return 2.2
 
 
-static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open_door: bool) -> void:
+static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open_door: bool, relief: int = 2) -> void:
 	var t: String = b["type"]
 	if t == "stadium":
 		_stadium(b, shell, detail, lod)
@@ -145,6 +145,8 @@ static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open
 			detail.box(Vector3(x1 - 0.12, top + ph * 0.5, (z0 + z1) * 0.5), Vector3(0.24, ph, r.size.y - 0.48), pc, seedf, tint * 0.95)
 	if lod == 0:
 		_details(b, detail, top, seedf)
+		if relief > 0:
+			_relief(b, detail, shell, top, seedf, relief >= 2)
 	# colisão
 	if lod == 0:
 		if open_door:
@@ -296,6 +298,211 @@ static func _details(b: Dictionary, d: MeshBuf, top: float, seedf: float) -> voi
 				off.x = -off.x
 			d.box(cp + off + Vector3(0, 1.8, 0), Vector3(0.3, 3.6, 0.3), CON, seedf, Color(0.8, 0.8, 0.8))
 			d.add_box_collider(cp + off + Vector3(0, 1.8, 0), Vector3(0.3, 3.6, 0.3))
+
+
+## Relevo das fachadas (só no LOD 0, mesclado na malha de detalhe do chunk):
+## embasamento, pilares de canto, cornija, marquise do térreo comercial,
+## sacadas alinhadas às janelas dos residenciais, brises dos escritórios e
+## varanda coberta nas casas. Quebra a "caixa lisa" com poucas caixas.
+static func _relief(b: Dictionary, d: MeshBuf, col_out: MeshBuf, top: float, seedf: float, fine: bool = true) -> void:
+	var t: String = b["type"]
+	var r: Rect2 = b["rect"]
+	var base: float = b["base"]
+	var floors := int(b["floors"])
+	var wm := int(b["wmode"])
+	var tint: Color = b["tint"]
+	var layer := int(b["layer"])
+	var plain := Assets.uv2_code(layer, 0)
+	var CON := Assets.uv2_code(Assets.L_CONCRETE)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var rng := Util.rng(int(b["seed"]) * 13 + 5)
+	var facing := int(b["facing"])
+	var di := door_info(b)
+	var door_c: Vector3 = di[0]
+	var door_w: float = di[2]
+	var fh := floor_h(b)
+	var big := t in ["apartment", "tower", "office", "hospital", "commercial", "clinic", "school", "police", "lab", "terminal", "market"]
+	var house := t in ["house", "farmhouse", "cabin"]
+	if not big and not house:
+		return
+	var light := tint.lightened(0.18)
+	var dark := tint.darkened(0.35)
+	# lados: [a, b, normal para fora, índice]
+	var sides := [
+		[Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.position.y), Vector3.FORWARD, 0],
+		[Vector2(r.end.x, r.end.y), Vector2(r.end.x, r.position.y), Vector3.RIGHT, 1],
+		[Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.end.y), Vector3.BACK, 2],
+		[Vector2(r.position.x, r.position.y), Vector2(r.position.x, r.end.y), Vector3.LEFT, 3],
+	]
+	# --- embasamento (rodapé mais escuro), com vão na porta
+	var ph := 0.9 if big else 0.55
+	for sd in sides:
+		var a: Vector2 = sd[0]
+		var e: Vector2 = sd[1]
+		var n: Vector3 = sd[2]
+		var len := a.distance_to(e)
+		var dir := (e - a) / maxf(len, 0.001)
+		var spans: Array = [[0.0, len]]
+		if int(sd[3]) == facing:
+			var du := a.distance_to(Vector2(door_c.x, door_c.z))
+			spans = [[0.0, du - door_w * 0.5 - 0.05], [du + door_w * 0.5 + 0.05, len]]
+		for sp in spans:
+			var u0: float = sp[0]
+			var u1: float = sp[1]
+			if u1 - u0 < 0.2:
+				continue
+			var m := a + dir * (u0 + u1) * 0.5
+			d.box(Vector3(m.x, base + ph * 0.5 - 0.3, m.y) + n * 0.05, _along(n, u1 - u0, ph + 0.6, 0.12), CON, seedf, dark)
+	if house:
+		_porch(b, d, col_out, seedf, door_c, di[1], door_w)
+		return
+	# --- pilares de canto (quebram a aresta da caixa)
+	if floors >= 2:
+		for cx: float in [r.position.x, r.end.x]:
+			for cz: float in [r.position.y, r.end.y]:
+				var inx := 1.0 if cx < r.get_center().x else -1.0
+				var inz := 1.0 if cz < r.get_center().y else -1.0
+				var pc := Vector3(cx + inx * 0.23, (base - 0.4 + top) * 0.5, cz + inz * 0.23)
+				d.box(pc, Vector3(0.7, top - base + 0.4, 0.7), plain, seedf, light)
+				col_out.add_box_collider(Vector3(pc.x, base + 1.3, pc.z), Vector3(0.7, 2.6, 0.7))
+	# --- cornija no topo (telhado plano)
+	if str(b["roof"]) != "gable":
+		for sd in sides:
+			var a: Vector2 = sd[0]
+			var e: Vector2 = sd[1]
+			var n: Vector3 = sd[2]
+			var m := (a + e) * 0.5
+			var len := a.distance_to(e)
+			d.box(Vector3(m.x, top - 0.18, m.y) + n * 0.16, _along(n, len + 0.64, 0.36, 0.32), plain, seedf, light)
+			d.box(Vector3(m.x, top - 0.55, m.y) + n * 0.06, _along(n, len + 0.2, 0.1, 0.12), plain, seedf, light)
+	var ch := BuildingGen.cell_h(wm, fh)
+	var cw := 3.1 if wm == Assets.WM_RES else (2.4 if wm == Assets.WM_OFFICE else 3.6)
+	# --- marquise sobre o térreo (comércio sem toldo de loja)
+	var named: bool = str(b["name"]) != "" and wm == Assets.WM_SHOP
+	if t in ["commercial", "tower", "apartment", "office", "clinic"] and not named and floors >= 2:
+		var sd: Array = sides[facing]
+		var a: Vector2 = sd[0]
+		var e: Vector2 = sd[1]
+		var n: Vector3 = sd[2]
+		var m := (a + e) * 0.5
+		var len := a.distance_to(e) - 1.4
+		var y := base + minf(ch, 3.6) - 0.25
+		d.box(Vector3(m.x, y, m.y) + n * 0.85, _along(n, len, 0.16, 1.6), CON, seedf, Color(0.78, 0.77, 0.74))
+		d.box(Vector3(m.x, y + 0.1, m.y) + n * 1.62, _along(n, len, 0.42, 0.08), MET, seedf, Color(0.3, 0.32, 0.34))
+	if not fine:
+		return
+	# --- sacadas alinhadas às janelas (residenciais), frente e fundos
+	if wm == Assets.WM_RES and t in ["apartment", "tower"] and floors >= 3:
+		var every := 2 if rng.randf() < 0.6 else 1
+		var solid := rng.randf() < 0.5
+		var count := 0
+		for si in [facing, (facing + 2) % 4]:
+			var sd: Array = sides[si]
+			var a: Vector2 = sd[0]
+			var e: Vector2 = sd[1]
+			var n: Vector3 = sd[2]
+			var len := a.distance_to(e)
+			var dir := (e - a) / maxf(len, 0.001)
+			var rem := fposmod(len, cw)
+			var ncell := int(len / cw)
+			for k in ncell:
+				if k % every != (1 if every == 2 else 0) or k == 0 or k == ncell - 1:
+					continue
+				var u := rem * 0.5 + (k + 0.5) * cw
+				var m := a + dir * u
+				for f in range(1, floors):
+					if count >= 64:
+						break
+					count += 1
+					var y := base + f * ch
+					var c0 := Vector3(m.x, y, m.y)
+					# laje, peitoril frontal e laterais
+					d.box(c0 + n * 0.55 + Vector3(0, -0.06, 0), _along(n, 2.5, 0.14, 1.1), CON, seedf, Color(0.8, 0.79, 0.76))
+					if solid:
+						d.box(c0 + n * 1.07 + Vector3(0, 0.45, 0), _along(n, 2.5, 0.9, 0.08), plain, seedf, light)
+					else:
+						d.box(c0 + n * 1.07 + Vector3(0, 0.92, 0), _along(n, 2.5, 0.05, 0.06), MET, seedf, Color(0.25, 0.26, 0.27))
+						d.box(c0 + n * 1.07 + Vector3(0, 0.45, 0), _along(n, 2.46, 0.8, 0.02), MET, seedf, Color(0.35, 0.37, 0.4, 1.0))
+					for sx: float in [-1.0, 1.0]:
+						d.box(c0 + n * 0.55 + Vector3(dir.x, 0, dir.y) * (1.21 * sx) + Vector3(0, 0.45, 0), _along(n, 0.08, 0.9, 1.1), plain if solid else MET, seedf, light if solid else Color(0.25, 0.26, 0.27))
+	# --- peitoris sob as janelas dos residenciais (sombra marcada em cada janela)
+	if wm == Assets.WM_RES:
+		var sills := 0
+		for sd in sides:
+			var a: Vector2 = sd[0]
+			var e: Vector2 = sd[1]
+			var n: Vector3 = sd[2]
+			var len := a.distance_to(e)
+			var dir := (e - a) / maxf(len, 0.001)
+			var rem := fposmod(len, cw)
+			for k in int(len / cw):
+				var m := a + dir * (rem * 0.5 + (k + 0.5) * cw)
+				for f in floors:
+					if sills >= 260:
+						break
+					sills += 1
+					var y := base + f * ch + 0.3 * ch - 0.05
+					d.box(Vector3(m.x, y, m.y) + n * 0.09, _along(n, 1.62, 0.09, 0.18), CON, seedf, Color(0.82, 0.81, 0.78))
+					# verga sobre a janela
+					d.box(Vector3(m.x, base + f * ch + 0.86 * ch, m.y) + n * 0.04, _along(n, 1.5, 0.12, 0.08), plain, seedf, light)
+	# --- térreo comercial: montantes entre as vitrines e faixa de letreiro
+	if wm == Assets.WM_SHOP:
+		var band_col := Color.from_hsv(rng.randf(), 0.35, 0.42)
+		for sd in sides:
+			var a: Vector2 = sd[0]
+			var e: Vector2 = sd[1]
+			var n: Vector3 = sd[2]
+			var len := a.distance_to(e)
+			var dir := (e - a) / maxf(len, 0.001)
+			var rem := fposmod(len, cw)
+			var m0 := (a + e) * 0.5
+			d.box(Vector3(m0.x, base + 3.12, m0.y) + n * 0.1, _along(n, len, 0.5, 0.2), plain, seedf, band_col if int(sd[3]) == facing else dark.lightened(0.1))
+			for k in range(0, int(len / cw) + 1):
+				var m := a + dir * (rem * 0.5 + k * cw)
+				if int(sd[3]) == facing and absf(a.distance_to(m) - a.distance_to(Vector2(door_c.x, door_c.z))) < door_w * 0.5 + 0.2:
+					continue
+				d.box(Vector3(m.x, base + 1.45, m.y) + n * 0.08, _along(n, 0.24, 2.9, 0.16), plain, seedf, dark.lightened(0.15))
+	# --- brises verticais nos escritórios (acima do térreo)
+	if wm == Assets.WM_OFFICE and floors >= 3 and layer != Assets.L_BRICK:
+		for sd in sides:
+			var a: Vector2 = sd[0]
+			var e: Vector2 = sd[1]
+			var n: Vector3 = sd[2]
+			var len := a.distance_to(e)
+			var dir := (e - a) / maxf(len, 0.001)
+			var rem := fposmod(len, cw)
+			var ncell := int(len / cw)
+			var y0 := base + ch
+			var hh := top - 0.6 - y0
+			for k in range(1, ncell):
+				var m := a + dir * (rem * 0.5 + k * cw)
+				d.box(Vector3(m.x, y0 + hh * 0.5, m.y) + n * 0.26, _along(n, 0.2, hh, 0.52), plain, seedf, light)
+
+
+## Tamanho de caixa encostada numa fachada de normal `n`: largura ao longo da
+## parede, altura, profundidade para fora.
+static func _along(n: Vector3, w: float, h: float, depth: float) -> Vector3:
+	return Vector3(w, h, depth) if absf(n.z) > 0.5 else Vector3(depth, h, w)
+
+
+## Casas: alpendre coberto sobre a porta (laje + 2 pilares) e floreira.
+static func _porch(b: Dictionary, d: MeshBuf, col_out: MeshBuf, seedf: float, door_c: Vector3, n: Vector3, door_w: float) -> void:
+	var base: float = b["base"]
+	var CON := Assets.uv2_code(Assets.L_CONCRETE)
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var rng := Util.rng(int(b["seed"]) * 3 + 11)
+	var w := door_w + 1.8
+	var depth := 1.6
+	var y := base + 2.55
+	var side := Vector3(-n.z, 0, n.x)
+	var roof_col := Color(0.55, 0.3, 0.22) if rng.randf() < 0.6 else Color(0.72, 0.72, 0.7)
+	d.box(Vector3(door_c.x, y, door_c.z) + n * (depth * 0.5), _along(n, w, 0.12, depth), CON, seedf, roof_col)
+	for sx: float in [-1.0, 1.0]:
+		var pp := Vector3(door_c.x, base + 1.25, door_c.z) + n * (depth - 0.12) + side * (w * 0.5 - 0.12) * sx
+		d.box(pp, Vector3(0.14, 2.5, 0.14), WOOD, seedf, Color(0.5, 0.38, 0.28))
+		col_out.add_box_collider(pp, Vector3(0.16, 2.5, 0.16))
+	# piso do alpendre
+	d.box(Vector3(door_c.x, base + 0.04, door_c.z) + n * (depth * 0.5), _along(n, w, 0.1, depth), CON, seedf, Color(0.62, 0.6, 0.57))
 
 
 ## Ponto à frente da fachada principal, a `dist` metros da parede.

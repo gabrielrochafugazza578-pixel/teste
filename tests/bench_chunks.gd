@@ -12,6 +12,20 @@ func _ready() -> void:
 	PropLib.warm()
 	var coords := [Vector2i(0, 0), Vector2i(-9, -7), Vector2i(10, 0), Vector2i(0, -17), Vector2i(-19, -5), Vector2i(5, 16)]
 	var opts := {"veg_density": 0.45, "grass": true, "grass_density": 0.45, "decay": 1.0}
+	# custo do relevo das fachadas (triângulos da malha de detalhe, chunks do centro)
+	for rel in [false, true]:
+		opts["relief"] = rel
+		var tris := 0
+		var tt := 0.0
+		var ap := layout.poi_pos("avenida_central")
+		var ac := Vector2i(floori(ap.x / WorldLayout.CHUNK), floori(ap.z / WorldLayout.CHUNK))
+		for c in [ac, ac + Vector2i(1, 0), ac + Vector2i(-1, 0), ac + Vector2i(0, 1), ac + Vector2i(0, -1), ac + Vector2i(1, -2)]:
+			t = Time.get_ticks_usec()
+			var dd := ChunkBuilder.build(layout, c, 0, opts)
+			tt += (Time.get_ticks_usec() - t) / 1000.0
+			tris += (dd["details"] as MeshBuf).idx.size() / 3 + (dd["shells"] as MeshBuf).idx.size() / 3
+		print("relevo=%s: prédios %d triângulos em 6 chunks (%.0f/chunk), %.1f ms/chunk" % [str(rel), tris, tris / 6.0, tt / 6.0])
+	opts["relief"] = true
 	for lod in [0, 1, 2]:
 		var total := 0.0
 		for c in coords:

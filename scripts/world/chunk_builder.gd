@@ -27,7 +27,9 @@ static func build(layout: WorldLayout, c: Vector2i, lod: int, opts: Dictionary) 
 	for bi in layout.buildings_owned_by(c):
 		var b: Dictionary = layout.buildings[bi]
 		var open := lod == 0 and bool(b["enterable"])
-		BuildingGen.build(b, shells, details, 0 if lod <= 1 else 1, open)
+		# relevo das fachadas: completo no LOD 0, só o grosso (cornija, pilares, marquise) no LOD 1
+		var relief := (2 if lod == 0 else (1 if lod == 1 else 0)) if bool(opts.get("relief", true)) else 0
+		BuildingGen.build(b, shells, details, 0 if lod <= 1 else 1, open, relief)
 		if open:
 			enterables.append(bi)
 	d["shells"] = shells

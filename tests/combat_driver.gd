@@ -52,12 +52,15 @@ func _golpe(nome: String, arma: String, pesado: bool, ang: float, dist: float) -
 	var shot := false
 	var t := 0.0
 	var ph := Vector3.INF   # posição no instante do acerto
+	var th := 0.0
 	while t < 2.2:
 		await get_tree().process_frame
 		t += get_process_delta_time()
 		if ph == Vector3.INF and inf.hp < hp0:
 			ph = inf.global_position
-		if ph != Vector3.INF:
+			th = t
+		# só o deslize do empurrão (depois de ~0,8 s o infectado volta a andar sozinho)
+		if ph != Vector3.INF and t - th < 0.8:
 			d = maxf(d, Vector2(inf.global_position.x - ph.x, inf.global_position.z - ph.z).length())
 		if not shot and t > (0.28 if not pesado else 0.45):
 			shot = true

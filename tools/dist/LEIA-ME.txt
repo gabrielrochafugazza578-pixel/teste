@@ -30,6 +30,8 @@ CONTROLES (remapeáveis em Configurações → Controles)
   Q esquivar · F empurrar · G arremessar distração
   L lanterna · H cura rápida · 1–4 atalhos
   Tab inventário/fabricação · M mapa · J diário
+  (ou segure Alt para liberar o mouse e clique nos botões Mochila/Diário/Mapa
+  no canto inferior esquerdo)
   Esc pausa · Enter (segurar) pular cinemática
   F5 salvar rápido · F9 carregar rápido · F3 painel de desempenho · F1 esconder HUD
   Gamepad (Xbox/PlayStation) também funciona.

@@ -687,7 +687,7 @@ func _downtown_lot(lot: Rect2, r: RandomNumberGenerator, facing: int, force_name
 	var tint := Color(1, 1, 1)
 	if layer != Assets.L_BRICK:
 		var base_tint: Color = HOUSE_TINTS[r.randi() % HOUSE_TINTS.size()]
-		tint = base_tint.lerp(Color(0.8, 0.8, 0.8), 0.5)
+		tint = base_tint.lerp(Color(0.8, 0.8, 0.8), 0.28)
 	var interior := "shop"
 	if name_.begins_with("FARMÁCIA"):
 		interior = "pharmacy"

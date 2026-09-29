@@ -233,6 +233,7 @@ func _has_job(kind: String, c: Vector2i, b: int = -1) -> bool:
 
 func _opts() -> Dictionary:
 	return {"veg_density": Settings.get_vegetation_density(), "grass": Settings.get_grass_distance() > 0.0,
+		"relief": int(Settings.graphics.get("preset", 1)) != Settings.PRESET_VERY_LOW,
 		"grass_density": Settings.get_vegetation_density(), "decay": GameState.world_phase == GameState.Phase.POST}
 
 
