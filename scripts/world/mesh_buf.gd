@@ -307,6 +307,35 @@ func to_arrays() -> Array:
 	return arrays
 
 
+## Reparte os triângulos em vários buffers pela chave que `key_of(centroide)` devolve.
+## Serve para quebrar uma malha grande em pedaços que recebem só as luzes próximas
+## (o renderer Compatibility aplica no máximo `max_lights_per_object` luzes por malha).
+func split_by(key_of: Callable) -> Dictionary:
+	var out := {}
+	var remap := {}
+	for t in idx.size() / 3:
+		var i0 := idx[t * 3]
+		var i1 := idx[t * 3 + 1]
+		var i2 := idx[t * 3 + 2]
+		var k: Variant = key_of.call((verts[i0] + verts[i1] + verts[i2]) / 3.0)
+		if not out.has(k):
+			out[k] = MeshBuf.new()
+			remap[k] = {}
+		var dst: MeshBuf = out[k]
+		var rm: Dictionary = remap[k]
+		for i in [i0, i1, i2]:
+			if not rm.has(i):
+				rm[i] = dst.verts.size()
+				dst.verts.append(verts[i])
+				dst.norms.append(norms[i])
+				dst.tans.append_array(tans.slice(i * 4, i * 4 + 4))
+				dst.cols.append(cols[i])
+				dst.uvs.append(uvs[i])
+				dst.uv2s.append(uv2s[i])
+			dst.idx.append(int(rm[i]))
+	return out
+
+
 func to_mesh(material: Material = null) -> ArrayMesh:
 	var m := ArrayMesh.new()
 	if verts.is_empty():

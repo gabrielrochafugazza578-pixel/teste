@@ -61,6 +61,7 @@ var graphics := {
 	"antialiasing": 1, # 0 off, 1 MSAA 2x, 2 MSAA 4x, 3 MSAA 8x
 	"occlusion_culling": true,
 	"show_fps": false,
+	"brightness": 1.0, # multiplica a exposição (fora dos presets)
 }
 
 var audio := {
@@ -363,6 +364,10 @@ func get_stream_budget_usec() -> int:
 
 func get_fov() -> float:
 	return float(graphics["fov"])
+
+
+func get_brightness() -> float:
+	return clampf(float(graphics.get("brightness", 1.0)), 0.5, 2.0)
 
 
 func difficulty() -> int:

@@ -11,11 +11,13 @@ OUT=build/linux
 mkdir -p "$OUT"
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
 if "$GODOT" --headless --path . --export-release "Linux" "$OUT/o_inicio_do_fim.x86_64" >/dev/null 2>&1 && [ -f "$OUT/o_inicio_do_fim.x86_64" ]; then
-	# pacote para distribuir: executável + .pck + lançador + LEIA-ME
+	# pacote para distribuir: executável + .pck + lançador + LEIA-ME + licenças de terceiros
 	PKG=O_Inicio_do_Fim_Linux
 	rm -rf "build/$PKG" "build/$PKG.tar.gz"
 	mkdir -p "build/$PKG"
 	cp "$OUT/o_inicio_do_fim.x86_64" "$OUT/o_inicio_do_fim.pck" tools/dist/jogar.sh tools/dist/LEIA-ME.txt "build/$PKG/"
+	mkdir -p "build/$PKG/licencas"
+	cp assets/textures/grass_bush_LICENSE.txt "build/$PKG/licencas/SimpleGrassTextured_MIT.txt"
 	chmod +x "build/$PKG/o_inicio_do_fim.x86_64" "build/$PKG/jogar.sh"
 	tar -C build -czf "build/$PKG.tar.gz" "$PKG"
 	echo "Executável: $OUT/o_inicio_do_fim.x86_64"

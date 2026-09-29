@@ -339,6 +339,7 @@ func grass_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/grass.gdshader")
 	m.set_shader_parameter("fade_distance", maxf(Settings.get_grass_distance(), 10.0))
+	m.set_shader_parameter("grass_tex", load("res://assets/textures/grass_bush.png"))
 	_mats["grass"] = m
 	return m
 

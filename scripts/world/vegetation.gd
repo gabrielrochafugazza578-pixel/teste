@@ -133,38 +133,34 @@ static func _frond(b: MeshBuf, top: Vector3, a: float, length: float, r: RandomN
 		b.quad(p0 - side * w0, p1 - side * w1, p1 + side * w1, p0 + side * w0, Vector3.UP, Vector2(0, t0), Vector2(0, t1), Vector2(1, t1), Vector2(1, t0), 0.0, 0.0, col)
 
 
-## Tufo de grama geométrico (sem textura): 7 lâminas afiladas.
+## Moita de grama texturizada: 3 planos cruzados a 60° com a textura
+## `grass_bush.png` (SimpleGrassTextured, MIT). Altura do plano = GRASS_H.
+const GRASS_H := 0.62
+
+
 static func grass_mesh() -> ArrayMesh:
 	if _meshes.has("grass"):
 		return _meshes["grass"]
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
-	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
 	var idx := PackedInt32Array()
-	var r := Util.rng(4242)
-	for i in 7:
-		var a := r.randf() * TAU
-		var dir := Vector3(cos(a), 0, sin(a))
-		var side := Vector3(-dir.z, 0, dir.x)
-		var off := Vector3(r.randf_range(-0.18, 0.18), 0, r.randf_range(-0.18, 0.18))
-		var h := r.randf_range(0.35, 0.65)
-		var w := r.randf_range(0.035, 0.06)
-		var bend := dir * r.randf_range(0.05, 0.2)
-		var tone := r.randf()
+	var hw := 0.46
+	for i in 3:
+		var a := PI / 3.0 * i + 0.3
+		var d := Vector3(cos(a), 0.0, sin(a)) * hw
+		var n := Vector3(-sin(a), 0.0, cos(a))
 		var base := verts.size()
-		var pts := [off - side * w, off + side * w, off - side * w * 0.6 + Vector3(0, h * 0.55, 0) + bend * 0.4,
-			off + side * w * 0.6 + Vector3(0, h * 0.55, 0) + bend * 0.4, off + Vector3(0, h, 0) + bend]
-		var hs := [0.0, 0.0, 0.55, 0.55, 1.0]
-		for k in 5:
-			verts.append(pts[k])
-			norms.append((dir + Vector3(0, 0.5, 0)).normalized())
-			cols.append(Color(1, 1, 1, 1))
-		idx.append_array(PackedInt32Array([base, base + 1, base + 3, base, base + 3, base + 2, base + 2, base + 3, base + 4]))
+		verts.append_array(PackedVector3Array([-d, d, d + Vector3(0, GRASS_H, 0), -d + Vector3(0, GRASS_H, 0)]))
+		for k in 4:
+			norms.append(n)
+		uvs.append_array(PackedVector2Array([Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]))
+		idx.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = norms
-	arrays[Mesh.ARRAY_COLOR] = cols
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = idx
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)

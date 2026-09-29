@@ -248,8 +248,8 @@ static func build_mesh() -> ArrayMesh:
 			var bcf: Array = (mat.get("pbrMetallicRoughness", {}) as Dictionary).get("baseColorFactor", [0.5, 0.5, 0.5, 1.0])
 			var mid := _mat_id(mname)
 			# o shader eleva os tons escuros (x^0.74 roupa, x^0.82 pele); o pré-ajuste deixa o resultado em
-			# x^0.8 / x^0.88: a paleta do modelo, um pouco mais legível sob o céu nublado
-			var lift := 0.8 / 0.74 if mid > 0.1 else (0.88 / 0.82 if mname == "Skin" else 1.0)
+			# x^0.66 / x^0.8: a paleta do modelo clareada (o detalhe de tecido escurece o albedo)
+			var lift := 0.66 / 0.74 if mid > 0.1 else (0.8 / 0.82 if mname == "Skin" else 1.0)
 			var col := Color(pow(float(bcf[0]), lift), pow(float(bcf[1]), lift), pow(float(bcf[2]), lift), mid)
 			var rule := _rule(nm)
 			var uv_add := 10.0 if mname == "Hair" else (20.0 if mname == "Eyes" else 0.0)

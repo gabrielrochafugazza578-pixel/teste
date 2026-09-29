@@ -105,9 +105,15 @@ tools/         check.sh, bake_cinematic.gd
 ```
 
 Os assets (texturas, malhas, animações, sons, música) são **gerados pelo próprio jogo** a partir de código.
-A única exceção é o modelo do Caio: `assets/models/caio_survivor.bin` é o GLB "sobrevivente pós-apocalíptico"
-fornecido pelo autor do projeto (extensão `.bin` para o Godot não tentar importá-lo; o jogo lê o arquivo
-direto em `CaioModel`).
+Exceções (arquivos de fora, em `assets/`):
+
+* `assets/models/caio_survivor.bin` — o GLB "sobrevivente pós-apocalíptico" do Caio, fornecido pelo autor do
+  projeto (extensão `.bin` para o Godot não tentar importá-lo; o jogo lê o arquivo direto em `CaioModel`).
+* `assets/textures/grass_bush.png` — textura de moita de grama do addon
+  [SimpleGrassTextured](https://github.com/IcterusGames/SimpleGrassTextured) (IcterusGames, licença MIT,
+  texto em `assets/textures/grass_bush_LICENSE.txt`). Só a textura é usada: a grama continua espalhada
+  proceduralmente por chunk (MultiMesh), em 3 planos cruzados com alpha scissor, vento e empurrão do jogador
+  em `shaders/grass.gdshader`.
 
 ### Caio (modelo GLB)
 

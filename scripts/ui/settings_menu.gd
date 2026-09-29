@@ -82,6 +82,7 @@ func _build_graphics() -> void:
 	v.add_child(UIKit.row("VSync", UIKit.options(["Desligado", "Ligado", "Adaptativo"], int(g["vsync"]), func(i: int) -> void: _gset("vsync", i))))
 	v.add_child(UIKit.row("Limite de FPS", UIKit.options(["Sem limite", "30", "45", "60", "120"], [0, 30, 45, 60, 120].find(int(g["fps_limit"])), func(i: int) -> void: _gset("fps_limit", [0, 30, 45, 60, 120][i]))))
 	_add_gfx_slider(v, "fov", "Campo de visão", 55.0, 95.0, 1.0, "%.0f°", 1.0)
+	_add_gfx_slider(v, "brightness", "Brilho", 0.5, 2.0, 0.05, "%.0f%%", 100.0, "Clareia a imagem inteira (útil em monitores escuros e à noite).")
 	v.add_child(UIKit.separator())
 	_add_gfx_option(v, "texture_quality", "Qualidade das texturas", ["Baixa (256)", "Média (512)", "Alta (1024)", "Ultra (2048)"], "Requer reiniciar o jogo para regenerar as texturas.")
 	_add_gfx_option(v, "shadow_quality", "Sombras", QUALITY)
@@ -255,6 +256,7 @@ func _pset(key: String, value: Variant) -> void:
 func _reset_tab() -> void:
 	match tabs.current_tab:
 		0:
+			Settings.graphics["brightness"] = 1.0
 			Settings.apply_preset(Settings.detect_preset())
 			_refresh_graphics()
 			_gset("preset", Settings.graphics["preset"])

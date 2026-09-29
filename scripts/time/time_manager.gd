@@ -87,7 +87,7 @@ func sun_direction() -> Vector3:
 
 
 func daylight() -> float:
-	return smoothstep(-0.12, 0.25, sun_height())
+	return smoothstep(-0.18, 0.25, sun_height())
 
 
 func is_night() -> bool:

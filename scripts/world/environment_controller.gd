@@ -105,8 +105,8 @@ func _update(delta: float) -> void:
 	# --- cores do céu -----------------------------------------------------------
 	var zen_day := Color(0.2, 0.38, 0.68)
 	var hor_day := Color(0.62, 0.7, 0.78)
-	var zen_night := Color(0.012, 0.018, 0.04)
-	var hor_night := Color(0.05, 0.065, 0.1)
+	var zen_night := Color(0.02, 0.03, 0.06)
+	var hor_night := Color(0.075, 0.095, 0.145)
 	var zen := zen_night.lerp(zen_day, dl)
 	var hor := hor_night.lerp(hor_day, dl)
 	hor = hor.lerp(Color(0.95, 0.52, 0.3), dusk * 0.75)
@@ -132,20 +132,22 @@ func _update(delta: float) -> void:
 	var night := sh < -0.05
 	var light_dir := sd if not night else Vector3(-sd.x, absf(sd.y) * 0.6 + 0.35, -sd.z).normalized()
 	sun.look_at_from_position(Vector3.ZERO, -light_dir, Vector3.UP if absf(light_dir.y) < 0.99 else Vector3.FORWARD)
+	# sol some e a lua entra a partir de zero: sem salto de luz na troca de direção
 	if night:
-		sun.light_color = Color(0.55, 0.62, 0.8)
-		sun.light_energy = 0.32 * (1.0 - clouds * 0.6) + flash * 2.5
+		sun.light_color = Color(0.62, 0.7, 0.92)
+		sun.light_energy = 0.6 * smoothstep(-0.05, -0.2, sh) * (1.0 - clouds * 0.45) + flash * 2.5
 	else:
 		sun.light_color = Color(1.0, 0.95, 0.88).lerp(Color(1.0, 0.62, 0.38), dusk)
-		sun.light_energy = (0.2 + dl * 1.25) * (1.0 - clouds * 0.55 - dark * 0.3) + flash * 2.0
+		sun.light_energy = (0.3 + dl * 1.4) * smoothstep(-0.05, 0.04, sh) * (1.0 - clouds * 0.4 - dark * 0.25) + flash * 2.0
 	sun.shadow_opacity = clampf(1.0 - clouds * 0.6, 0.35, 1.0) if not night else 0.6
 	# --- ambiente ---------------------------------------------------------
 	var amb := hor.lerp(zen, 0.5)
 	amb = amb.lerp(Color(0.2, 0.22, 0.25), 0.25)
 	env.ambient_light_color = amb
-	var night_amb := Color(0.09, 0.11, 0.16)
+	# noite "de jogo": azulada e escura, mas com formas legíveis sem lanterna
+	var night_amb := Color(0.16, 0.19, 0.28)
 	env.ambient_light_color = amb.lerp(night_amb, 1.0 - dl)
-	env.ambient_light_energy = lerpf(1.0, 0.95, dl) * lerpf(1.0, 0.45, indoor) + flash * 1.5
+	env.ambient_light_energy = lerpf(1.75, 1.15, dl) * lerpf(1.0, 0.62, indoor) + flash * 1.5
 	env.ambient_light_sky_contribution = 0.0
 	# --- neblina ------------------------------------------------------------
 	var vd := Settings.get_view_distance()
@@ -155,22 +157,23 @@ func _update(delta: float) -> void:
 		fog_d = override_fog
 	env.fog_density = fog_d * lerpf(1.0, 0.35, indoor)
 	env.fog_light_color = hor.lerp(Color(0.5, 0.52, 0.55), 0.3)
-	env.fog_light_energy = 0.6 + dl * 0.5
+	env.fog_light_energy = 0.8 + dl * 0.35
 	env.fog_sun_scatter = 0.12 * dl * (1.0 - clouds)
 	# --- cor / tonemap ---------------------------------------------------------
 	env.adjustment_saturation = mood_saturation * lerpf(1.0, 0.8, clouds * 0.5)
-	env.adjustment_contrast = 1.06
+	env.adjustment_contrast = lerpf(0.95, 1.06, dl)
 	env.adjustment_brightness = 1.0 + (1.0 - dl) * 0.06
-	env.tonemap_exposure = exposure * lerpf(1.0, 1.25, 1.0 - dl) * lerpf(1.0, 1.35, indoor)
+	var bright := Settings.get_brightness()
+	env.tonemap_exposure = exposure * bright * lerpf(1.2, 2.5, 1.0 - dl) * lerpf(1.0, 1.15, indoor)
 	if underground:
 		sun.visible = false
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(0.01, 0.01, 0.012)
-		env.ambient_light_color = Color(0.1, 0.11, 0.13)
-		env.ambient_light_energy = 0.55
-		env.fog_density = 0.006
-		env.fog_light_color = Color(0.08, 0.08, 0.09)
-		env.tonemap_exposure = exposure * 1.25
+		env.ambient_light_color = Color(0.17, 0.18, 0.21)
+		env.ambient_light_energy = 1.0
+		env.fog_density = 0.004
+		env.fog_light_color = Color(0.1, 0.1, 0.11)
+		env.tonemap_exposure = exposure * bright * 1.45
 		dl = 0.0
 	elif not sun.visible:
 		sun.visible = true

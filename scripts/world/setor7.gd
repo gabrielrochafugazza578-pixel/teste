@@ -66,14 +66,15 @@ func build(g: Node) -> void:
 		for side: String in ["n", "s", "w", "e"]:
 			_room_wall(rn, r, side, wall_code, tint)
 	_furnish(metal, panels)
-	var m := _mesh.to_mesh(Assets.world_material("interior"))
-	var mi := MeshInstance3D.new()
-	mi.mesh = m
-	add_child(mi)
-	var pm := _props.to_mesh(Assets.world_material("props_interior"))
-	var pmi := MeshInstance3D.new()
-	pmi.mesh = pm
-	add_child(pmi)
+	# uma malha por sala (e o corredor em 3 trechos): cada pedaço só recebe as luzes
+	# vizinhas; numa malha única o limite de luzes por objeto apagava salas inteiras
+	for pair in [[_mesh, "interior"], [_props, "props_interior"]]:
+		var parts: Dictionary = (pair[0] as MeshBuf).split_by(_zone_of)
+		for k in parts.keys():
+			var mi := MeshInstance3D.new()
+			mi.name = "%s_%s" % [pair[1], k]
+			mi.mesh = (parts[k] as MeshBuf).to_mesh(Assets.world_material(pair[1]))
+			add_child(mi)
 	_lights()
 	_interactables()
 	built = true
@@ -86,6 +87,18 @@ func _sync_body() -> void:
 	if _body.is_valid() and is_inside_tree():
 		PhysicsServer3D.body_set_space(_body, get_world_3d().space)
 		PhysicsServer3D.body_set_state(_body, PhysicsServer3D.BODY_STATE_TRANSFORM, global_transform)
+
+
+## Zona de iluminação de um ponto (sala; o corredor longo é dividido em trechos).
+func _zone_of(p: Vector3) -> String:
+	var q := Vector2(p.x, p.z)
+	var cr: Rect2 = ROOMS["corridor"]
+	if cr.grow(0.15).has_point(q):
+		return "corridor_%d" % clampi(int((q.y - cr.position.y) / cr.size.y * 3.0), 0, 2)
+	for rn in ROOMS.keys():
+		if (ROOMS[rn] as Rect2).grow(0.3).has_point(q):
+			return rn
+	return "outros"
 
 
 func _room_wall(rn: String, r: Rect2, side: String, code: float, tint: Color) -> void:
@@ -264,20 +277,37 @@ func _furnish(metal: float, panels: float) -> void:
 
 func _lights() -> void:
 	# poucas luzes: brancas fracas + vermelhas de emergência piscando
-	var spots := [["lobby", Color(0.9, 0.95, 1.0), 0.8], ["corridor", Color(1.0, 0.15, 0.1), 1.2], ["lab", Color(0.85, 0.92, 1.0), 1.0],
-		["isolation", Color(0.7, 0.85, 1.0), 0.7], ["core", Color(0.4, 0.6, 1.0), 1.1], ["security", Color(1.0, 0.2, 0.12), 0.9]]
+	# (energias calibradas para enxergar a sala inteira; o clima vem da cor e do pisca)
+	var spots := [["lobby", Color(0.9, 0.95, 1.0), 2.6], ["corridor", Color(1.0, 0.15, 0.1), 1.2], ["lab", Color(0.85, 0.92, 1.0), 2.6],
+		["isolation", Color(0.7, 0.85, 1.0), 2.0], ["core", Color(0.4, 0.6, 1.0), 2.4], ["security", Color(1.0, 0.2, 0.12), 0.9]]
 	for s in spots:
 		var r: Rect2 = ROOMS[s[0]]
-		var l := OmniLight3D.new()
-		l.position = Vector3(r.get_center().x, H - 0.4, r.get_center().y)
-		l.omni_range = maxf(r.size.x, r.size.y) * 0.75
-		l.light_color = s[1]
-		l.light_energy = float(s[2])
-		l.shadow_enabled = false
-		add_child(l)
-		if (s[1] as Color).g < 0.3:
-			_alarm_lights.append(l)
+		var alarm := (s[1] as Color).g < 0.3
+		# salas grandes: duas luminárias ao longo do lado maior
+		var n := 2 if not alarm and maxf(r.size.x, r.size.y) > 12.0 else 1
+		for k in n:
+			var f := (k + 0.5) / n
+			var c := r.position + r.size * Vector2(f if r.size.x >= r.size.y else 0.5, 0.5 if r.size.x >= r.size.y else f)
+			var l := OmniLight3D.new()
+			l.position = Vector3(c.x, H - 0.4, c.y)
+			l.omni_range = minf(maxf(r.size.x, r.size.y) * (0.75 if n == 1 else 0.55) + 2.0, 12.0)
+			l.omni_attenuation = 0.6
+			l.light_color = s[1]
+			l.light_energy = float(s[2])
+			l.shadow_enabled = false
+			add_child(l)
+			if alarm:
+				_alarm_lights.append(l)
 	var r2: Rect2 = ROOMS["corridor"]
+	# luz de serviço branca fraca no corredor (o vermelho sozinho deixava tudo preto)
+	for f in [0.3, 0.72]:
+		var lw := OmniLight3D.new()
+		lw.position = Vector3(r2.get_center().x, H - 0.4, r2.position.y + r2.size.y * f)
+		lw.omni_range = 11.0
+		lw.omni_attenuation = 0.7
+		lw.light_color = Color(0.8, 0.86, 0.95)
+		lw.light_energy = 1.1
+		add_child(lw)
 	var l2 := OmniLight3D.new()
 	l2.position = Vector3(0, H - 0.4, r2.position.y + 6.0)
 	l2.omni_range = 12.0

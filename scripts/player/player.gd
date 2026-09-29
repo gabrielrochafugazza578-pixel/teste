@@ -30,6 +30,9 @@ var blocking: bool = false
 var aiming: bool = false
 var in_vehicle: Node = null
 var flashlight: SpotLight3D
+var flash_fill: OmniLight3D
+const FLASH_ENERGY := 9.0
+const FILL_ENERGY := 1.3
 var flashlight_on: bool = false
 var interact_area: Area3D
 var current_interactable: Node = null
@@ -115,16 +118,29 @@ func _ready() -> void:
 	ics.position = Vector3(0, 1.0, 0)
 	interact_area.add_child(ics)
 	add_child(interact_area)
+	# facho longo e largo (queda de distância suave) + um brilho de rebote em volta,
+	# senão o cone some atrás do próprio Caio na câmera de ombro
 	flashlight = SpotLight3D.new()
-	flashlight.spot_range = 26.0
-	flashlight.spot_angle = 28.0
-	flashlight.spot_attenuation = 0.9
-	flashlight.light_energy = 3.2
+	flashlight.spot_range = 34.0
+	flashlight.spot_angle = 36.0
+	flashlight.spot_angle_attenuation = 0.8
+	flashlight.spot_attenuation = 0.55
+	flashlight.light_energy = FLASH_ENERGY
 	flashlight.light_color = Color(1.0, 0.95, 0.85)
+	flashlight.light_specular = 0.4
 	flashlight.shadow_enabled = bool(Settings.get_shadow_params()["local_shadows"])
 	flashlight.visible = false
 	add_child(flashlight)
 	flashlight.top_level = true
+	flash_fill = OmniLight3D.new()
+	flash_fill.omni_range = 6.5
+	flash_fill.omni_attenuation = 0.8
+	flash_fill.light_energy = FILL_ENERGY
+	flash_fill.light_color = Color(0.95, 0.92, 0.85)
+	flash_fill.light_specular = 0.0
+	flash_fill.shadow_enabled = false
+	flash_fill.position = Vector3(0.0, 0.0, -1.6)
+	flashlight.add_child(flash_fill)
 	inventory = Inventory.new("player", 5.0, 6, "Bolsos")
 	survival.died.connect(_on_died)
 	survival.symptom.connect(_on_symptom)
@@ -856,10 +872,13 @@ func _update_flashlight(delta: float) -> void:
 		flashlight.visible = false
 		EventBus.toast("A pilha da lanterna acabou.", "warn")
 		return
-	flashlight.light_energy = 3.2 * clampf(bat / 15.0, 0.25, 1.0) * (0.92 + randf() * 0.08 if bat < 10.0 else 1.0)
+	var k := clampf(bat / 15.0, 0.25, 1.0) * (0.92 + randf() * 0.08 if bat < 10.0 else 1.0)
+	flashlight.light_energy = FLASH_ENERGY * k
+	flash_fill.light_energy = FILL_ENERGY * k
 	var chest := body.bone_global_position("chest") + Vector3(0, 0.05, 0)
 	flashlight.global_position = chest + (-body.global_transform.basis.z) * 0.25 + cam_rig.flat_right() * 0.12
-	var target := cam_rig.cam.global_position + cam_rig.look_dir() * 20.0
+	# mira um pouco abaixo da linha do olhar: o chão à frente fica iluminado
+	var target := cam_rig.cam.global_position + cam_rig.look_dir() * 12.0 + Vector3(0, -1.6, 0)
 	if flashlight.global_position.distance_to(target) > 0.5:
 		flashlight.look_at(target, Vector3.UP)
 
