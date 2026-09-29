@@ -23,6 +23,8 @@ static func build(layout: WorldLayout, c: Vector2i, res: int, want_collision: bo
 			hb[iz * (n + 2) + ix] = layout.height(x, z)
 	var heights := PackedFloat32Array()
 	heights.resize(n * n)
+	# altura física: a pista fica ROAD_EPS acima da malha desenhada
+	var has_road := layout.chunk_flatten.has(c)
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
 	var tans := PackedFloat32Array()
@@ -44,7 +46,7 @@ static func build(layout: WorldLayout, c: Vector2i, res: int, want_collision: bo
 			var x := x0 + float(ix) * cell
 			var z := z0 + float(iz) * cell
 			var i := iz * n + ix
-			heights[i] = h
+			heights[i] = h + (layout.road_lift(x, z) if has_road else 0.0)
 			verts[i] = Vector3(x, h, z)
 			var nrm := Vector3(hl - hr, 2.0 * cell, hd - hu).normalized()
 			norms[i] = nrm
@@ -125,9 +127,9 @@ static func build(layout: WorldLayout, c: Vector2i, res: int, want_collision: bo
 		for q in range(0, idx.size(), 3):
 			if idx[q] >= n * n:
 				break
-			faces.append(verts[idx[q]])
-			faces.append(verts[idx[q + 2]])
-			faces.append(verts[idx[q + 1]])
+			for k: int in [0, 2, 1]:
+				var vi: int = idx[q + k]
+				faces.append(Vector3(verts[vi].x, heights[vi], verts[vi].z))
 		out["faces"] = faces
 	out["water"] = _water(layout, c, hb, n, cell, x0, z0)
 	return out

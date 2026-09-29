@@ -19,6 +19,9 @@ const CHUNK := 64.0
 const URBAN := Rect2(-900.0, -800.0, 1900.0, 1300.0)
 const SPACING := 100.0
 const CURB := 0.12
+## O terreno desenhado fica ROAD_EPS abaixo da pista (evita z-fighting); a física
+## e tudo que é posto no chão usa a altura da pista (ver road_lift/ground_height).
+const ROAD_EPS := 0.06
 const SIDEWALK := 3.5
 const RIVER_HALF := 18.0
 const RIVER_LEVEL := -2.2
@@ -166,6 +169,10 @@ func height(x: float, z: float) -> float:
 	# rodovias achatam o terreno ao redor
 	var fl: Array = chunk_flatten.get(c, [])
 	if not fl.is_empty():
+		# segmento mais próximo (distância ao eixo menos a meia-largura): empate na
+		# emenda de dois trechos da polilinha não pode escolher o trecho vizinho,
+		# senão o terreno vira um platô e a pista fica flutuando sobre ele
+		var best_e := INF
 		var best_w := 0.0
 		var best_y := 0.0
 		for si in fl:
@@ -176,10 +183,10 @@ func height(x: float, z: float) -> float:
 			var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
 			var d := p.distance_to(a + ab * t)
 			var hw: float = seg["hw"]
-			var w := 1.0 - smoothstep(hw + 1.0, hw + 24.0, d)
-			if w > best_w:
-				best_w = w
-				best_y = lerpf(float(seg["ya"]), float(seg["yb"]), t) - 0.06
+			if d - hw < best_e:
+				best_e = d - hw
+				best_w = 1.0 - smoothstep(hw + 1.0, hw + 24.0, d)
+				best_y = lerpf(float(seg["ya"]), float(seg["yb"]), t) - ROAD_EPS
 		if best_w > 0.0:
 			h = lerpf(h, best_y, best_w)
 	# rio
@@ -198,13 +205,32 @@ func height(x: float, z: float) -> float:
 	return h
 
 
-## Altura física (colisão/NPCs). Igual à visual exceto calçadas/quarteirões.
+## Quanto a superfície física sobe acima do terreno desenhado: ROAD_EPS onde
+## a pista achata o terreno (peso 1), diminuindo junto com o achatamento.
+func road_lift(x: float, z: float) -> float:
+	var fl: Array = chunk_flatten.get(Vector2i(floori(x / CHUNK), floori(z / CHUNK)), [])
+	if fl.is_empty():
+		return 0.0
+	var p := Vector2(x, z)
+	var best_w := 0.0
+	for si in fl:
+		var seg: Dictionary = roads[si]
+		var a: Vector2 = seg["a"]
+		var ab: Vector2 = (seg["b"] as Vector2) - a
+		var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		var hw: float = seg["hw"]
+		best_w = maxf(best_w, 1.0 - smoothstep(hw + 1.0, hw + 24.0, p.distance_to(a + ab * t)))
+	return ROAD_EPS * best_w
+
+
+## Altura física (colisão/NPCs). Igual à visual exceto calçadas/quarteirões e
+## a pista (que fica ROAD_EPS acima do terreno desenhado).
 func ground_height(x: float, z: float) -> float:
 	if URBAN.has_point(Vector2(x, z)):
 		return CURB if block_at(x, z) >= 0 else 0.0
 	if absf(x) < TUNNEL_HW + 2.0 and z < TUNNEL_Z_SOUTH and z > TUNNEL_Z_NORTH:
 		return TUNNEL_Y
-	return height(x, z)
+	return height(x, z) + road_lift(x, z)
 
 
 func river_distance(x: float, z: float) -> float:
@@ -337,7 +363,7 @@ func _north_profile(z: float) -> float:
 	return lerpf(9.0, 5.0, smoothstep(-1340.0, -1536.0, z))
 
 
-func _polyline_road(ctrl: Array, hw: float, kind: String, marks: int, north_profile: bool = false) -> void:
+func _polyline_road(ctrl: Array, hw: float, kind: String, marks: int, north_profile: bool = false, anchor_y: float = NAN) -> void:
 	var pts: Array = []
 	for i in ctrl.size() - 1:
 		var a: Vector2 = ctrl[i]
@@ -366,6 +392,9 @@ func _polyline_road(ctrl: Array, hw: float, kind: String, marks: int, north_prof
 		var pv: Vector2 = pts[i]
 		if URBAN.grow(2.0).has_point(pv):
 			y = 0.02
+		# ramal que sai de outra estrada: começa na altura dela e desce até o terreno natural
+		if not is_nan(anchor_y):
+			y = lerpf(anchor_y, y, smoothstep(0.0, 6.0, float(i)))
 		elev.append(y)
 	for i in pts.size() - 1:
 		var a: Vector2 = pts[i]
@@ -401,7 +430,7 @@ func _highways() -> void:
 	_polyline_road([Vector2(1006, -800), Vector2(980, -900), Vector2(950, -990)], 3.0, "dirt", 0)
 	_polyline_road([Vector2(-906, -300), Vector2(-1080, -320), Vector2(-1240, -350)], 3.0, "dirt", 0)
 	_polyline_road([Vector2(-906, 150), Vector2(-1100, 150)], 3.0, "dirt", 0)
-	_polyline_road([Vector2(0, -900), Vector2(150, -930), Vector2(250, -950)], 3.0, "dirt", 0)
+	_polyline_road([Vector2(0, -900), Vector2(150, -930), Vector2(250, -950)], 3.0, "dirt", 0, false, _north_profile(-900.0))
 
 
 # ---------------------------------------------------------------------------

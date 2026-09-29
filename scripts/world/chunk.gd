@@ -334,7 +334,8 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		mm.instance_count = list.size()
 		for i in list.size():
 			var car: Dictionary = list[i]
-			mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, float(car["yaw"])), car["pos"]))
+			var car_basis := Basis(Vector3.UP, float(car["yaw"])) * Basis(Vector3.RIGHT, float(car.get("pitch", 0.0)))
+			mm.set_instance_transform(i, Transform3D(car_basis, car["pos"]))
 			var col: Color = car["color"]
 			if burned:
 				col = Color(0.12, 0.1, 0.09)
@@ -343,7 +344,7 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 			mm.set_instance_color(i, col)
 			var dims := VehicleMeshBuilder.dims(type)
 			var sz := Vector3(float(dims["W"]), float(dims["roof"]) * 0.8, float(dims["L"]))
-			p["colliders"].append([Transform3D(Basis(Vector3.UP, float(car["yaw"])), (car["pos"] as Vector3) + Vector3(0, sz.y * 0.5, 0)), sz])
+			p["colliders"].append([Transform3D(car_basis, (car["pos"] as Vector3) + car_basis * Vector3(0, sz.y * 0.5, 0)), sz])
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.visibility_range_end = 260.0

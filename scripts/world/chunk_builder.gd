@@ -569,7 +569,7 @@ static func _nature(layout: WorldLayout, c: Vector2i, trees: Dictionary, lod: in
 				continue
 			if absf(p.x) < 20.0 and p.y < WorldLayout.TUNNEL_Z_SOUTH + 30.0 and p.y > WorldLayout.TUNNEL_Z_NORTH - 30.0:
 				continue
-			var h := layout.height(p.x, p.y)
+			var h := layout.ground_height(p.x, p.y)
 			var kind := "broadleaf"
 			var pr := r.randf()
 			if dist == "serra" or h > 38.0:
@@ -623,7 +623,7 @@ static func _grass(layout: WorldLayout, c: Vector2i, opts: Dictionary) -> Array:
 			else:
 				if layout.is_water(p.x, p.y):
 					continue
-				y = layout.height(p.x, p.y)
+				y = layout.ground_height(p.x, p.y)
 				if y > 45.0 and r.randf() < 0.6:
 					continue
 			var s := r.randf_range(0.7, 1.35)
@@ -681,7 +681,10 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 				var ya: float = seg["ya"]
 				var yb: float = seg["yb"]
 				var y := lerpf(ya, yb, t / len)
-				cars.append({"pos": Vector3(p2.x, y, p2.y), "yaw": yaw, "type": ["compact", "sedan", "sedan", "hatch", "pickup", "van", "suv"][r.randi() % 7],
+				# inclina o carro junto com a pista (a serra chega a ~8% de rampa)
+				var nose := Vector2(-sin(yaw), -cos(yaw))
+				var pitch := atan((yb - ya) / maxf(len, 0.001) * nose.dot(dir))
+				cars.append({"pos": Vector3(p2.x, y, p2.y), "yaw": yaw, "pitch": pitch, "type": ["compact", "sedan", "sedan", "hatch", "pickup", "van", "suv"][r.randi() % 7],
 					"color": Color.from_hsv(r.randf(), r.randf_range(0.1, 0.7), r.randf_range(0.25, 0.9)), "state": state,
 					"uid": "car_%d_%d_%d" % [c.x, c.y, int(t * 10.0)]})
 			t += r.randf_range(7.0, 14.0)
@@ -749,7 +752,7 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 			for k in 4:
 				var a := TAU * k / 4.0 + cr.randf() * 0.5
 				var tp := Vector3(pp.x + cos(a) * 6.0, 0, pp.z + sin(a) * 6.0)
-				tp.y = layout.height(tp.x, tp.z)
+				tp.y = layout.ground_height(tp.x, tp.z)
 				_add_prop(props, "tent", Transform3D(Basis(Vector3.UP, a + PI * 0.5), tp), Color(cr.randf_range(0.5, 1.2), cr.randf_range(0.5, 1.2), cr.randf_range(0.5, 1.2), 0), colliders, true)
 			_add_prop(props, "campfire", Transform3D(Basis.IDENTITY, pp))
 			_add_prop(props, "tarp_shelter", Transform3D(Basis(Vector3.UP, 0.4), pp + Vector3(3, 0, -4)))
