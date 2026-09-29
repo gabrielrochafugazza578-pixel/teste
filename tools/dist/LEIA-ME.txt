@@ -36,6 +36,23 @@ CONTROLES (remapeáveis em Configurações → Controles)
   F5 salvar rápido · F9 carregar rápido · F3 painel de desempenho · F1 esconder HUD
   Gamepad (Xbox/PlayStation) também funciona.
 
+NOVIDADES DESTA VERSÃO
+  - Casas, lojas, delegacia, escritórios e galpões por dentro com móveis,
+    louça, quadros e luminárias, tudo abandonado: móveis tombados, lixo,
+    manchas, pichações, janelas tapadas com tábuas, forro caído.
+  - Itens soltos em cima de mesas, balcões, camas e no chão, cada um com
+    modelo próprio. O painel "ITENS POR PERTO" (lado direito da tela) mostra
+    o que está ao seu redor; o item na mira fica destacado com a tecla E.
+    Segurando Alt dá para clicar no item da lista para pegar.
+  - Muitas armas novas: canivete, cutelo, soco-inglês, machadinha, picareta,
+    foice, enxada, katana, bastões, pistolas, submetralhadora, espingardas,
+    carabina .22, rifle com luneta, carabina policial e besta. Mouse direito
+    mira (armas longas vão ao ombro; rifle com luneta aproxima), esquerdo
+    atira; armas automáticas atiram enquanto o botão estiver apertado.
+    Munição é item à parte (cada arma usa a sua) e arma achada vem com um
+    pouco de munição do lado.
+  - Texturas mais detalhadas no mundo todo.
+
 OPÇÕES DE LINHA DE COMANDO
   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)
   ./jogar.sh -- --skip-menu --skip-opening     novo jogo sem a abertura
