@@ -145,6 +145,8 @@ static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open
 			detail.box(Vector3(x1 - 0.12, top + ph * 0.5, (z0 + z1) * 0.5), Vector3(0.24, ph, r.size.y - 0.48), pc, seedf, tint * 0.95)
 	if lod == 0:
 		_details(b, detail, top, seedf)
+		if roof != "gable" and t not in ["church", "gas_station", "guardhouse"]:
+			_roof_clutter(b, detail, top, seedf, relief >= 2)
 		if relief > 0:
 			_relief(b, detail, shell, top, seedf, relief >= 2)
 	# colisão
@@ -298,6 +300,122 @@ static func _details(b: Dictionary, d: MeshBuf, top: float, seedf: float) -> voi
 				off.x = -off.x
 			d.box(cp + off + Vector3(0, 1.8, 0), Vector3(0.3, 3.6, 0.3), CON, seedf, Color(0.8, 0.8, 0.8))
 			d.add_box_collider(cp + off + Vector3(0, 1.8, 0), Vector3(0.3, 3.6, 0.3))
+
+
+## Laje de cobertura: manchas de impermeabilização, condensadoras de ar,
+## caixas d'água, dutos, respiros e claraboias — vista de cima (tomadas aéreas,
+## mirante) a cidade deixa de ser um tabuleiro de caixas lisas.
+static func _roof_clutter(b: Dictionary, d: MeshBuf, top: float, seedf: float, fine: bool = true) -> void:
+	var t: String = b["type"]
+	var r: Rect2 = b["rect"]
+	if r.size.x < 5.0 or r.size.y < 5.0:
+		return
+	var rng := Util.rng(int(b["seed"]) * 13 + 5)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var CON := Assets.uv2_code(Assets.L_CONCRETE)
+	var ROOF := Assets.uv2_code(int(b["roof_layer"]))
+	var inner := r.grow(-0.9)
+	var c := r.get_center()
+	# a casa de máquinas de _details ocupa este canto
+	var taken: Array = []
+	if t in ["tower", "office", "apartment"]:
+		taken.append(Rect2(c.x + r.size.x * 0.2 - 2.4, c.y - 2.2, 4.8, 4.4))
+		taken.append(Rect2(c.x - r.size.x * 0.25 - 0.8, c.y + 0.2, 1.6, 1.6))
+	var free := func(q: Rect2) -> bool:
+		if not inner.encloses(q):
+			return false
+		for o: Rect2 in taken:
+			if o.intersects(q):
+				return false
+		taken.append(q)
+		return true
+	var spot := func(sz: Vector2) -> Vector2:
+		for k in 8:
+			var p := Vector2(rng.randf_range(inner.position.x + sz.x * 0.5, inner.end.x - sz.x * 0.5),
+				rng.randf_range(inner.position.y + sz.y * 0.5, inner.end.y - sz.y * 0.5))
+			if free.call(Rect2(p - sz * 0.5 - Vector2(0.4, 0.4), sz + Vector2(0.8, 0.8))):
+				return p
+		return Vector2.INF
+	# manchas/remendos da manta (tons diferentes; 5 cm de espessura evita briga de depth de longe)
+	for i in rng.randi_range(2, 4):
+		var sz := Vector2(rng.randf_range(0.2, 0.5) * r.size.x, rng.randf_range(0.2, 0.5) * r.size.y)
+		var p := Vector2(rng.randf_range(inner.position.x + sz.x * 0.5, inner.end.x - sz.x * 0.5),
+			rng.randf_range(inner.position.y + sz.y * 0.5, inner.end.y - sz.y * 0.5))
+		var k := rng.randf_range(0.72, 1.08)
+		# cada remendo numa altura: dois que se cruzam não ficam coplanares
+		var ph := 0.04 + i * 0.03
+		d.box(Vector3(p.x, top + ph * 0.5, p.y), Vector3(sz.x, ph, sz.y), ROOF, seedf, Color(0.75 * k, 0.74 * k, 0.72 * k), 55)
+	var tall := int(b["floors"]) >= 3
+	var comm := t in ["commercial", "office", "tower", "hospital", "market", "terminal", "school", "clinic", "police", "lab"]
+	# condensadoras de ar em fileira
+	if comm or rng.randf() < 0.5:
+		var n := rng.randi_range(2, 5 if comm else 3)
+		var along_x := rng.randf() < 0.5
+		var sz := Vector2(n * 1.5, 1.0) if along_x else Vector2(1.0, n * 1.5)
+		var p0: Vector2 = spot.call(sz)
+		if p0 != Vector2.INF:
+			for i in n:
+				var o := (i - (n - 1) * 0.5) * 1.5
+				var q := p0 + (Vector2(o, 0) if along_x else Vector2(0, o))
+				d.box(Vector3(q.x, top + 0.08, q.y), Vector3(1.2, 0.16, 0.7), MET, seedf, Color(0.4, 0.4, 0.4))
+				d.append(PropLib.buf("ac_unit"), Transform3D(Basis(Vector3.UP, 0.0 if along_x else PI * 0.5).scaled(Vector3.ONE * 1.5), Vector3(q.x, top + 0.16, q.y)))
+	# central de ar (caixa grande com ventilador) nos comerciais
+	if comm and r.size.x > 12.0 and r.size.y > 12.0:
+		for i in rng.randi_range(1, 2):
+			var p: Vector2 = spot.call(Vector2(3.2, 2.2))
+			if p == Vector2.INF:
+				continue
+			d.box(Vector3(p.x, top + 0.75, p.y), Vector3(3.0, 1.5, 2.0), MET, seedf, Color(0.78, 0.79, 0.78))
+			d.cylinder(Transform3D(Basis.IDENTITY, Vector3(p.x - 0.6, top + 1.5, p.y)), 0.55, 0.12, 12, MET, seedf, Color(0.25, 0.26, 0.27))
+			d.cylinder(Transform3D(Basis.IDENTITY, Vector3(p.x + 0.8, top + 1.5, p.y)), 0.4, 0.1, 10, MET, seedf, Color(0.25, 0.26, 0.27))
+			# duto que desce para dentro da laje
+			d.box(Vector3(p.x, top + 0.3, p.y + 1.5), Vector3(0.6, 0.6, 1.0), MET, seedf, Color(0.7, 0.71, 0.7))
+	# caixa d'água: de fibra (azul) nos baixos, reservatório de concreto nos altos
+	if t not in ["market", "terminal", "warehouse", "stadium"] and rng.randf() < 0.75:
+		if tall and r.size.x > 10.0 and r.size.y > 10.0:
+			var p: Vector2 = spot.call(Vector2(4.0, 3.4))
+			if p != Vector2.INF:
+				for sx: float in [-1.4, 1.4]:
+					for sz: float in [-1.1, 1.1]:
+						d.box(Vector3(p.x + sx, top + 0.6, p.y + sz), Vector3(0.3, 1.2, 0.3), CON, seedf, Color(0.62, 0.62, 0.6))
+				d.box(Vector3(p.x, top + 2.2, p.y), Vector3(3.6, 2.0, 3.0), CON, seedf, Color(0.7, 0.69, 0.66))
+		else:
+			for i in rng.randi_range(1, 2):
+				var p: Vector2 = spot.call(Vector2(2.0, 2.0))
+				if p != Vector2.INF:
+					d.append(PropLib.buf("water_tank"), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * rng.randf_range(1.2, 1.6)), Vector3(p.x, top, p.y)))
+	# claraboias (mercado, terminal, galpões e escolas)
+	if t in ["market", "terminal", "school", "warehouse"] or (comm and rng.randf() < 0.3):
+		var n := clampi(int(r.size.x / 6.0), 1, 5)
+		var wz := c.y + rng.randf_range(-0.2, 0.2) * r.size.y
+		for i in n:
+			var q := Vector2(r.position.x + r.size.x * (i + 0.5) / n, wz)
+			if not free.call(Rect2(q - Vector2(1.4, 1.8), Vector2(2.8, 3.6))):
+				continue
+			d.box(Vector3(q.x, top + 0.2, q.y), Vector3(2.2, 0.4, 3.0), MET, seedf, Color(0.55, 0.56, 0.57))
+			d.box_xf(Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(q.x, top + 0.47, q.y)), Vector3(2.0, 0.06, 2.8), MET, seedf, Color(0.16, 0.2, 0.24))
+	# saída da escada (casinha com porta) quando não há casa de máquinas
+	if tall and t not in ["tower", "office", "apartment"]:
+		var p: Vector2 = spot.call(Vector2(2.4, 2.2))
+		if p != Vector2.INF:
+			d.box(Vector3(p.x, top + 1.2, p.y), Vector3(2.2, 2.4, 2.0), CON, seedf, (b["tint"] as Color) * 0.95)
+			d.box(Vector3(p.x, top + 1.0, p.y - 1.02), Vector3(0.9, 2.0, 0.05), MET, seedf, Color(0.35, 0.37, 0.4))
+	# miúdos (somem de longe: no LOD 1 só cintilariam)
+	if not fine:
+		return
+	# respiros e tubos
+	for i in rng.randi_range(2, 6):
+		var p: Vector2 = spot.call(Vector2(0.4, 0.4))
+		if p == Vector2.INF:
+			continue
+		var h := rng.randf_range(0.4, 1.1)
+		d.cylinder(Transform3D(Basis.IDENTITY, Vector3(p.x, top, p.y)), rng.randf_range(0.06, 0.14), h, 6, MET, seedf, Color(0.5, 0.5, 0.5))
+	# parabólica / antena de TV
+	if rng.randf() < 0.35:
+		var p: Vector2 = spot.call(Vector2(1.2, 1.2))
+		if p != Vector2.INF:
+			d.cylinder(Transform3D(Basis.IDENTITY, Vector3(p.x, top, p.y)), 0.04, 0.9, 5, MET, seedf, Color(0.45, 0.45, 0.45))
+			d.cylinder(Transform3D(Basis(Vector3.RIGHT, -1.0) * Basis(Vector3.UP, rng.randf() * TAU), Vector3(p.x, top + 1.0, p.y)), 0.45, 0.08, 12, MET, seedf, Color(0.82, 0.82, 0.8), true, 0.05)
 
 
 ## Relevo das fachadas (só no LOD 0, mesclado na malha de detalhe do chunk):

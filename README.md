@@ -189,9 +189,12 @@ Exceções (arquivos de fora, em `assets/`):
 A abertura é renderizada **em tempo real**, com o mesmo mundo, personagens, materiais, iluminação, partículas,
 clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
 
-1. **A cidade normal** — câmera aérea desce até a Avenida Central: trânsito, ônibus, táxis, pedestres, lojas.
-2. **Laboratório NEXUS** — pesquisadores, computadores, corredores, a Dra. Helena trabalhando; "PROJECT NEXUS" discreto.
-3. **O acidente** — alarme, luzes de emergência, faíscas, fumaça, pesquisadores correndo, porta selada.
+1. **A cidade normal** — manhã de sol; a câmera aérea desce pela Avenida Central com as fachadas iluminadas
+   (letreiro "SANTA AURORA"): trânsito, ônibus, táxis, pedestres, lojas, telhados com caixas d'água e ar-condicionado.
+2. **Laboratório NEXUS** — luminárias fluorescentes acesas, piso vinílico, lambri com a faixa do projeto,
+   pesquisadores, computadores, a Dra. Helena trabalhando; "PROJECT NEXUS" discreto.
+3. **O acidente** — a energia cai (luminárias apagam), alarme e luzes vermelhas de emergência, faíscas, fumaça,
+   pesquisadores correndo, porta selada.
 4. **O primeiro paciente** — pelo vidro da observação, Rafael muda: postura, tiques, a mão no vidro, o sorriso.
 5. **A contaminação** — hospital São Lucas, ambulâncias com sirene, polícia, pessoas tossindo.
 6. **O colapso** — pânico nas ruas, barricada, saque no mercado, plantão na TV, helicóptero, onda de apagão.
@@ -206,7 +209,9 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
 * `cinematics/opening.json` — cenas (fase do mundo, hora, clima, música, interior, preparação) e tomadas
   (âncora, duração, chaves de câmera `[t, posição, alvo, fov]`, eventos com tempo). Âncoras:
   `poi:<id>`, `door:<poi>` (x = lateral, z = para fora da porta), `marker:<poi>:<marcador>` (interiores),
-  `caio`, `caio_follow`. `ground: true` torna o *y* relativo ao chão.
+  `caio`, `caio_follow`. `ground: true` torna o *y* relativo ao chão. `focus: [[x, y, z], …]` (tomada) lista
+  pontos do trajeto que precisam estar carregados antes da cena; `power_out: true` (cena de interior) mantém
+  o prédio sem luz.
 * Eventos disponíveis: `actor`, `place`, `walk`, `face`, `anim`, `infect`, `sound`, `sound3d`, `subtitle`,
   `music`, `card`, `shake`, `alarm`, `lights`, `flicker`, `door`, `sparks`, `smoke`, `smoke_column`, `papers`,
   `tv`, `traffic`, `crowd`, `crowd_at`, `anim_crowd`, `vehicle`, `drive`, `helicopter`, `blackout`,

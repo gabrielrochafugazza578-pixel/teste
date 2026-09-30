@@ -41,7 +41,9 @@ varying vec3 w_pos;
 varying vec3 w_nrm;
 varying flat float v_layer;
 varying flat float v_wmode;
-varying float v_seed;
+// flat: a semente é constante no objeto; interpolada, sai com erro de ~1e-7 que o
+// hash das janelas amplifica até virar "chuvisco" pixel a pixel
+varying flat float v_seed;
 varying vec4 v_tint;
 
 // Degrau/faixa com antisserrilhado analítico (largura de 1 pixel via fwidth):
@@ -235,7 +237,9 @@ void fragment() {
 			float occupancy = shop ? 0.85 : (0.25 + 0.45 * (1.0 - daylight));
 			float lit = mix(step(rnd, occupancy), occupancy, far_fade) * powered * (1.0 - broken);
 			vec3 warm = mix(vec3(1.0, 0.72, 0.42), vec3(0.75, 0.85, 1.0), step(0.7, rnd2));
-			emit = warm * lit * (0.55 + rnd * 0.9) * (shop ? 1.6 : 1.0) * mix(0.35, 1.0, 1.0 - daylight) * emission_boost * win;
+			// à noite a exposição do "olho" sobe ~3x: janela acesa mais fraca que isso
+			// estourava em branco puro (vitrines viravam placas brancas)
+			emit = warm * lit * (0.4 + rnd * 0.55) * (shop ? 1.2 : 1.0) * mix(0.35, 0.6, 1.0 - daylight) * emission_boost * win;
 		}
 	}
 

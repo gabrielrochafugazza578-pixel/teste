@@ -17,7 +17,7 @@ global uniform float blackout_radius;
 
 varying vec3 w_pos;
 varying vec3 w_nrm;
-varying float b_seed;
+varying flat float b_seed;
 
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 

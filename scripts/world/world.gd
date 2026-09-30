@@ -604,7 +604,9 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		var wb := Station.new()
 		root.add_child(wb)
 		wb.setup("workbench", wbs[0], 0.0, "wb_%d" % bi)
-	var powered := GameState.world_phase == GameState.Phase.PRE or GameState.has_flag("power_" + str(bi))
+	var powered := building_powered(bi)
+	if powered and not (data.get("lamps", []) as Array).is_empty():
+		root.add_child(_lamp_panels(data["lamps"]))
 	for s in data["screens"]:
 		var q := QuadMesh.new()
 		q.size = s["size"]
@@ -633,7 +635,10 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		l.transform = Transform3D(xf.basis * Basis(Vector3.UP, PI), xf.origin)
 		root.add_child(l)
 	var nlights := 0
-	for li in data["lights"]:
+	# luzes marcadas com "prio" (salão do laboratório) primeiro: o limite é baixo
+	var lights: Array = (data["lights"] as Array).filter(func(l): return l.has("prio"))
+	lights.append_array((data["lights"] as Array).filter(func(l): return not l.has("prio")))
+	for li in lights:
 		if not powered or nlights >= 5:
 			break
 		var ol := OmniLight3D.new()
@@ -754,6 +759,18 @@ func is_indoors(pos: Vector3) -> bool:
 		return false
 	var b: Dictionary = layout.buildings[bi]
 	return pos.y < float(b["base"]) + BuildingGen.total_height(b) - 0.2
+
+
+## Dentro de um prédio com energia (luzes acesas)?
+func indoor_powered(pos: Vector3) -> bool:
+	var bi := layout.building_at(pos, -0.2)
+	if bi < 0 or not is_indoors(pos):
+		return false
+	return building_powered(bi)
+
+
+func building_powered(bi: int) -> bool:
+	return GameState.world_phase == GameState.Phase.PRE or GameState.has_flag("power_" + str(bi))
 
 
 func acoustic_mode(pos: Vector3) -> String:
@@ -899,3 +916,31 @@ func _update_light_pool() -> void:
 			l.light_energy = 1.6 * power
 		else:
 			l.visible = false
+
+
+## Difusores acesos das luminárias fluorescentes (um MultiMesh por interior).
+func _lamp_panels(xfs: Array) -> MultiMeshInstance3D:
+	var q := QuadMesh.new()
+	q.size = Vector2(1.16, 0.22)
+	q.orientation = PlaneMesh.FACE_Y
+	q.flip_faces = true
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.9, 0.92, 0.95)
+	# acima de 1 para "estourar" como lâmpada de verdade (e acender o glow)
+	m.emission_enabled = true
+	m.emission = Color(0.93, 0.96, 1.0)
+	m.emission_energy_multiplier = 2.6
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	q.material = m
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = q
+	mm.instance_count = xfs.size()
+	for i in xfs.size():
+		mm.set_instance_transform(i, xfs[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.name = "LampPanels"
+	mi.multimesh = mm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.add_to_group("lamp_panels")
+	return mi

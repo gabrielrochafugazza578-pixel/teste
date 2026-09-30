@@ -111,6 +111,13 @@ NOVIDADES DESTA VERSÃO
   - Marcas de violência discretas: manchas de sangue, furos de bala nas
     paredes, alguns restos cobertos. Tiros deixam furos, golpes e tiros em
     infectados deixam respingos e os corpos deixam uma poça.
+  - Relógio: um dia inteiro (24 h de jogo) dura 48 minutos reais. Dá para
+    mudar em Configurações → Jogo (24, 48, 72 ou 96 minutos).
+  - Abertura melhorada: voo aéreo de manhã com sol nas fachadas, janelas
+    sem "chuvisco" (o ruído que aparecia nos vidros e piscava à noite),
+    vitrines que não estouram em branco, laboratório com luzes acesas que
+    apagam no acidente e dão lugar à luz vermelha de emergência.
+  - Telhados com caixas d'água, ar-condicionado, dutos e claraboias.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

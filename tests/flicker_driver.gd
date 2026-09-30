@@ -77,6 +77,20 @@ func _gallery() -> void:
 	if "--band" in args:
 		await _band_probe(av)
 		return
+	if "--janela" in args:
+		GameState.set_phase(GameState.Phase.PRE)
+		await _go(av + Vector3(11.5, 0, 40), av + Vector3(0, 0, 10), 10.2, W.CLEAR)
+		var e := av + Vector3(11.5, 1.6, 40)
+		var lk := av + Vector3(-14, 9, 22)
+		await _seq("janela_a", e, lk, Vector3.ZERO)
+		var m: ShaderMaterial = Assets.world_material("exterior")
+		m.set_shader_parameter("enable_windows", false)
+		await _seq("janela_sem", e, lk, Vector3.ZERO)
+		m.set_shader_parameter("enable_windows", true)
+		TimeManager.set_time(21.0)
+		await _wait(1.0)
+		await _seq("janela_noite", e, lk, Vector3.ZERO)
+		return
 	if _want("avenida"):
 		await _go(av + Vector3(4, 0, 30), av + Vector3(4, 0, -20), 11.0, W.CLOUDY)
 		var e := av + Vector3(4, 1.7, 30)

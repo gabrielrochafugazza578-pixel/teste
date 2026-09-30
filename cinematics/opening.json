@@ -12,12 +12,13 @@
 		"Ao salvar, rode 'tools/bake_cinematic.gd' para gerar cinematics/opening_library.tres (editável no editor)."
 	],
 	"scenes": [
-		{"id": "1_cidade", "phase": "PRE", "hour": 10.2, "weather": "CLEAR", "music": "mus_opening_calm", "fog_scale": 4.0, "preload": 260, "saturation": 1.02, "sky_fog": 0.3,
+		{"id": "1_cidade", "phase": "PRE", "hour": 9.0, "weather": "CLEAR", "music": "mus_opening_calm", "fog_scale": 4.0, "preload": 260, "saturation": 1.02, "sky_fog": 0.3,
 		 "setup": [["traffic", true, "poi:avenida_central"], ["crowd", "normal", "poi:avenida_central"], ["ambience", "city"]],
 		 "shots": [
 			{"id": "1a_aereo", "anchor": "poi:avenida_central", "dur": 13.0, "ground": false,
-			 "cam": [[0.0, [120, 95, 190], [0, 10, -60], 55], [6.5, [60, 45, 115], [0, 6, -40], 55], [13.0, [14, 9, 70], [0, 3, -20], 60]],
-			 "events": [[1.0, "card", "", "", 0.0], [4.0, "sound", "car_horn", -18.0]]},
+			 "focus": [[0, 0, -300], [0, 0, -160]],
+			 "cam": [[0.0, [-70, 112, -335], [0, 22, -90], 52], [6.5, [-12, 58, -200], [2, 12, -30], 56], [13.0, [-4, 15, -70], [5, 4, 25], 62]],
+			 "events": [[2.0, "card", "SANTA AURORA", "uma manhã como outra qualquer", 3.5], [4.0, "sound", "car_horn", -18.0]]},
 			{"id": "1b_calcada", "anchor": "poi:avenida_central", "dur": 11.0, "ground": true,
 			 "cam": [[0.0, [11.5, 1.6, 40], [0, 2.0, 10], 58], [11.0, [11.0, 1.7, 14], [-2, 2.2, -14], 58]],
 			 "events": [[2.0, "sound", "phone_ring", -20.0], [6.0, "sound", "car_horn", -14.0]]}
@@ -53,7 +54,7 @@
 			 "cam": [[0.0, [0, 1.6, -3.5], [0, 1.4, 4], 70], [7.0, [0, 1.5, -2.0], [0, 1.4, 5], 66]],
 			 "events": [[0.5, "walk", "helena", "marker:lab_nexus:observer", [0, 0, 0], 3.0], [2.0, "door", "lab_nexus", "lab_door", false], [2.2, "sound", "door_force", -2.0], [4.0, "sparks", "marker:lab_nexus:corridor_mid", [0.8, 2.4, 1.5]]]}
 		 ]},
-		{"id": "4_paciente", "phase": "PRE", "hour": 14.4, "weather": "CLEAR", "music": "mus_opening_dark", "interior": "lab_nexus",
+		{"id": "4_paciente", "power_out": true, "phase": "PRE", "hour": 14.4, "weather": "CLEAR", "music": "mus_opening_dark", "interior": "lab_nexus",
 		 "setup": [["ambience", "lab"], ["alarm", false], ["place", "helena", "marker:lab_nexus:observer", [0, 0, 0], 0], ["place", "paciente", "marker:lab_nexus:patient_glass", [0, 0, -1.2], 0], ["anim", "paciente", "stand_hunched"]],
 		 "shots": [
 			{"id": "4a_vidro", "anchor": "marker:lab_nexus:obs_cam", "dur": 10.0,

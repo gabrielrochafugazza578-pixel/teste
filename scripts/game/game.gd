@@ -25,7 +25,6 @@ var waypoint: Vector3 = Vector3.INF
 var transitioning: bool = false
 var ready_to_play: bool = false
 var _tick: float = 0.0
-var _last_indoor: bool = false
 var _dialogue_npc: Node = null
 
 
@@ -329,9 +328,9 @@ func _process(delta: float) -> void:
 	env.torch_on = player.flashlight_on
 	var indoor := world.is_indoors(p) or is_underground()
 	player.indoors = indoor
-	if indoor != _last_indoor:
-		_last_indoor = indoor
-		env.set_indoor(indoor)
+	# todo tick (não só na troca): a cinemática mexe nisso por conta própria
+	env.set_indoor(indoor)
+	env.set_indoor_lit(indoor and not is_underground() and world.indoor_powered(p))
 	var ac := "underground" if is_underground() else world.acoustic_mode(p)
 	AudioManager.set_environment(ac if ac != "underground" else "lab")
 	ambience.mode = ac

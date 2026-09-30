@@ -173,7 +173,7 @@ func _build(b: Dictionary) -> Dictionary:
 	glass = MeshBuf.new()
 	panes = MeshBuf.new()
 	out = {"mesh": mesh, "glass": glass, "panes": panes, "doors": [], "containers": [], "lights": [], "markers": {},
-		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": []}
+		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": [], "lamps": []}
 	fr = make_frame(b)
 	rng = Util.rng(int(b["seed"]) * 31 + 17)
 	context = str(b.get("interior", b["type"]))
@@ -498,14 +498,19 @@ func _emit_rooms(layout: Dictionary, y_off: float) -> void:
 		var tp: String = room["type"]
 		var spec: Dictionary = ROOM_SPECS.get(tp, {})
 		var fl := int(spec.get("floor", Assets.L_WOOD))
+		var ftint := Color(0.95, 0.93, 0.9)
 		if tp in ["corridor", "lab_main", "observation", "isolation", "office_helena", "cold_storage"]:
 			fl = Assets.L_LINOLEUM
+			if context == "lab":
+				# piso vinílico em placas, cinza frio
+				fl = Assets.L_TILES
+				ftint = Color(0.78, 0.81, 0.83)
 		var code := Assets.uv2_code(fl)
 		var c0 := fr.p(rr.position.x, rr.position.y, y_off + 0.015)
 		var c1 := fr.p(rr.end.x, rr.position.y, y_off + 0.015)
 		var c2 := fr.p(rr.end.x, rr.end.y, y_off + 0.015)
 		var c3 := fr.p(rr.position.x, rr.end.y, y_off + 0.015)
-		mesh.quad(c0, c1, c2, c3, Vector3.UP, Vector2(c0.x, c0.z), Vector2(c1.x, c1.z), Vector2(c2.x, c2.z), Vector2(c3.x, c3.z), code, seedf, Color(0.95, 0.93, 0.9))
+		mesh.quad(c0, c1, c2, c3, Vector3.UP, Vector2(c0.x, c0.z), Vector2(c1.x, c1.z), Vector2(c2.x, c2.z), Vector2(c3.x, c3.z), code, seedf, ftint)
 		# luminária de teto
 		out["lights"].append({"pos": fr.p(rr.get_center().x, rr.get_center().y, y_off + H - 0.15), "range": maxf(rr.size.x, rr.size.y) * 0.9 + 2.0,
 			"room": room.get("name", tp), "type": tp})
@@ -1089,7 +1094,7 @@ func _furnish_lab_main(rr: Rect2, y_off: float) -> void:
 		"text": "NEXUS-2  ·  PROTOCOLO DE REGENERAÇÃO", "size": 0.12, "color": Color(0.35, 0.45, 0.55)})
 	for i in 4:
 		out["lights"].append({"pos": fr.p(rr.position.x + rr.size.x * (0.2 + (i % 2) * 0.6), rr.position.y + rr.size.y * (0.25 + (i / 2) * 0.5), y_off + fh - 0.1),
-			"range": 9.0, "room": "lab_main", "type": "emergency"})
+			"range": 10.0, "room": "lab_main", "type": "emergency", "prio": true})
 	for i in 6:
 		out["spawns"].append(fr.p(rr.position.x + rng.randf_range(2, rr.size.x - 2), rr.position.y + rng.randf_range(2, rr.size.y - 2), y_off))
 
@@ -1117,7 +1122,7 @@ func _furnish_isolation(rr: Rect2, y_off: float) -> void:
 	out["markers"]["patient_bed"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(0, -1)), bed_pos + fr.d3(0, 0.3) + Vector3(0, 0.62, 0))
 	out["markers"]["patient_sit"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(0, -1)), fr.p(rr.get_center().x + 0.55, rr.end.y - 1.5, y_off))
 	out["markers"]["patient_glass"] = Transform3D(Basis(Vector3.UP, fr.yaw_for(0, -1)), fr.p(rr.get_center().x, rr.position.y + 0.45, y_off))
-	out["lights"].append({"pos": fr.p(rr.get_center().x, rr.get_center().y, y_off + fh - 0.1), "range": 6.0, "room": "isolation", "type": "isolation"})
+	out["lights"].append({"pos": fr.p(rr.get_center().x, rr.get_center().y, y_off + fh - 0.1), "range": 6.0, "room": "isolation", "type": "isolation", "prio": true})
 
 
 func _furnish_helena(rr: Rect2, y_off: float) -> void:
@@ -1162,6 +1167,7 @@ const WALL_DECOR := {
 	"armory": ["notice_board"], "radio": ["notice_board", "poster"], "lobby": ["poster", "wall_clock"], "terminal": ["poster", "wall_clock", "poster"],
 	"market_hall": ["poster", "poster"], "lab_room": ["notice_board"], "chapel": ["picture"], "bunker": ["poster"],
 }
+const LAB_ROOMS := ["lab_main", "corridor", "observation", "isolation", "office_helena", "cold_storage"]
 const NO_BASEBOARD := ["storage", "hall_big", "barn", "garage", "cell", "bunker", "server", "armory", "radio", "market_hall"]
 
 
@@ -1183,6 +1189,15 @@ func _room_fixtures(rr: Rect2, tp: String, y_off: float, doors: Array, rich: boo
 				var mid := o + dir * ((a + b) * 0.5) + n2 * 0.009
 				var sz := fr.d3(dir.x * (b - a), dir.y * (b - a)).abs() + fr.d3(n2.x * 0.018, n2.y * 0.018).abs()
 				mesh.box(fr.p(mid.x, mid.y, y_off + 0.055), Vector3(maxf(sz.x, 0.018), 0.09, maxf(sz.z, 0.018)), bcode, 0.2, bcol)
+				if context == "lab" and tp in LAB_ROOMS:
+					# lambri lavável cinza-azulado + faixa na cor do projeto NEXUS
+					var along := fr.d3(dir.x * (b - a), dir.y * (b - a)).abs()
+					var m1 := o + dir * ((a + b) * 0.5) + n2 * 0.006
+					var t1 := fr.d3(n2.x * 0.012, n2.y * 0.012).abs()
+					mesh.box(fr.p(m1.x, m1.y, y_off + 0.575), Vector3(maxf(along.x + t1.x, 0.012), 0.95, maxf(along.z + t1.z, 0.012)), Assets.uv2_code(Assets.L_PANELS), 0.3, Color(0.52, 0.58, 0.63))
+					var m2 := o + dir * ((a + b) * 0.5) + n2 * 0.008
+					var t2 := fr.d3(n2.x * 0.016, n2.y * 0.016).abs()
+					mesh.box(fr.p(m2.x, m2.y, y_off + 1.1), Vector3(maxf(along.x + t2.x, 0.016), 0.1, maxf(along.z + t2.z, 0.016)), Assets.uv2_code(Assets.L_METAL), 0.3, Color(0.12, 0.52, 0.58))
 	# luminárias de teto (desligadas ou penduradas depois do surto)
 	var top := y_off + fh - 0.012
 	if not rich:
@@ -1303,6 +1318,9 @@ func _ceiling_lamp(pn: String, q: Vector2, top: float, y_off: float) -> void:
 		tilt = Basis(Vector3.BACK, ta)
 		p.y -= 0.62 * absf(sin(ta))
 	mesh.append(PropLib.buf(pn), Transform3D(Basis(Vector3.UP, yaw) * tilt, p))
+	# difusor que acende quando o prédio tem energia (world.gd)
+	if pn == "fluoro_lamp" and tilt == Basis.IDENTITY:
+		out["lamps"].append(Transform3D(Basis(Vector3.UP, yaw), p + Vector3(0, -0.066, 0)))
 
 
 func _scatter_items(rr: Rect2, tp: String, y_off: float) -> void:

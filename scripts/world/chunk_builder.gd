@@ -300,11 +300,36 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 		out.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, y + 0.3, Vector3.RIGHT, cc, 0.0, Color(0.7, 0.7, 0.68))
 		if lod <= 1:
 			out.add_box_collider(Vector3(br.get_center().x, (y - 0.4) * 0.5, br.get_center().y), Vector3(br.size.x, y + 0.4, br.size.y))
+		# estacionamento: faixas das vagas
+		if lod == 0 and kind == "parking":
+			var paint := Assets.uv2_code(Assets.L_CONCRETE)
+			for bay in parking_bays(inner):
+				var bp: Vector3 = bay[0]
+				_top(out, Rect2(bp.x - 1.36, bp.z - 2.5, 0.12, 5.0), y + 0.012, paint, Color(0.93, 0.92, 0.86))
+				if bool(bay[2]):
+					_top(out, Rect2(bp.x + 1.24, bp.z - 2.5, 0.12, 5.0), y + 0.012, paint, Color(0.93, 0.92, 0.86))
 		# caminhos de pedestre em parques/praças
 		if lod == 0 and kind in ["park", "plaza"]:
 			var pc := br.get_center()
 			_top(out, Rect2(pc.x - 1.5, inner.position.y, 3.0, inner.size.y), y + 0.01, SW, Color(0.75, 0.72, 0.66))
 			_top(out, Rect2(inner.position.x, pc.y - 1.5, inner.size.x, 3.0), y + 0.012, SW, Color(0.75, 0.72, 0.66))
+
+
+## Vagas de um estacionamento: [centro, yaw do carro, última da fileira].
+## Fileiras de 5 m ao longo de X com corredor de 6,5 m entre pares de fileiras.
+static func parking_bays(inner: Rect2) -> Array:
+	var out: Array = []
+	var pr := inner.grow(-1.2)
+	var z := pr.position.y
+	var k := 0
+	while z + 5.0 <= pr.end.y:
+		var n := int((pr.size.x) / 2.6)
+		var x0 := pr.position.x + (pr.size.x - n * 2.6) * 0.5 + 1.3
+		for i in n:
+			out.append([Vector3(x0 + i * 2.6, 0.0, z + 2.5), 0.0 if k % 2 == 0 else PI, i == n - 1])
+		z += 5.0 + (6.5 if k % 2 == 0 else 0.0)
+		k += 1
+	return out
 
 
 static func _top(out: MeshBuf, r: Rect2, y: float, code: float, col: Color) -> void:
@@ -440,6 +465,9 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 		var hy := 4.1 if b["type"] != "house" else 3.1
 		if b["type"] in ["hospital", "market", "terminal", "office", "lab", "school", "stadium", "church", "police"]:
 			hy = BuildingGen.total_height(b) * (0.55 if b["type"] != "church" else 0.4) + float(b["base"])
+			# térreo alto (mercado, terminal): acima do toldo e da faixa da vitrine (~3,5 m)
+			if b["type"] in ["market", "terminal"]:
+				hy = maxf(hy, float(b["base"]) + 4.6)
 			if b["type"] == "stadium":
 				hy = 12.0
 		else:
@@ -861,6 +889,23 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 					"color": Color.from_hsv(r.randf(), r.randf_range(0.1, 0.7), r.randf_range(0.25, 0.9)), "state": state,
 					"uid": "car_%d_%d_%d" % [c.x, c.y, int(t * 10.0)]})
 			t += r.randf_range(7.0, 14.0)
+	# carros nas vagas dos estacionamentos
+	for bid in layout.chunk_blocks.get(c, []):
+		var blk: Dictionary = layout.blocks[bid]
+		var br: Rect2 = blk["rect"]
+		if blk["kind"] != "parking" or not rect.has_point(br.get_center()):
+			continue
+		for bay in parking_bays(br.grow(-WorldLayout.SIDEWALK)):
+			if r.randf() > (0.6 if phase == GameState.Phase.PRE else 0.4):
+				continue
+			var bp: Vector3 = bay[0]
+			var st := "parked"
+			if post and r.randf() < 0.1:
+				st = "burned"
+			cars.append({"pos": Vector3(bp.x, WorldLayout.CURB, bp.z), "yaw": float(bay[1]) + r.randf_range(-0.05, 0.05), "pitch": 0.0,
+				"type": ["compact", "sedan", "sedan", "hatch", "pickup", "suv"][r.randi() % 6],
+				"color": Color.from_hsv(r.randf(), r.randf_range(0.1, 0.7), r.randf_range(0.25, 0.9)), "state": st,
+				"uid": "carp_%d_%d_%d" % [c.x, c.y, int(bp.x * 10.0 + bp.z * 7.0)]})
 	_street_clutter(layout, c, rect, phase, props, colliders, cars)
 	if phase == GameState.Phase.PRE:
 		return {"props": props, "colliders": colliders, "cars": cars, "vines": vines}

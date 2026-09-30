@@ -90,6 +90,22 @@ func set_indoor(v: bool) -> void:
 	indoor_target = 1.0 if v else 0.0
 
 
+## Prédio com energia (antes do surto ou gerador ligado): luminárias acesas,
+## ambiente claro e neutro em vez da penumbra do apagão.
+var indoor_lit: float = 0.0
+var indoor_lit_target: float = 0.0
+
+
+func set_indoor_lit(v: bool) -> void:
+	indoor_lit_target = 1.0 if v else 0.0
+
+
+## Troca imediata (atrás de um corte para preto da cinemática).
+func snap_indoor() -> void:
+	indoor = indoor_target
+	indoor_lit = indoor_lit_target
+
+
 var _sun_dir := Vector3.ZERO
 
 
@@ -99,6 +115,8 @@ func _process(delta: float) -> void:
 
 func _update(delta: float) -> void:
 	indoor = move_toward(indoor, indoor_target, delta * 1.5)
+	indoor_lit = move_toward(indoor_lit, indoor_lit_target, delta * 1.5)
+	var lit := indoor * indoor_lit
 	flash = maxf(0.0, flash - delta * 3.5)
 	var wm := WeatherManager
 	var dl := TimeManager.daylight()
@@ -161,12 +179,15 @@ func _update(delta: float) -> void:
 	var amb_c := amb.lerp(night_amb, 1.0 - dl)
 	# dentro: a pouca luz que sobra é rebatida (neutra/quente), não o azul do céu
 	amb_c = amb_c.lerp(Color(0.46, 0.44, 0.41) * (0.25 + dl * 0.75), indoor * 0.7)
+	# luz fluorescente: branca levemente fria, igual de dia e de noite
+	amb_c = amb_c.lerp(Color(0.8, 0.84, 0.88), lit * 0.85)
 	env.ambient_light_color = amb_c
 	# crepúsculo: o céu ainda clareia um pouco depois que o sol se põe
 	var twilight := smoothstep(-0.26, -0.03, sh) * (1.0 - smoothstep(-0.03, 0.12, sh))
 	# dentro dos prédios quase não chega céu: quem ilumina são as janelas e a lanterna
 	var amb_out := lerpf(1.1, 0.82, dl) + twilight * 0.9
 	var amb_in := lerpf(0.2, 0.13, dl) + twilight * 0.08
+	amb_in = lerpf(amb_in, 0.5, indoor_lit)
 	env.ambient_light_energy = lerpf(amb_out, amb_in, indoor) + flash * 1.5
 	env.ambient_light_sky_contribution = 0.0
 	# --- neblina ------------------------------------------------------------
@@ -190,11 +211,12 @@ func _update(delta: float) -> void:
 	env.adjustment_brightness = 1.0
 	var bright := Settings.get_brightness()
 	# o olho se adapta um pouco ao escuro (sem auto-exposição no renderer Compatibility)
-	var adapt := lerpf(1.0, lerpf(1.1, 1.45, dl), indoor)
+	var adapt := lerpf(1.0, lerpf(lerpf(1.1, 1.45, dl), 1.0, indoor_lit), indoor)
 	# lanterna acesa em lugar fechado: a vista se acostuma com o facho (sem estourar de perto)
 	if torch_on:
 		adapt *= lerpf(1.0, 0.72, indoor * (1.0 - dl))
-	env.tonemap_exposure = exposure * bright * lerpf(1.05, 2.2, 1.0 - dl) * adapt
+	# o "olho" da noite só vale fora ou no escuro; sob luz acesa a exposição é a do dia
+	env.tonemap_exposure = exposure * bright * lerpf(1.05, 2.2, (1.0 - dl) * (1.0 - lit)) * adapt
 	if underground:
 		sun.visible = false
 		env.background_mode = Environment.BG_COLOR

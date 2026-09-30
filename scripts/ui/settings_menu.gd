@@ -285,7 +285,7 @@ func _build_gameplay() -> void:
 	v.add_child(UIKit.row("Marcadores de objetivo", UIKit.check(bool(gp["show_objective_markers"]), func(on: bool) -> void: _pset("show_objective_markers", on))))
 	v.add_child(UIKit.row("Pausar ao abrir inventário/mapa/diário", UIKit.check(bool(gp.get("pause_in_menus", true)), func(on: bool) -> void: _pset("pause_in_menus", on)),
 		"Desligado: o mundo continua enquanto você mexe na mochila (mais tenso)."))
-	v.add_child(UIKit.row("Duração do dia", UIKit.options(["24 min", "48 min", "72 min", "96 min"], [24.0, 48.0, 72.0, 96.0].find(float(gp["day_length_minutes"])), func(i: int) -> void: _pset("day_length_minutes", [24.0, 48.0, 72.0, 96.0][i]))))
+	v.add_child(UIKit.row("Duração de um dia de jogo (24 h)", UIKit.options(["24 min reais", "48 min reais (padrão)", "72 min reais", "96 min reais"], [24.0, 48.0, 72.0, 96.0].find(float(gp["day_length_minutes"])), func(i: int) -> void: _pset("day_length_minutes", [24.0, 48.0, 72.0, 96.0][i]))))
 
 
 func _pset(key: String, value: Variant) -> void:

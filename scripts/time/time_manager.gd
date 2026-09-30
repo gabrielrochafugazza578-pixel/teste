@@ -14,10 +14,17 @@ var time_scale: float = 1.0      # multiplicador (dormir acelera)
 var locked_hour: float = -1.0    # cinemáticas podem fixar o horário
 var _last_hour: int = -1
 var _last_period: int = -1
+var _last_usec: int = 0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+
+
+func _notification(what: int) -> void:
+	# pausa/menus: não conta o tempo parado
+	if what == NOTIFICATION_UNPAUSED:
+		_last_usec = Time.get_ticks_usec()
 
 
 func hours_per_second() -> float:
@@ -25,11 +32,16 @@ func hours_per_second() -> float:
 	return 24.0 / (mins * 60.0)
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
+	# relógio pelo tempo real (e não pelo delta do quadro, que o Godot limita
+	# quando o FPS cai muito): 24 h de jogo = 48 min reais mesmo com o jogo lento
+	var now := Time.get_ticks_usec()
+	var real_dt := 0.0 if _last_usec == 0 else clampf(float(now - _last_usec) / 1000000.0, 0.0, 0.5)
+	_last_usec = now
 	if locked_hour >= 0.0:
 		hour = locked_hour
 	elif running and GameState.in_game:
-		advance(delta * hours_per_second() * time_scale)
+		advance(real_dt * hours_per_second() * time_scale)
 	_check_events()
 
 

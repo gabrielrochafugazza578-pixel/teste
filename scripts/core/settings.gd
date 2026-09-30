@@ -105,6 +105,7 @@ var gameplay := {
 }
 
 var first_run := true
+const SETTINGS_VERSION := 2
 
 
 func _ready() -> void:
@@ -158,10 +159,14 @@ func load_settings() -> void:
 		for key in target.keys():
 			if cfg.has_section_key(section, key):
 				target[key] = cfg.get_value(section, key)
+	# versão 2: o dia volta a durar 48 minutos reais (24 h de jogo) para todos
+	if int(cfg.get_value("meta", "version", 1)) < SETTINGS_VERSION:
+		gameplay["day_length_minutes"] = 48.0
 
 
 func save_settings() -> void:
 	var cfg := ConfigFile.new()
+	cfg.set_value("meta", "version", SETTINGS_VERSION)
 	for section: String in ["graphics", "audio", "controls", "accessibility", "gameplay"]:
 		var target: Dictionary = get(section)
 		for key in target.keys():

@@ -18,6 +18,8 @@ func _ready() -> void:
 			shots = a.substr(8)
 		elif a.begins_with("--cine-from="):
 			Engine.set_meta("cine_from", a.substr(12))
+		elif a.begins_with("--cine-to="):
+			Engine.set_meta("cine_to", a.substr(10))
 		elif a == "--cine-log":
 			Engine.set_meta("cine_log", true)
 	if shots != "":
@@ -79,7 +81,16 @@ func _test_opening(g: Game) -> void:
 	g.cinematic.shot_started.connect(func(id: String) -> void:
 		last_shot = id
 		_log("tomada " + id)
-		(func() -> void: await _wait(2.0); await _shot("cine_" + id)).call())
+		(func() -> void:
+			# foto no meio da tomada (longe dos escurecimentos de transição)
+			var d := float(g.cinematic._cur_shot.get("dur", 5.0))
+			var w := 0.0
+			while is_instance_valid(g.cinematic) and last_shot == id and w < 90.0 \
+					and (not g.cinematic.anim.is_playing() or g.cinematic.anim.current_animation_position < d * 0.5):
+				await get_tree().process_frame
+				w += get_process_delta_time()
+			if last_shot == id:
+				await _shot("cine_" + id)).call())
 	var t := 0.0
 	var lt := 0.0
 	while g.cinematic != null and t < 600.0:

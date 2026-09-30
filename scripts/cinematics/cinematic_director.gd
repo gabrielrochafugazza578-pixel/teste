@@ -271,7 +271,12 @@ func play() -> void:
 	for si in scenes.size():
 		if str((scenes[si] as Dictionary).get("id", "")) == from_id:
 			first = si
-	for si in range(first, scenes.size()):
+	var last := scenes.size() - 1
+	var to_id := str(Engine.get_meta("cine_to", "")) if Engine.has_meta("cine_to") else ""
+	for si in scenes.size():
+		if str((scenes[si] as Dictionary).get("id", "")) == to_id:
+			last = si
+	for si in range(first, last + 1):
 		if skipping:
 			return
 		await _enter_scene(si)
@@ -339,6 +344,13 @@ func _enter_scene(si: int) -> void:
 		_interior_bi = world.building_for_poi(str(sc["interior"]))
 		if _interior_bi >= 0:
 			world.force_interior(_interior_bi, true)
+	# luz de dentro/fora (o jogo só atualiza isso fora da cinemática)
+	if game.env:
+		var inside := _interior_bi >= 0
+		game.env.set_indoor(inside)
+		game.env.set_indoor_lit(inside and world.building_powered(_interior_bi) and not bool(sc.get("power_out", false)))
+		if need_black:
+			game.env.snap_indoor()
 	# posiciona a câmera na 1a tomada e espera o mundo carregar
 	var shots: Array = sc.get("shots", [])
 	world.clear_focus_points()
@@ -356,6 +368,11 @@ func _enter_scene(si: int) -> void:
 			continue
 		var p := world.poi_pos(spec.split(":")[1]) if spec.split(":").size() > 1 else Vector3.ZERO
 		await world.wait_area(p, 55.0, 14.0)
+		# "focus": pontos do trajeto (relativos à âncora) que também precisam
+		# estar carregados — voos longos saem de perto da âncora
+		if not spec.begins_with("marker"):
+			for fp in (sh as Dictionary).get("focus", []):
+				await world.wait_area(frame(spec) * _v(fp), 60.0, 14.0)
 	if sc.has("preload") and not shots.is_empty():
 		# tomadas aéreas: a cidade inteira à vista precisa existir (LOD distante)
 		var spec0: String = (shots[0] as Dictionary).get("anchor", "world")
@@ -369,6 +386,7 @@ func _enter_scene(si: int) -> void:
 		# marcadores válidos: reposiciona a câmera da 1a tomada
 		if not shots.is_empty():
 			_prepare_shot(shots[0])
+		_set_lamps(world.building_powered(_interior_bi) and not bool(sc.get("power_out", false)))
 	if sc.has("card"):
 		var c: Array = sc["card"]
 		overlay.show_card(str(c[0]), str(c[1]), float(c[2]))
@@ -639,8 +657,11 @@ func _run_event(ev: Array, start: int) -> void:
 				AudioManager.loop_2d("cine_alarm", "alarm", -8.0, "SFX")
 			else:
 				AudioManager.stop_loop("cine_alarm")
+				_emergency_steady()
 		"lights":
+			# queda de energia: difusores apagam, só as luzes de emergência piscam
 			_alarm = true
+			_set_lamps(false)
 		"flicker":
 			_alarm = false
 			_flicker_t = float(a[1])
@@ -848,6 +869,35 @@ func _clear_actors() -> void:
 		if is_instance_valid(n):
 			n.queue_free()
 	actors.clear()
+
+
+## Liga/desliga os difusores das luminárias e a luz ambiente "acesa" do interior.
+func _set_lamps(on: bool) -> void:
+	var root := world.interior_root(_interior_bi) if _interior_bi >= 0 else null
+	if root:
+		for n in root.get_children():
+			if n.is_in_group("lamp_panels"):
+				(n as Node3D).visible = on
+	if game.env:
+		game.env.set_indoor_lit(on)
+		if not on:
+			game.env.indoor_lit = 0.0
+
+
+## Depois do alarme: luz de emergência vermelha fixa; o isolamento tem luz própria.
+func _emergency_steady() -> void:
+	var root := world.interior_root(_interior_bi) if _interior_bi >= 0 else null
+	if root == null:
+		return
+	for c in root.get_children():
+		if c is OmniLight3D and c.is_in_group("interior_light"):
+			var ol := c as OmniLight3D
+			if str(ol.get_meta("room_type", "")) == "isolation":
+				ol.light_color = Color(0.85, 0.95, 1.0)
+				ol.light_energy = 1.3
+			else:
+				ol.light_color = Color(1.0, 0.16, 0.1)
+				ol.light_energy = 0.55
 
 
 func _clear_scene_objects(keep: bool = false) -> void:
