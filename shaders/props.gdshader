@@ -31,5 +31,5 @@ void fragment() {
 	ALBEDO = c;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
-	EMISSION = c * glowing * (0.25 + night_factor * 2.2);
+	EMISSION = c * glowing * (0.25 + night_factor * 3.5);
 }

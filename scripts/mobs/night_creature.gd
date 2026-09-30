@@ -144,7 +144,7 @@ func _build_wolf() -> void:
 		part(pv, MeshBuilder.sphere(0.09, 4, 6), fur2, Vector3(0, -0.6, 0.04), Vector3(1, 0.6, 1.3))
 		legs.append(pv)
 	add_shape(_capsule(0.42, 1.1), Vector3(0, 0.6, 0))
-	_add_light(rune, 0.7, 3.5, Vector3(0, 1.1, 0.6))
+	_add_light(rune, 0.3, 2.2, Vector3(0, 1.1, 0.9))
 	_add_trail(Color(0.5, 0.35, 1.0), 16, 0.07, Vector3(0, 0.9, -0.3), 0.8)
 
 
@@ -309,8 +309,8 @@ func _ai_wisp(delta: float) -> void:
 # ---------------------------------------------------------------- golem --
 
 func _build_golem() -> void:
-	var stone := Color(0.40, 0.42, 0.52)
-	var stone2 := Color(0.33, 0.35, 0.45)
+	var stone := Color(0.52, 0.54, 0.64)
+	var stone2 := Color(0.43, 0.45, 0.56)
 	var moss := Color(0.30, 0.55, 0.30)
 	var crystal := Color(0.72, 0.45, 1.0)
 	max_hp = 40
@@ -324,6 +324,10 @@ func _build_golem() -> void:
 	part(model, _boulder(0.9), stone, Vector3(0, 1.75, 0), Vector3(1.15, 1.0, 0.9))
 	part(model, _boulder(0.7), stone2, Vector3(0, 1.05, 0.05), Vector3(1.0, 0.8, 0.85))
 	part(model, _boulder(0.5), moss, Vector3(0, 2.45, -0.1), Vector3(1.4, 0.35, 1.1))
+	# nucleo de cristal no peito e veias brilhantes
+	part(model, MeshBuilder.sphere(0.26, 6, 10), crystal, Vector3(0, 1.8, 0.78), Vector3(1, 1, 0.6), Vector3.ZERO, 2.2)
+	for v in [[Vector3(0.3, 1.95, 0.72), Vector3(0, 0, 0.9)], [Vector3(-0.3, 1.95, 0.72), Vector3(0, 0, -0.9)], [Vector3(0.25, 1.55, 0.74), Vector3(0, 0, -0.7)], [Vector3(-0.25, 1.55, 0.74), Vector3(0, 0, 0.7)]]:
+		part(model, MeshBuilder.capsule(0.035, 0.45, 5), crystal, v[0], Vector3.ONE, v[1], 4.0)
 	head = pivot(model, Vector3(0, 2.5, 0.45))
 	part(head, _boulder(0.42), stone, Vector3.ZERO, Vector3(1.1, 0.85, 1.0))
 	part(head, MeshBuilder.box(Vector3(0.6, 0.1, 0.15)), stone2, Vector3(0, 0.12, 0.33))
@@ -474,7 +478,7 @@ func _process(delta: float) -> void:
 func _base_light() -> float:
 	match species:
 		"lobo":
-			return 0.7
+			return 0.3
 		"gosma":
 			return 0.9 if big else 0.5
 		"espirito":

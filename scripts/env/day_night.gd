@@ -112,5 +112,6 @@ func _apply() -> void:
 		sky_mat.set_shader_parameter("night", night_factor)
 		sky_mat.set_shader_parameter("sunset", sunset)
 		sky_mat.set_shader_parameter("cloud_time", cloud_time)
-		sky_mat.set_shader_parameter("cloud_light", Color(1, 1, 1).lerp(Color(0.32, 0.36, 0.55), night_factor).lerp(Color(1.0, 0.78, 0.66), sunset * 0.6))
-		sky_mat.set_shader_parameter("cloud_shade", Color(0.72, 0.78, 0.93).lerp(Color(0.16, 0.18, 0.34), night_factor).lerp(Color(0.85, 0.5, 0.5), sunset * 0.5))
+		sky_mat.set_shader_parameter("cloud_cover", lerpf(0.46, 0.56, night_factor))
+		sky_mat.set_shader_parameter("cloud_light", Color(1, 1, 1).lerp(Color(0.22, 0.24, 0.42), night_factor).lerp(Color(1.0, 0.78, 0.66), sunset * 0.6))
+		sky_mat.set_shader_parameter("cloud_shade", Color(0.72, 0.78, 0.93).lerp(Color(0.12, 0.13, 0.28), night_factor).lerp(Color(0.85, 0.5, 0.5), sunset * 0.5))

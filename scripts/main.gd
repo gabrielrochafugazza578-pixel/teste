@@ -10,6 +10,7 @@ var world: World
 var player: Player
 var hud: Hud
 var mobs: MobManager
+var fireflies: CPUParticles3D
 var spawn_point := Vector3.ZERO
 
 var _shot_frames := 0
@@ -31,6 +32,8 @@ func _ready() -> void:
 	add_child(player)
 	world.focus = player
 	_add_outline(player.camera)
+
+	_build_fireflies()
 
 	mobs = MobManager.new()
 	mobs.name = "Mobs"
@@ -102,9 +105,13 @@ func _build_environment() -> void:
 	env.fog_depth_curve = 1.4
 	env.fog_sky_affect = 0.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.5
-	env.glow_hdr_threshold = 1.0
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	env.glow_intensity = 0.9
+	env.glow_strength = 1.1
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 0.95
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	for lvl in range(1, 7):
+		env.set_glow_level(lvl - 1, 1.0 if lvl >= 2 and lvl <= 5 else 0.0)
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.05
 	we.environment = env
@@ -121,6 +128,45 @@ func _build_environment() -> void:
 	day_night.name = "DayNight"
 	add_child(day_night)
 	day_night.setup(sun, env, sky_mat)
+
+
+## Vaga-lumes que aparecem a noite em volta do jogador.
+func _build_fireflies() -> void:
+	fireflies = CPUParticles3D.new()
+	fireflies.amount = 150
+	fireflies.lifetime = 7.0
+	fireflies.preprocess = 7.0
+	fireflies.local_coords = false
+	fireflies.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	fireflies.emission_box_extents = Vector3(20, 2.5, 20)
+	fireflies.gravity = Vector3.ZERO
+	fireflies.direction = Vector3.UP
+	fireflies.spread = 180.0
+	fireflies.initial_velocity_min = 0.15
+	fireflies.initial_velocity_max = 0.6
+	fireflies.angular_velocity_min = -20.0
+	fireflies.angular_velocity_max = 20.0
+	var sm := SphereMesh.new()
+	sm.radius = 0.06
+	sm.height = 0.12
+	sm.radial_segments = 6
+	sm.rings = 3
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(0.9, 1.0, 0.45)
+	m.emission_enabled = true
+	m.emission = Color(0.85, 1.0, 0.35)
+	m.emission_energy_multiplier = 6.0
+	m.vertex_color_use_as_albedo = true
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.material = m
+	fireflies.mesh = sm
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.2, 0.5, 0.8, 1.0])
+	grad.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0.3), Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+	fireflies.color_ramp = grad
+	fireflies.emitting = false
+	add_child(fireflies)
 
 
 ## Contorno cartoon: um quad que cobre a tela inteira, preso na camera.
@@ -189,6 +235,9 @@ func _setup_screenshot() -> void:
 
 
 func _process(delta: float) -> void:
+	if fireflies:
+		fireflies.global_position = player.global_position + Vector3(0, 1.8, 0)
+		fireflies.emitting = day_night.night_factor > 0.6
 	if not Game.is_screenshot_mode():
 		return
 	_shot_elapsed += delta
