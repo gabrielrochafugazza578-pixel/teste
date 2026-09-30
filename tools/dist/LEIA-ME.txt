@@ -1,0 +1,124 @@
+O INÍCIO DO FIM — build de teste para Windows e Linux (64 bits)
+===============================================================
+
+Este pacote traz o jogo para os dois sistemas. Escolha a pasta do seu:
+
+  Windows/   → para Windows 10 ou 11
+  Linux/     → para Linux (Linux Mint, Ubuntu…)
+
+COMO JOGAR NO WINDOWS
+  1. Extraia o .zip (botão direito → "Extrair tudo…").
+  2. Abra a pasta Windows e dê dois cliques em "O Inicio do Fim.exe".
+  3. Se aparecer "O Windows protegeu o computador", clique em
+     "Mais informações" → "Executar assim mesmo" (o jogo não é assinado
+     digitalmente, por isso o aviso).
+  Os arquivos "O Inicio do Fim.exe" e "O Inicio do Fim.pck" precisam ficar
+  juntos na mesma pasta.
+
+COMO JOGAR NO LINUX (Linux Mint)
+  1. Extraia o .zip (botão direito → "Extrair aqui").
+  2. Abra a pasta Linux e dê dois cliques em "jogar.sh" → "Executar".
+     Ou, no terminal, dentro da pasta:   ./jogar.sh
+  Os arquivos o_inicio_do_fim.x86_64 e o_inicio_do_fim.pck precisam ficar
+  juntos na mesma pasta.
+
+PRIMEIRA EXECUÇÃO
+  Na primeira vez o jogo gera as texturas e os sons (pode levar de 30 s a
+  1 min numa tela de carregamento). Depois fica em cache e abre rápido.
+  A qualidade é escolhida sozinha pela placa (GTX 750 Ti → BAIXO) e pode
+  ser mudada em Configurações.
+
+IMAGEM ESCURA?
+  A cidade está sem energia: à noite e dentro dos prédios só há o luar, a
+  claridade que entra pelas janelas e a sua lanterna (tecla L — ela precisa
+  estar equipada e com pilha). Se estiver escuro demais para o seu monitor:
+  Configurações → Gráficos → "Brilho" (50% a 200%).
+
+PLACA DE VÍDEO (NVIDIA)
+  Windows: mantenha o driver da NVIDIA atualizado (GeForce Experience ou
+  nvidia.com). Linux: use o driver proprietário da NVIDIA: Menu → Gerenciador de Drivers →
+  escolha o driver "nvidia-driver-XXX (recomendado)" e reinicie.
+  Com o driver aberto (nouveau) o jogo abre, mas fica bem mais lento.
+
+CONTROLES — TECLADO E MOUSE (remapeáveis em Configurações → Controles)
+  WASD andar · Shift correr · C agachar · Espaço pular/escalar
+  E interagir (segurar = ações longas)
+  Mouse esq. atacar (segurar = pesado) · Mouse dir. defender/mirar
+  Q esquivar · F empurrar · G arremessar distração
+  L lanterna · H cura rápida · 1–4 atalhos
+  V câmera em 1ª / 3ª pessoa
+  Tab inventário/fabricação · M mapa · J diário
+  (ou segure Alt para liberar o mouse e clique nos botões Mochila/Diário/Mapa
+  no canto inferior esquerdo)
+  Esc pausa · Enter (segurar) pular cinemática
+  F5 salvar rápido · F9 carregar rápido · F3 painel de desempenho · F1 esconder HUD
+
+CONTROLE — PS4 / PS5 (entre parênteses: Xbox)
+  Basta ligar o controle (USB ou Bluetooth) antes ou durante o jogo; os ícones
+  da tela mudam sozinhos para ✕ ○ □ △ (ou A B X Y).
+  Analógico esquerdo andar · L3 (LS) correr · analógico direito câmera
+  R3 (RS) câmera em 1ª / 3ª pessoa
+  ✕ (A) pular/escalar · ○ (B) agachar · □ (X) interagir (segurar = ações longas)
+  R2 (RT) atacar/atirar · L2 (LT) defender/mirar · R1 (RB) empurrar · L1 (LB) esquivar
+  △ (Y) usar o atalho escolhido · segurar △ (Y) arremessar distração
+  ← / → escolher atalho · ↑ lanterna · ↓ cura rápida
+  Share (View) mochila · touchpad mapa · Options (Menu) pausa
+  No carro: R2 acelera · L2 freia/ré · ✕ freio de mão · △ buzina · □ sair · ↑ faróis
+  Nos menus: ✕ escolhe · ○ volta · □ e △ ações extras · L1/R1 abas ·
+  L2/R2 passam entre Mochila, Mapa e Diário · analógico direito rola listas
+  No mapa: analógico move · analógico direito zoom · ✕ marca destino
+  Configurações → Controles: vibração, estilo dos ícones, zona morta,
+  inverter eixo, assistência de mira e o esquema completo dos botões.
+  PS4/PS5 no Windows: funciona direto (sem DS4Windows); se usar DS4Windows,
+  os ícones podem aparecer como Xbox — escolha "PlayStation" em "Botões na tela".
+
+NOVIDADES DESTA VERSÃO
+  - Casas, lojas, delegacia, escritórios e galpões por dentro com móveis,
+    louça, quadros e luminárias, tudo abandonado: móveis tombados, lixo,
+    manchas, pichações, janelas tapadas com tábuas, forro caído.
+  - Itens soltos em cima de mesas, balcões, camas e no chão, cada um com
+    modelo próprio. O painel "ITENS POR PERTO" (lado direito da tela) mostra
+    o que está ao seu redor; o item na mira fica destacado com a tecla E.
+    Segurando Alt dá para clicar no item da lista para pegar.
+  - Muitas armas novas: canivete, cutelo, soco-inglês, machadinha, picareta,
+    foice, enxada, katana, bastões, pistolas, submetralhadora, espingardas,
+    carabina .22, rifle com luneta, carabina policial e besta. Mouse direito
+    mira (armas longas vão ao ombro; rifle com luneta aproxima), esquerdo
+    atira; armas automáticas atiram enquanto o botão estiver apertado.
+    Munição é item à parte (cada arma usa a sua) e arma achada vem com um
+    pouco de munição do lado.
+  - Texturas mais detalhadas no mundo todo.
+  - Iluminação realista: sem lâmpadas acesas (a cidade está sem energia).
+    Dentro de casa a luz vem das janelas — de dia claridade e, quando o sol
+    bate na janela, a mancha de sol no chão; à noite só o luar. Fora disso,
+    só a lanterna. Menos "branca": sombras mais escuras e cores mais naturais.
+  - Versão para Windows no mesmo pacote.
+  - Controle de videogame em tudo (jogo, menus, mochila, fabricação, troca,
+    mapa, diário, carro), com ícones de PlayStation ou Xbox e vibração.
+  - Câmera em 1ª pessoa (V ou R3), com o corpo visível.
+  - Ruas decoradas depois do surto: lixo espalhado, cones e cavaletes,
+    carrinhos de mercado, malas e bicicletas largadas, bueiros, remendos no
+    asfalto, bancas de jornal, cartazes nas paredes, fitas e placas de
+    quarentena nas barricadas.
+  - Carros novos: carroceria arredondada, faróis, grade, retrovisores,
+    rodas com raios, e versões limpa, empoeirada, destruída e queimada.
+  - Texturas que piscavam corrigidas: asfalto e chão brigando com o terreno,
+    manchas e papéis no chão, janelas dos prédios e faixas da rua cintilando
+    ao andar, folhas das árvores sumindo de longe e sombras tremendo.
+  - Gráficos: texturas mais nítidas de longe, base dos prédios com sujeira de
+    contato com o chão, manchas de óleo no asfalto, bruma baixa de madrugada
+    e na chuva, vidros com reflexo mais suave.
+  - Marcas de violência discretas: manchas de sangue, furos de bala nas
+    paredes, alguns restos cobertos. Tiros deixam furos, golpes e tiros em
+    infectados deixam respingos e os corpos deixam uma poça.
+
+OPÇÕES DE LINHA DE COMANDO
+  Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)
+           ./jogar.sh -- --skip-menu --skip-opening     novo jogo sem a abertura
+  Windows: "O Inicio do Fim.exe" -- --skip-menu --skip-opening
+
+SAVES, CACHE E LOG
+  Linux:   ~/.local/share/o_inicio_do_fim/
+  Windows: %APPDATA%\o_inicio_do_fim\   (cole na barra de endereço do Explorer)
+  Se algo der errado, mande o arquivo  logs/godot.log  dessa pasta.
+  Para regerar texturas/sons, apague a pasta  cache/  de lá.

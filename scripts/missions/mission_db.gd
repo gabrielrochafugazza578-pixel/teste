@@ -1,0 +1,158 @@
+class_name MissionDB
+extends RefCounted
+## Missões principais (capítulos 1–7), secundárias e eventos.
+## Objetivos: goto, collect, talk, log, kill, interact, flag, deliver, craft,
+## repair, survive, decision. Objetivos são sequenciais; "optional" não bloqueia.
+
+const MISSIONS := {
+	# ===================== CAPÍTULO 1 — O RETORNO =====================
+	"m1_retorno": {"title": "O Retorno", "chapter": 1, "type": "main",
+		"desc": "Semanas fora da cidade. Nenhuma ligação atendida. Caio precisa chegar em casa.",
+		"objectives": [
+			{"id": "descer", "type": "goto", "target": "mirante_baixo", "pos": [0, 0, -820], "radius": 30.0, "text": "Desça a serra até a cidade"},
+			{"id": "casa", "type": "goto", "target": "casa_familia", "radius": 7.0, "text": "Vá até a casa da família — Rua das Acácias, 112"},
+			{"id": "bilhete", "type": "collect", "target": "bilhete_mae", "count": 1, "text": "Procure pistas dentro de casa"},
+			{"id": "foto", "type": "collect", "target": "foto_familia", "count": 1, "text": "(Opcional) Encontre a foto da família", "optional": true},
+		],
+		"on_complete": {"start": ["m1_hospital"], "flags": {"knows_hospital": true}}},
+	"m1_hospital": {"title": "Hospital São Lucas", "chapter": 1, "type": "main",
+		"desc": "O bilhete da mãe diz que elas foram para o Hospital São Lucas. Lia estava com febre.",
+		"objectives": [
+			{"id": "ir", "type": "goto", "target": "hospital", "radius": 14.0, "text": "Vá ao Hospital São Lucas (Centro)"},
+			{"id": "prontuario", "type": "collect", "target": "prontuario_lia", "count": 1, "text": "Procure registros de Lia na recepção do hospital"},
+			{"id": "log1", "type": "log", "target": "helena_01", "text": "(Opcional) Investigue a gravação no hospital", "optional": true},
+		],
+		"on_complete": {"start": ["m2_silencio"], "chapter": 2}},
+	# ===================== CAPÍTULO 2 — SILÊNCIO =====================
+	"m2_silencio": {"title": "Silêncio", "chapter": 2, "type": "main",
+		"desc": "Lia foi transferida para um tal 'Centro de Triagem Corvalis'. Alguém lá fora deve saber o que isso significa.",
+		"objectives": [
+			{"id": "sair", "type": "goto", "target": "praca", "radius": 20.0, "text": "Saia do hospital e vá até a Praça da Matriz"},
+			{"id": "davi", "type": "talk", "target": "davi", "text": "Fale com o sobrevivente na praça"},
+			{"id": "estadio", "type": "goto", "target": "estadio", "radius": 35.0, "text": "Siga até o Estádio Municipal (Vila Operária)"},
+			{"id": "marta", "type": "talk", "target": "marta", "text": "Fale com Marta, líder dos Remanescentes"},
+		],
+		"on_complete": {"start": ["m2_remedios"], "rep": {"remanescentes": 5}}},
+	"m2_remedios": {"title": "Remédios para os Remanescentes", "chapter": 2, "type": "main", "giver": "marta",
+		"desc": "Marta sabe algo sobre a Triagem, mas as crianças do estádio estão doentes. Ela precisa de antibióticos.",
+		"objectives": [
+			{"id": "clinica", "type": "goto", "target": "clinica", "radius": 12.0, "text": "Vá à Clínica do Bairro Alto (ou procure uma farmácia)"},
+			{"id": "caixa", "type": "collect", "target": "remedios_remanescentes", "count": 1, "text": "Encontre a caixa de remédios da clínica"},
+			{"id": "entregar", "type": "deliver", "target": "marta", "item": "remedios_remanescentes", "count": 1, "text": "Entregue os remédios a Marta"},
+		],
+		"on_complete": {"start": ["m3_apartamento"], "rep": {"remanescentes": 25}, "items": [["bandagem", 3], ["agua_garrafa", 2]], "chapter": 3,
+			"flags": {"knows_helena": true}}},
+	# ===================== CAPÍTULO 3 — NEXUS =====================
+	"m3_apartamento": {"title": "A Doutora", "chapter": 3, "type": "main",
+		"desc": "Marta mencionou uma pesquisadora da Corvalis que tentou avisar a cidade: Dra. Helena Vasconcelos. Ela morava no Bairro Alto.",
+		"objectives": [
+			{"id": "ir", "type": "goto", "target": "apartamento_helena", "radius": 10.0, "text": "Vá ao Edifício Ipê, no Bairro Alto"},
+			{"id": "log3", "type": "log", "target": "helena_03", "text": "Encontre as gravações de Helena no apartamento"},
+			{"id": "cracha", "type": "collect", "target": "cartao_corvalis", "count": 1, "text": "Pegue o crachá da Corvalis"},
+		],
+		"on_complete": {"start": ["m3_corvalis"]}},
+	"m3_corvalis": {"title": "Projeto NEXUS", "chapter": 3, "type": "main",
+		"desc": "O crachá abre as portas do Complexo Corvalis, no Distrito Industrial. O laboratório de P&D é onde tudo começou.",
+		"objectives": [
+			{"id": "ir", "type": "goto", "target": "corvalis", "radius": 60.0, "text": "Entre no Complexo Corvalis (Distrito Industrial)"},
+			{"id": "lab", "type": "goto", "target": "lab_nexus", "radius": 12.0, "text": "Encontre o laboratório de P&D"},
+			{"id": "log5", "type": "log", "target": "helena_05", "text": "Investigue o escritório da Dra. Helena"},
+			{"id": "log6", "type": "log", "target": "helena_06", "text": "Descubra o que aconteceu na sala de observação"},
+			{"id": "elevador", "type": "interact", "target": "elevator_setor7", "text": "Examine o elevador de serviço"},
+		],
+		"on_complete": {"start": ["m4_rodas"], "chapter": 4, "flags": {"knows_setor7": true, "knows_triagem": true}}},
+	# ===================== CAPÍTULO 4 — OS SOBREVIVENTES =====================
+	"m4_rodas": {"title": "Rodas", "chapter": 4, "type": "main",
+		"desc": "A Fazenda Santa Clara fica ao sul, depois do rio. A pé é suicídio. O Tonho, da oficina da Vila Operária, entende de motores.",
+		"objectives": [
+			{"id": "oficina", "type": "goto", "target": "oficina", "radius": 10.0, "text": "Vá à Oficina do Tonho"},
+			{"id": "tonho", "type": "talk", "target": "tonho", "text": "Fale com o Tonho"},
+			{"id": "pecas", "type": "collect", "target": "pecas_motor", "count": 1, "text": "Consiga peças de motor"},
+			{"id": "bateria", "type": "collect", "target": "bateria_carro", "count": 1, "text": "Consiga uma bateria automotiva"},
+			{"id": "gasolina", "type": "collect", "target": "galao_gasolina", "count": 1, "text": "Consiga um galão de gasolina"},
+			{"id": "consertar", "type": "repair", "target": "picape_tonho", "text": "Conserte a picape da oficina"},
+		],
+		"on_complete": {"start": ["m4_ponte"], "rep": {"remanescentes": 5}}},
+	"m4_ponte": {"title": "A Ponte", "chapter": 4, "type": "main",
+		"desc": "Duas travessias: a barreira da Guarda Aurora na ponte sul, ou a Ponte Velha, controlada pelos Corvos do Rio.",
+		"objectives": [
+			{"id": "escolha", "type": "decision", "target": "travessia", "text": "Decida como atravessar o rio (Guarda, Corvos ou por conta própria)"},
+			{"id": "atravessar", "type": "goto", "target": "margem_sul", "pos": [0, 0, 820], "radius": 60.0, "text": "Atravesse para a margem sul"},
+		],
+		"on_complete": {"start": ["m5_triagem"], "chapter": 5}},
+	# ===================== CAPÍTULO 5 — A VERDADE =====================
+	"m5_triagem": {"title": "Centro de Triagem", "chapter": 5, "type": "main",
+		"desc": "A Fazenda Santa Clara virou o 'Centro de Triagem' da Corvalis. Se Lia e a mãe passaram por ali, haverá registros.",
+		"objectives": [
+			{"id": "ir", "type": "goto", "target": "fazenda_santa_clara", "radius": 40.0, "text": "Chegue à Fazenda Santa Clara"},
+			{"id": "log9", "type": "log", "target": "helena_09", "text": "Descubra o que é o marcador Aurora"},
+			{"id": "celia", "type": "talk", "target": "celia", "text": "Encontre sua mãe"},
+			{"id": "destino", "type": "decision", "target": "destino_celia", "text": "Decida para onde levar sua mãe"},
+		],
+		"on_complete": {"start": ["m6_chave"], "chapter": 6, "flags": {"evolution": true}}},
+	# ===================== CAPÍTULO 6 — EVOLUÇÃO =====================
+	"m6_chave": {"title": "Chave Aurora", "chapter": 6, "type": "main",
+		"desc": "Lia foi levada ao Setor 7. Helena dividiu a chave em três fragmentos: AURORA, SETOR, SETE. Os infectados estão mudando.",
+		"objectives": [
+			{"id": "log10", "type": "log", "target": "helena_10", "text": "Encontre a gravação sobre a chave (Bunker da Mata do Sabiá)", "optional": true},
+			{"id": "f1", "type": "collect", "target": "fragmento_1", "count": 1, "text": "Fragmento AURORA — Torre de Rádio da Serra"},
+			{"id": "f2", "type": "collect", "target": "fragmento_2", "count": 1, "text": "Fragmento SETOR — sala de manutenção do túnel"},
+			{"id": "f3", "type": "collect", "target": "fragmento_3", "count": 1, "text": "Fragmento SETE — bunker da mata"},
+			{"id": "unir", "type": "craft", "target": "chave_setor7", "text": "Una os fragmentos numa bancada"},
+		],
+		"on_complete": {"start": ["m7_setor7"], "chapter": 7}},
+	# ===================== CAPÍTULO 7 — O INÍCIO DO FIM =====================
+	"m7_setor7": {"title": "O Início do Fim", "chapter": 7, "type": "main",
+		"desc": "O elevador de serviço do laboratório desce ao Setor 7. Lia está lá. Leme também.",
+		"objectives": [
+			{"id": "lab", "type": "goto", "target": "lab_nexus", "radius": 12.0, "text": "Volte ao laboratório de P&D da Corvalis"},
+			{"id": "descer", "type": "interact", "target": "elevator_setor7", "text": "Desça ao Setor 7"},
+			{"id": "lia", "type": "talk", "target": "lia", "text": "Encontre Lia"},
+			{"id": "helena", "type": "talk", "target": "helena", "text": "Encontre a Dra. Helena"},
+			{"id": "final", "type": "decision", "target": "final", "text": "Decida o destino dos dados do NEXUS"},
+		],
+		"on_complete": {"flags": {"game_finished": true}}},
+	# ===================== SECUNDÁRIAS =====================
+	"s_zilda": {"title": "A cozinha da Dona Zilda", "chapter": 2, "type": "side", "giver": "zilda",
+		"desc": "Dona Zilda alimenta o estádio inteiro com quase nada. Qualquer lata ajuda.",
+		"objectives": [{"id": "comida", "type": "deliver", "target": "zilda", "item": "lata_feijao", "count": 3, "text": "Entregue 3 latas de feijão para Dona Zilda"}],
+		"on_complete": {"rep": {"remanescentes": 12}, "items": [["sopa_caseira", 2]]}},
+	"s_agua": {"title": "Água da chuva", "chapter": 2, "type": "side", "giver": "marta",
+		"desc": "O estádio precisa de coletores de chuva.",
+		"objectives": [{"id": "fazer", "type": "craft", "target": "coletor_chuva", "text": "Fabrique um coletor de chuva"},
+			{"id": "entregar", "type": "deliver", "target": "marta", "item": "coletor_chuva", "count": 1, "text": "Entregue o coletor a Marta"}],
+		"on_complete": {"rep": {"remanescentes": 15}, "items": [["antibiotico", 1]]}},
+	"s_ninho": {"title": "Ninho no terminal", "chapter": 3, "type": "side", "giver": "tavares",
+		"desc": "A Guarda quer o Terminal Rodoviário limpo para abrir uma rota de suprimentos.",
+		"objectives": [{"id": "ir", "type": "goto", "target": "terminal", "radius": 30.0, "text": "Vá ao Terminal Rodoviário"},
+			{"id": "limpar", "type": "kill", "target": "any", "count": 8, "area": "terminal", "text": "Elimine os infectados do terminal (0/8)"},
+			{"id": "voltar", "type": "talk", "target": "tavares", "text": "Volte ao Comandante Tavares"}],
+		"on_complete": {"rep": {"guarda": 25}, "items": [["municao_38", 6], ["racao_militar", 2]], "flags": {"guarda_pass": true}}},
+	"s_carga": {"title": "Carga perdida", "chapter": 3, "type": "side", "giver": "corvo",
+		"desc": "Os Corvos perderam uma carga num galpão do Distrito Industrial. Querem de volta — sem perguntas.",
+		"objectives": [{"id": "pegar", "type": "collect", "target": "galao_gasolina", "count": 2, "text": "Traga 2 galões de gasolina"},
+			{"id": "entregar", "type": "deliver", "target": "corvo", "item": "galao_gasolina", "count": 2, "text": "Entregue os galões ao Corvo"}],
+		"on_complete": {"rep": {"corvos": 30}, "flags": {"corvos_pass": true}}},
+	"s_radio": {"title": "Ondas curtas", "chapter": 3, "type": "side",
+		"desc": "A Torre de Rádio da Serra pode voltar a transmitir. Com ela, dá para ouvir o que acontece na cidade.",
+		"objectives": [{"id": "ir", "type": "goto", "target": "torre_radio", "radius": 15.0, "text": "Vá à Torre de Rádio"},
+			{"id": "fios", "type": "collect", "target": "fios", "count": 5, "text": "Junte 5 fios elétricos"},
+			{"id": "pilhas", "type": "collect", "target": "pilha", "count": 4, "text": "Junte 4 pilhas"},
+			{"id": "consertar", "type": "interact", "target": "radio_torre", "text": "Conserte o transmissor"}],
+		"on_complete": {"flags": {"radio_fixed": true}, "items": [["radio_portatil", 1]]}},
+	"s_sofia": {"title": "A menina da escola", "chapter": 2, "type": "event",
+		"desc": "Alguém bate numa janela da Escola Estadual Aurora.",
+		"objectives": [{"id": "escola", "type": "goto", "target": "escola", "radius": 15.0, "text": "Investigue a escola"},
+			{"id": "sofia", "type": "talk", "target": "sofia", "text": "Fale com a menina"},
+			{"id": "levar", "type": "flag", "target": "sofia_safe", "text": "Leve Sofia em segurança ao estádio"}],
+		"on_complete": {"rep": {"remanescentes": 20}, "items": [["chocolate", 2]]}},
+	"s_otavio": {"title": "O cientista prisioneiro", "chapter": 6, "type": "side",
+		"desc": "Os Despertos mantêm um ex-cientista da Corvalis preso na Capela São Judas.",
+		"objectives": [{"id": "capela", "type": "goto", "target": "igreja_despertos", "radius": 20.0, "text": "Vá à Capela São Judas"},
+			{"id": "otavio", "type": "talk", "target": "otavio", "text": "Encontre o Dr. Otávio"}],
+		"on_complete": {"items": [["inibidor_nx", 2], ["mascara_filtro", 1]], "flags": {"otavio_free": true}}},
+}
+
+
+static func get_mission(id: String) -> Dictionary:
+	return MISSIONS.get(id, {})

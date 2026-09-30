@@ -1,0 +1,65 @@
+# Gera o pacote Windows + Linux do "O Início do Fim" e testa o .exe num Windows de verdade.
+# O .zip fica para baixar na página da execução (Actions → Build Windows + Linux → Artifacts).
+name: Build Windows + Linux
+
+on:
+  push:
+    branches: ["claude/inicio-fim-godot-game-8ffe0x"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot e export templates
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          wget -q "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot_bin
+          wget -q "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dst="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dst"
+          unzip -q -j "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" \
+            templates/version.txt templates/linux_release.x86_64 templates/linux_debug.x86_64 \
+            templates/windows_release_x86_64.exe templates/windows_debug_x86_64.exe \
+            templates/windows_release_x86_64_console.exe templates/windows_debug_x86_64_console.exe -d "$dst"
+          rm -f "Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+
+      - name: Exportar Windows e Linux
+        run: GODOT="$PWD/godot_bin" tools/build_all.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: O_Inicio_do_Fim_Windows_e_Linux
+          path: build/O_Inicio_do_Fim_Windows_e_Linux.zip
+          compression-level: 0
+          retention-days: 30
+
+  windows-test:
+    needs: export
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: O_Inicio_do_Fim_Windows_e_Linux
+
+      - name: Abrir o jogo no Windows (sem janela) e procurar erros
+        shell: pwsh
+        run: |
+          Expand-Archive -Path O_Inicio_do_Fim_Windows_e_Linux.zip -DestinationPath .
+          Set-Location "O_Inicio_do_Fim/Windows"
+          $p = Start-Process -FilePath ".\O Inicio do Fim.exe" -ArgumentList "--headless","--","--skip-menu","--skip-opening","--ci-quit" -PassThru
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); Write-Host "Não fechou em 300 s" }
+          $log = Join-Path $env:APPDATA "o_inicio_do_fim\logs\godot.log"
+          if (-not (Test-Path $log)) { Write-Error "Log não encontrado: o jogo não iniciou"; exit 1 }
+          Get-Content $log -Tail 60
+          $bad = Select-String -Path $log -Pattern "SCRIPT ERROR|Parse Error|Failed to load"
+          if ($bad) { $bad | ForEach-Object { Write-Host $_.Line }; Write-Error "Erros de script no Windows"; exit 1 }
+          if (-not (Select-String -Path $log -Pattern "jogo pronto" -Quiet)) { Write-Error "O mundo não chegou a ficar pronto"; exit 1 }
+          Write-Host "Windows: jogo iniciou sem erros de script."
