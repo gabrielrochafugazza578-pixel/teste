@@ -26,6 +26,7 @@ func _ready() -> void:
 	player.world = world
 	add_child(player)
 	world.focus = player
+	_add_outline(player.camera)
 
 	if Game.is_screenshot_mode():
 		_setup_screenshot()
@@ -80,14 +81,33 @@ func _build_environment() -> void:
 	day_night.setup(sun, env, sky_mat)
 
 
+## Contorno cartoon: um quad que cobre a tela inteira, preso na camera.
+func _add_outline(cam: Camera3D) -> void:
+	if RenderingServer.get_current_rendering_method() != "forward_plus":
+		return  # precisa do buffer de normais (so existe no Forward+)
+	var quad := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(2, 2)
+	quad.mesh = qm
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/outline_post.gdshader")
+	mat.render_priority = 127
+	mat.set_shader_parameter("sea_level", WorldGen.SEA - 0.35)
+	quad.material_override = mat
+	quad.extra_cull_margin = 16384.0
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	quad.position = Vector3(0, 0, -1)
+	cam.add_child(quad)
+
+
 ## Procura um lugar em terra firme perto da origem para nascer.
-func find_spawn() -> Vector3:
+func find_spawn(origin := Vector2.ZERO) -> Vector3:
 	var gen := world.gen
 	for r in range(0, 60):
 		for i in 8:
 			var ang := i * TAU / 8.0 + r * 0.7
-			var x := cos(ang) * r * 12.0
-			var z := sin(ang) * r * 12.0
+			var x := origin.x + cos(ang) * r * 12.0
+			var z := origin.y + sin(ang) * r * 12.0
 			var h := gen.height_at(x, z)
 			var b := gen.biome_at(x, z, h)
 			if h > WorldGen.SEA + 2.0 and h < 45.0 and (b == WorldGen.Biome.PLAINS or b == WorldGen.Biome.FOREST):
@@ -109,6 +129,8 @@ func _setup_screenshot() -> void:
 		p = Vector3(pos[0], pos[1], pos[2])
 	elif pos.size() == 2:
 		p = Vector3(pos[0], world.height_at(pos[0], pos[1]) + 0.2, pos[1])
+		if Game.has_arg("land"):
+			p = find_spawn(Vector2(pos[0], pos[1])) - Vector3(0, 0.8, 0)
 	else:
 		p = find_spawn()
 	if Game.has_arg("above"):
