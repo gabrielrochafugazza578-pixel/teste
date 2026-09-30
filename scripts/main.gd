@@ -9,6 +9,7 @@ var day_night: DayNight
 var world: World
 var player: Player
 var hud: Hud
+var mobs: MobManager
 var spawn_point := Vector3.ZERO
 
 var _shot_frames := 0
@@ -30,6 +31,13 @@ func _ready() -> void:
 	add_child(player)
 	world.focus = player
 	_add_outline(player.camera)
+
+	mobs = MobManager.new()
+	mobs.name = "Mobs"
+	mobs.world = world
+	mobs.player = player
+	mobs.day_night = day_night
+	add_child(mobs)
 
 	hud = Hud.new()
 	hud.player = player
@@ -66,6 +74,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_player_died() -> void:
 	hud.show_message("Voce desmaiou! Voltando para casa...", 3.0)
 	await get_tree().create_timer(3.0).timeout
+	mobs.clear_all()
 	player.respawn(spawn_point)
 
 
@@ -153,6 +162,7 @@ func find_spawn(origin := Vector2.ZERO, only_biome := -1) -> Vector3:
 
 func _setup_screenshot() -> void:
 	world.fast_mode = true
+	mobs.enabled = Game.has_arg("mobs")
 	day_night.paused = true
 	day_night.time_of_day = float(Game.arg("time", "0.42"))
 	day_night._apply()
@@ -236,3 +246,23 @@ func _run_demo(kind: String) -> void:
 				p.y = world.height_at(p.x, p.z) + 0.4
 				world.edit_sphere(p, 0.9, true, Mats.STONE)
 			player.inventory.select(6)
+		"animals", "night":
+			# fileira de bichos de frente para a camera
+			var kinds: Array = Animal.SPECIES if kind == "animals" else ["lobo", "gosma", "espirito", "golem", "lobo"]
+			world.remove_small_decos(base, 9.0, true)
+			for i in kinds.size():
+				var off := (i - (kinds.size() - 1) * 0.5) * 2.6
+				var p := base + right * off + fwd * (absf(off) * -0.25)
+				p.y = world.height_at(p.x, p.z) + 0.1
+				var m: Mob
+				if kind == "animals":
+					m = Animal.create(kinds[i])
+				else:
+					m = NightCreature.create(kinds[i])
+				mobs.spawn(m, p)
+				m.fade = 1.0
+				m.face_yaw = atan2(-fwd.x, -fwd.z) + randf_range(-0.5, 0.5)
+				m.set_physics_process(false)
+				if kinds[i] == "espirito":
+					m.global_position.y += 2.2
+			_shot_frames = -40
