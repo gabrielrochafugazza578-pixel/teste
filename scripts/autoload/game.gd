@@ -56,7 +56,8 @@ func _setup_input() -> void:
 	_add_keys("crouch", [KEY_CTRL, KEY_C])
 	_add_keys("pause", [KEY_ESCAPE])
 	_add_keys("toggle_fly", [KEY_F])
-	for i in range(1, 10):
+	_add_keys("toggle_creative", [KEY_G])
+	for i in range(0, 10):
 		_add_keys("slot_%d" % i, [KEY_0 + i])
 	_add_mouse("attack", MOUSE_BUTTON_LEFT)
 	_add_mouse("use", MOUSE_BUTTON_RIGHT)

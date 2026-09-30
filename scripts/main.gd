@@ -8,9 +8,12 @@ var sun: DirectionalLight3D
 var day_night: DayNight
 var world: World
 var player: Player
+var hud: Hud
+var spawn_point := Vector3.ZERO
 
 var _shot_frames := 0
 var _shot_elapsed := 0.0
+var _demo_done := false
 
 
 func _ready() -> void:
@@ -28,12 +31,42 @@ func _ready() -> void:
 	world.focus = player
 	_add_outline(player.camera)
 
+	hud = Hud.new()
+	hud.player = player
+	hud.world = world
+	hud.day_night = day_night
+	player.hud = hud
+	add_child(hud)
+	hud.visible = not Game.has_arg("nohud")
+	player.died.connect(_on_player_died)
+	day_night.night_started.connect(func(): hud.show_message("A noite chegou... cuidado com as criaturas!", 4.0))
+	day_night.day_started.connect(func(): hud.show_message("Bom dia! Dia %d" % day_night.day_count, 3.0))
+
+	spawn_point = find_spawn()
 	if Game.is_screenshot_mode():
 		_setup_screenshot()
 	else:
-		var spawn := find_spawn()
-		player.global_position = spawn
+		player.global_position = spawn_point
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		hud.show_message("Bem-vindo a Terra Redonda!", 4.0)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause"):
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			hud.show_message("Pausado - clique para continuar", 9999.0)
+			get_tree().paused = false
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Game.is_screenshot_mode():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		hud.show_message("", 0.0)
+		get_viewport().set_input_as_handled()
+
+
+func _on_player_died() -> void:
+	hud.show_message("Voce desmaiou! Voltando para casa...", 3.0)
+	await get_tree().create_timer(3.0).timeout
+	player.respawn(spawn_point)
 
 
 func _build_environment() -> void:
@@ -146,6 +179,10 @@ func _process(delta: float) -> void:
 		return
 	_shot_elapsed += delta
 	if world.pending_count() == 0 and world.chunks.size() > 0:
+		if Game.has_arg("demo") and not _demo_done:
+			_demo_done = true
+			_run_demo(String(Game.arg("demo")))
+			return
 		_shot_frames += 1
 	if _shot_frames > int(Game.arg("frames", "8")) or _shot_elapsed > 600.0:
 		var path := String(Game.arg("shot"))
@@ -153,3 +190,45 @@ func _process(delta: float) -> void:
 		img.save_png(path)
 		print("FOTO SALVA: ", path, " chunks=", world.chunks.size(), " tempo=", _shot_elapsed)
 		get_tree().quit()
+
+
+## Acoes automaticas para as fotos (mostram cavar/construir funcionando).
+func _run_demo(kind: String) -> void:
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var right := fwd.cross(Vector3.UP)
+	var dist := float(Game.arg("demodist", "8"))
+	var base := player.global_position + fwd * dist
+	base.y = world.height_at(base.x, base.z)
+	match kind:
+		"dig":
+			for i in 7:
+				var p := base + right * (i - 3) * 1.1 + Vector3(0, -0.4, 0)
+				world.edit_sphere(p, 1.5, false, 0)
+				world.edit_sphere(p + Vector3(0, -1.4, 0), 1.3, false, 0)
+			world.remove_small_decos(base, 5.0)
+			player.inventory.add(Mats.GRASS, 7)
+			player.inventory.add(Mats.DIRT, 7)
+		"build":
+			world.remove_small_decos(base, 5.0)
+			# torre redonda de tijolos com telhado de madeira e cristal no topo
+			for layer in 5:
+				for k in 12:
+					var a := k * TAU / 12.0
+					if layer < 2 and k == 9:
+						continue  # porta
+					var p := base + Vector3(cos(a) * 2.6, 0.6 + layer * 1.25, sin(a) * 2.6)
+					world.edit_sphere(p, 1.05, true, Mats.BRICK)
+			for r in 4:
+				for k in 12:
+					var a := k * TAU / 12.0 + r * 0.3
+					var rad := 3.0 - r * 0.85
+					world.edit_sphere(base + Vector3(cos(a) * rad, 6.9 + r * 0.9, sin(a) * rad), 1.0, true, Mats.WOOD)
+			world.edit_sphere(base + Vector3(0, 10.8, 0), 0.9, true, Mats.CRYSTAL)
+			# murinho de pedra
+			for k in 7:
+				var p := base + right * (k - 3) * 1.2 - fwd * 4.5
+				p.y = world.height_at(p.x, p.z) + 0.4
+				world.edit_sphere(p, 0.9, true, Mats.STONE)
+			player.inventory.select(6)

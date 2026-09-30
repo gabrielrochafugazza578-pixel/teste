@@ -23,6 +23,7 @@ var remesh_tasks: Dictionary = {} # id da tarefa -> Vector2i
 var results: Array = []
 var mutex := Mutex.new()
 var edits: Dictionary = {}       # Vector2i -> { indice_local: Vector2(densidade, material) }
+var removed_decos: Dictionary = {} # Vector2i -> { indice_da_decoracao: true }
 
 var focus: Node3D
 var center := Vector2i(1 << 30, 1 << 30)
@@ -135,8 +136,9 @@ func _task_generate(k: Vector2i, ed: Dictionary, s: int) -> void:
 	ymax = clampi(ymax, ymin, H - 3)
 	var md := ChunkMesher.build(dens, mats, ymin, ymax, k.x, k.y)
 	var mesh := ChunkMesher.make_mesh(md, terrain_material)
+	var decos := g.decorations(k.x, k.y)
 	mutex.lock()
-	results.append({"kind": "gen", "key": k, "dens": dens, "mats": mats, "ymin": ymin, "ymax": ymax, "md": md, "mesh": mesh, "edit_count": ed.size()})
+	results.append({"kind": "gen", "key": k, "dens": dens, "mats": mats, "ymin": ymin, "ymax": ymax, "md": md, "mesh": mesh, "edit_count": ed.size(), "decos": decos})
 	mutex.unlock()
 
 
@@ -183,6 +185,9 @@ func _collect_results() -> void:
 			add_child(ch)
 			chunks[k] = ch
 			ch.apply_mesh(r["mesh"], r["md"])
+			if not removed_decos.has(k):
+				removed_decos[k] = {}
+			ch.set_decorations(r["decos"], removed_decos[k])
 			# edicoes feitas enquanto a tarefa rodava
 			if edits.has(k) and edits[k].size() != r["edit_count"]:
 				for li in edits[k]:
@@ -225,13 +230,19 @@ func _update_collisions() -> void:
 				continue
 			if ch.update_collision(true):
 				budget -= 1
+			ch.update_deco_collision(true)
 		elif not want and ch.collision_enabled:
 			ch.update_collision(false)
+			ch.update_deco_collision(false)
 
 
 ## Numero de chunks ainda sendo gerados dentro do raio de visao.
 func pending_count() -> int:
-	return queue.size() + tasks.size() + results.size()
+	var n := queue.size() + tasks.size() + results.size() + remesh_tasks.size()
+	for k in chunks:
+		if chunks[k].remesh_pending:
+			n += 1
+	return n
 
 
 ## Existe chao com colisao pronto nesta posicao?
@@ -260,6 +271,53 @@ func density_at_grid(gx: int, gy: int, gz: int) -> float:
 	var lx := gx - k.x * N
 	var lz := gz - k.y * N
 	return ch.dens[(lz * P + lx) * H + gy]
+
+
+const SMALL_DECOS := [Deco.FLOWER, Deco.GRASS, Deco.MUSHROOM_GLOW, Deco.DEAD_BUSH, Deco.BUSH]
+
+
+## Quebra uma decoracao (arvore, pedra...) e da os materiais ao jogador.
+func break_deco(ch: Chunk, i: int, who: Player) -> void:
+	var t := ch.deco_type(i)
+	var pos := ch.deco_position(i)
+	ch.remove_deco(i)
+	match t:
+		Deco.TREE_ROUND, Deco.TREE_PINE, Deco.TREE_PALM:
+			Effects.poof(self, pos + Vector3(0, 3.2, 0), Color(0.35, 0.7, 0.28), 26, 4.5, 0.16)
+		Deco.TREE_AUTUMN:
+			Effects.poof(self, pos + Vector3(0, 3.2, 0), Color(0.95, 0.55, 0.2), 26, 4.5, 0.16)
+		Deco.TREE_PINE_SNOW:
+			Effects.poof(self, pos + Vector3(0, 3.2, 0), Color(0.95, 0.97, 1.0), 26, 4.5, 0.16)
+		Deco.MUSHROOM_GIANT:
+			Effects.poof(self, pos + Vector3(0, 3.0, 0), Color(0.9, 0.3, 0.45), 26, 4.5, 0.16)
+		Deco.CRYSTAL:
+			Effects.poof(self, pos + Vector3(0, 0.6, 0), Color(0.7, 0.5, 1.0), 20, 3.5, 0.1, 3.0)
+		_:
+			Effects.poof(self, pos + Vector3(0, 0.6, 0), Color(0.6, 0.6, 0.65), 16, 3.0)
+	if who and Deco.DROPS.has(t):
+		var drop: Array = Deco.DROPS[t]
+		who.inventory.add(drop[0], drop[1])
+		if who.hud:
+			who.hud.show_message("+%d %s" % [drop[1], Mats.NAMES[drop[0]]], 1.5)
+
+
+## Tira plantinhas (flores, grama...) de perto de onde o terreno mudou.
+func remove_small_decos(pos: Vector3, r: float) -> void:
+	var k := Vector2i(floori(pos.x / N), floori(pos.z / N))
+	for dz in [-1, 0, 1]:
+		for dx in [-1, 0, 1]:
+			var ch: Chunk = chunks.get(k + Vector2i(dx, dz))
+			if ch == null:
+				continue
+			var changed := false
+			for i in ch.deco_count():
+				if ch.deco_removed.has(i) or not SMALL_DECOS.has(ch.deco_type(i)):
+					continue
+				if ch.deco_position(i).distance_to(pos) < r:
+					ch.deco_removed[i] = true
+					changed = true
+			if changed:
+				ch._rebuild_deco_meshes()
 
 
 ## Cava (add=false) ou constroi (add=true) uma esfera suave.

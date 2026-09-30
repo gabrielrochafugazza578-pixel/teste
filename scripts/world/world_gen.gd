@@ -146,3 +146,168 @@ func generate_chunk(cx: int, cz: int) -> Dictionary:
 		"ymin": clampi(int(floor(hmin)) - 2, 0, H - 3),
 		"ymax": clampi(int(ceil(hmax)) + 2, 1, H - 3),
 	}
+
+
+# ------------------------------------------------------------ decoracoes --
+
+const DECO_STRIDE := 10  # tipo, x, y, z (locais ao chunk), rotacao, escala, r, g, b, vento
+
+const FLOWER_COLORS: Array[Color] = [
+	Color(1.0, 0.35, 0.45), Color(1.0, 0.85, 0.25), Color(0.65, 0.45, 1.0),
+	Color(1.0, 1.0, 1.0), Color(1.0, 0.55, 0.2), Color(0.4, 0.7, 1.0),
+]
+
+
+func _slope(x: float, z: float, h: float) -> float:
+	var hx := height_at(x + 1.0, z)
+	var hz := height_at(x, z + 1.0)
+	return Vector2(hx - h, hz - h).length()
+
+
+static func _push(out: PackedFloat32Array, t: int, lx: float, y: float, lz: float, rot: float, sc: float, tint: Color) -> void:
+	out.append(t); out.append(lx); out.append(y); out.append(lz)
+	out.append(rot); out.append(sc)
+	var lin := tint.srgb_to_linear()
+	out.append(lin.r); out.append(lin.g); out.append(lin.b)
+	out.append(Deco.SWAY[t])
+
+
+static func _leaf_tint(rng: RandomNumberGenerator) -> Color:
+	var v := rng.randf_range(0.85, 1.12)
+	return Color(v * rng.randf_range(0.92, 1.08), v, v * rng.randf_range(0.9, 1.05))
+
+
+## Lista de decoracoes do chunk (deterministica pela semente).
+func decorations(cx: int, cz: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	var rng := RandomNumberGenerator.new()
+	# passo 1: coisas grandes (arvores) numa grade de 4x4
+	for gz in range(0, N, 4):
+		for gx in range(0, N, 4):
+			var wx := cx * N + gx
+			var wz := cz * N + gz
+			rng.seed = hash([seed_value, wx, wz, 1])
+			var lx := gx + rng.randf_range(0.3, 3.7)
+			var lz := gz + rng.randf_range(0.3, 3.7)
+			var x := cx * N + lx
+			var z := cz * N + lz
+			var h := height_at(x, z)
+			var b := biome_at(x, z, h)
+			var r := rng.randf()
+			var t := -1
+			match b:
+				Biome.FOREST:
+					if r < 0.55:
+						var k := rng.randf()
+						t = Deco.TREE_ROUND if k < 0.55 else (Deco.TREE_AUTUMN if k < 0.8 else Deco.TREE_PINE)
+				Biome.PLAINS:
+					if r < 0.07:
+						t = Deco.TREE_ROUND if rng.randf() < 0.8 else Deco.TREE_AUTUMN
+				Biome.SNOWY:
+					if r < 0.32:
+						t = Deco.TREE_PINE_SNOW
+				Biome.BEACH:
+					if r < 0.10 and h > SEA + 0.4:
+						t = Deco.TREE_PALM
+				Biome.DESERT:
+					if r < 0.10:
+						t = Deco.CACTUS
+				Biome.MAGIC:
+					if r < 0.22:
+						t = Deco.MUSHROOM_GIANT
+					elif r < 0.30:
+						t = Deco.TREE_ROUND
+				Biome.MOUNTAIN:
+					if r < 0.10 and h < 60.0:
+						t = Deco.TREE_PINE
+			if t < 0 or _slope(x, z, h) > 0.75:
+				continue
+			var sc := rng.randf_range(0.8, 1.25)
+			var tint := _leaf_tint(rng)
+			if t == Deco.MUSHROOM_GIANT:
+				var pal := [Color(1, 1, 1), Color(0.55, 0.6, 1.6), Color(1.4, 0.7, 0.3), Color(0.8, 0.5, 1.5)]
+				tint = pal[rng.randi() % pal.size()]
+			_push(out, t, lx, h - 0.3, lz, rng.randf() * TAU, sc, tint)
+
+	# passo 2: coisas pequenas numa grade de 2x2
+	for gz in range(0, N, 2):
+		for gx in range(0, N, 2):
+			var wx := cx * N + gx
+			var wz := cz * N + gz
+			rng.seed = hash([seed_value, wx, wz, 2])
+			var lx := gx + rng.randf_range(0.1, 1.9)
+			var lz := gz + rng.randf_range(0.1, 1.9)
+			var x := cx * N + lx
+			var z := cz * N + lz
+			var h := height_at(x, z)
+			var b := biome_at(x, z, h)
+			var r := rng.randf()
+			var t := -1
+			var tint := Color(1, 1, 1)
+			match b:
+				Biome.PLAINS:
+					if r < 0.13:
+						t = Deco.FLOWER
+					elif r < 0.16:
+						t = Deco.BUSH
+					elif r < 0.175:
+						t = Deco.ROCK
+				Biome.FOREST:
+					if r < 0.05:
+						t = Deco.BUSH
+					elif r < 0.09:
+						t = Deco.MUSHROOM_GLOW
+					elif r < 0.13:
+						t = Deco.FLOWER
+				Biome.MAGIC:
+					if r < 0.12:
+						t = Deco.MUSHROOM_GLOW
+					elif r < 0.15:
+						t = Deco.CRYSTAL
+					elif r < 0.22:
+						t = Deco.FLOWER
+				Biome.DESERT:
+					if r < 0.03:
+						t = Deco.DEAD_BUSH
+					elif r < 0.04:
+						t = Deco.ROCK
+				Biome.SNOWY, Biome.MOUNTAIN:
+					if r < 0.03:
+						t = Deco.ROCK
+				Biome.BEACH:
+					if r < 0.015:
+						t = Deco.ROCK
+			if t < 0 or _slope(x, z, h) > 1.1:
+				continue
+			if t == Deco.FLOWER:
+				tint = FLOWER_COLORS[rng.randi() % FLOWER_COLORS.size()]
+				if b == Biome.MAGIC:
+					tint = [Color(0.8, 0.5, 1.0), Color(0.4, 0.9, 1.0), Color(1.0, 0.5, 0.9)][rng.randi() % 3]
+			elif t == Deco.ROCK:
+				var g := rng.randf_range(0.85, 1.1)
+				tint = Color(g, g, g * 1.03)
+			else:
+				tint = _leaf_tint(rng)
+			_push(out, t, lx, h - 0.12, lz, rng.randf() * TAU, rng.randf_range(0.75, 1.3), tint)
+
+	# passo 3: tufos de grama
+	rng.seed = hash([seed_value, cx, cz, 3])
+	for i in 36:
+		var lx := rng.randf() * N
+		var lz := rng.randf() * N
+		var x := cx * N + lx
+		var z := cz * N + lz
+		var h := height_at(x, z)
+		var b := biome_at(x, z, h)
+		if b != Biome.PLAINS and b != Biome.FOREST and b != Biome.MAGIC:
+			continue
+		if _slope(x, z, h) > 0.6:
+			continue
+		var v := rng.randf_range(0.9, 1.1)
+		var tint := Color(0.50, 0.82, 0.32) * v
+		if b == Biome.FOREST:
+			tint = Color(0.34, 0.66, 0.29) * v
+		elif b == Biome.MAGIC:
+			tint = Color(0.66, 0.50, 0.95) * v
+		_push(out, Deco.GRASS, lx, h - 0.08, lz, rng.randf() * TAU, rng.randf_range(0.8, 1.4), tint)
+	return out

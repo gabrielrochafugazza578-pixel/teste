@@ -98,6 +98,7 @@ func _apply() -> void:
 	var up := Vector3.UP if absf(target.y) < 0.99 else Vector3.FORWARD
 	sun.basis = Basis.looking_at(target, up)
 
+	RenderingServer.global_shader_parameter_set("night_factor", night_factor)
 	env.ambient_light_color = NIGHT_AMBIENT.lerp(DAY_AMBIENT, day).lerp(Color(0.75, 0.6, 0.62), sunset * 0.25)
 	env.fog_light_color = horizon
 	env.background_energy_multiplier = 1.0
