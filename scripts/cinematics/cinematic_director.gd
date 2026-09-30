@@ -347,6 +347,8 @@ func _enter_scene(si: int) -> void:
 	# luz de dentro/fora (o jogo só atualiza isso fora da cinemática)
 	if game.env:
 		var inside := _interior_bi >= 0
+		if not inside:
+			game.env.emergency = 0.0
 		game.env.set_indoor(inside)
 		game.env.set_indoor_lit(inside and world.building_powered(_interior_bi) and not bool(sc.get("power_out", false)))
 		if need_black:
@@ -582,6 +584,9 @@ func _update_fx(delta: float) -> void:
 						ol.light_energy = 0.3 + 1.4 * maxf(0.0, sin(_t * 5.0))
 					else:
 						ol.light_energy = 0.9 if _rng.randf() > 0.35 else 0.05
+		# o ambiente pulsa junto: corredor e salas sem luz própria também ficam vermelhos
+		if _alarm and game.env:
+			game.env.emergency = 0.45 + 0.55 * maxf(0.0, sin(_t * 5.0))
 	# helicópteros e veículos em movimento
 	for h in _heli:
 		h["t"] = float(h["t"]) + delta
@@ -882,6 +887,7 @@ func _set_lamps(on: bool) -> void:
 		game.env.set_indoor_lit(on)
 		if not on:
 			game.env.indoor_lit = 0.0
+		game.env.emergency = 0.0 if on else 0.6
 
 
 ## Depois do alarme: luz de emergência vermelha fixa; o isolamento tem luz própria.
@@ -898,6 +904,8 @@ func _emergency_steady() -> void:
 			else:
 				ol.light_color = Color(1.0, 0.16, 0.1)
 				ol.light_energy = 0.55
+	if game.env:
+		game.env.emergency = 0.6
 
 
 func _clear_scene_objects(keep: bool = false) -> void:
@@ -940,6 +948,8 @@ func _complete_handoff() -> void:
 		game.env.exposure = 1.0
 		game.env.mood_saturation = 0.85
 		game.env.env.fog_sky_affect = 0.65
+		game.env.emergency = 0.0
+		game.env.set_indoor_lit(false)
 	player.cam_rig.align_to(Transform3D(Basis(Vector3.UP, player._yaw), Vector3.ZERO))
 	player.cam_rig.cam.current = true
 	SimScheduler.camera = player.cam_rig.cam

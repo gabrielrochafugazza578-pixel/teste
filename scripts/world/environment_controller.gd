@@ -100,6 +100,11 @@ func set_indoor_lit(v: bool) -> void:
 	indoor_lit_target = 1.0 if v else 0.0
 
 
+## Iluminação de emergência (cinemática do laboratório): ambiente vermelho
+## escuro em todos os cômodos; 0 = desligada.
+var emergency: float = 0.0
+
+
 ## Troca imediata (atrás de um corte para preto da cinemática).
 func snap_indoor() -> void:
 	indoor = indoor_target
@@ -188,6 +193,12 @@ func _update(delta: float) -> void:
 	var amb_out := lerpf(1.1, 0.82, dl) + twilight * 0.9
 	var amb_in := lerpf(0.2, 0.13, dl) + twilight * 0.08
 	amb_in = lerpf(amb_in, 0.5, indoor_lit)
+	# luz de emergência: vermelho escuro rebatido pelas paredes
+	var em := emergency * indoor
+	if em > 0.0:
+		amb_c = amb_c.lerp(Color(0.62, 0.1, 0.08), clampf(em, 0.0, 1.0) * 0.85)
+		env.ambient_light_color = amb_c
+		amb_in = maxf(amb_in, 0.42 * em)
 	env.ambient_light_energy = lerpf(amb_out, amb_in, indoor) + flash * 1.5
 	env.ambient_light_sky_contribution = 0.0
 	# --- neblina ------------------------------------------------------------

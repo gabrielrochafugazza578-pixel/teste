@@ -86,7 +86,8 @@ func _test_opening(g: Game) -> void:
 			var d := float(g.cinematic._cur_shot.get("dur", 5.0))
 			var w := 0.0
 			while is_instance_valid(g.cinematic) and last_shot == id and w < 90.0 \
-					and (not g.cinematic.anim.is_playing() or g.cinematic.anim.current_animation_position < d * 0.5):
+					and (not g.cinematic.anim.is_playing() or not String(g.cinematic.anim.current_animation).ends_with(id) \
+						or g.cinematic.anim.current_animation_position < d * 0.5):
 				await get_tree().process_frame
 				w += get_process_delta_time()
 			if last_shot == id:
