@@ -87,7 +87,7 @@ func _ready() -> void:
 		cam.name = "CineCamera"
 		add_child(cam)
 	cam.top_level = true
-	cam.near = 0.08
+	cam.near = 0.1
 	cam.far = 3400.0
 	anim = get_node_or_null("AnimationPlayer") as AnimationPlayer
 	if anim == null:

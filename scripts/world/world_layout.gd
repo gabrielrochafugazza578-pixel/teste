@@ -205,6 +205,45 @@ func height(x: float, z: float) -> float:
 	return h
 
 
+## Quanto o terreno DESENHADO afunda além da altura visual normal, só onde ele
+## fica escondido: debaixo do asfalto das rodovias (a malha do terreno é linear
+## entre amostras de 2 m e, em curva/rampa, encostava na pista e brigava pelo
+## depth — faixas borradas piscando) e sob as ruas/quarteirões da cidade, onde o
+## terreno ficava no mesmo plano das ruas (y = 0). A física não usa isso.
+func visual_sink(x: float, z: float, h: float) -> float:
+	var sink := 0.0
+	if _urban_out_dist(x, z) <= 0.0 and absf(h) < 0.05:
+		# só onde a rua ou o quarteirão cobrem (margens do rio etc. ficam como estão)
+		if block_at(x, z) >= 0:
+			sink = 0.3
+		else:
+			var q := Vector2(x, z)
+			for si in chunk_roads.get(Vector2i(floori(x / CHUNK), floori(z / CHUNK)), []):
+				var rs: Dictionary = roads[si]
+				if str(rs["kind"]) in ["bridge", "tunnel"]:
+					continue
+				var ra: Vector2 = rs["a"]
+				var rab: Vector2 = (rs["b"] as Vector2) - ra
+				var rt := clampf((q - ra).dot(rab) / maxf(rab.length_squared(), 0.001), 0.0, 1.0)
+				if q.distance_to(ra + rab * rt) < float(rs["hw"]) - 0.2:
+					sink = 0.3
+					break
+	var fl: Array = chunk_flatten.get(Vector2i(floori(x / CHUNK), floori(z / CHUNK)), [])
+	if not fl.is_empty():
+		var p := Vector2(x, z)
+		for si in fl:
+			var seg: Dictionary = roads[si]
+			var a: Vector2 = seg["a"]
+			var ab: Vector2 = (seg["b"] as Vector2) - a
+			var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+			var hw: float = seg["hw"]
+			var d := p.distance_to(a + ab * t)
+			# 16 cm debaixo da pista, 5 cm na borda do acostamento, nada a 4 m dele
+			var s := lerpf(0.16, 0.05, smoothstep(hw - 0.4, hw + 1.6, d)) * (1.0 - smoothstep(hw + 1.6, hw + 5.5, d))
+			sink = maxf(sink, s)
+	return sink
+
+
 ## Quanto a superfície física sobe acima do terreno desenhado: ROAD_EPS onde
 ## a pista achata o terreno (peso 1), diminuindo junto com o achatamento.
 func road_lift(x: float, z: float) -> float:

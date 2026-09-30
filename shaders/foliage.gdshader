@@ -36,9 +36,21 @@ void vertex() {
 	}
 }
 
+// Alfa "que não some": nos mipmaps a média do alfa cai abaixo do corte e a copa
+// fica rala e cintilando de longe; compensa pelo nível de mip e deixa a borda com
+// 1 pixel de transição (recorte antisserrilhado, técnica de Ben Golus).
+float coverage_alpha(float a, vec2 uv, vec2 tsize, float cut) {
+	vec2 dx = dFdx(uv * tsize);
+	vec2 dy = dFdy(uv * tsize);
+	float mip = max(0.0, 0.5 * log2(max(dot(dx, dx), dot(dy, dy))));
+	a *= 1.0 + mip * 0.25;
+	return clamp((a - cut) / max(fwidth(a), 0.0001) + 0.5, 0.0, 1.0);
+}
+
 void fragment() {
 	vec4 c = texture(leaf_tex, UV);
-	if (c.a < alpha_cut) {
+	float a = coverage_alpha(c.a, UV, vec2(textureSize(leaf_tex, 0)), alpha_cut);
+	if (a < 0.5) {
 		discard;
 	}
 	vec3 alb = c.rgb * tint * (0.55 + v_shade * 0.6);

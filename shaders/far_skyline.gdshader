@@ -42,8 +42,11 @@ void fragment() {
 		vec2 g = vec2(u, w_pos.y - 0.4) / vec2(3.0, 3.0);
 		vec2 f = fract(g);
 		vec2 cell = floor(g);
-		float fw = clamp(1.0 - max(fwidth(g.x), fwidth(g.y)) * 1.5, 0.0, 1.0);
-		float win = step(0.22, f.x) * step(f.x, 0.78) * step(0.3, f.y) * step(f.y, 0.82);
+		vec2 dg = max(fwidth(g), vec2(1e-4));
+		float fw = clamp(1.0 - max(dg.x, dg.y) * 1.5, 0.0, 1.0);
+		// bordas das janelas com 1 pixel de transição (sem serrilhado/cintilação)
+		float win = clamp((f.x - 0.22) / dg.x + 0.5, 0.0, 1.0) * clamp((0.78 - f.x) / dg.x + 0.5, 0.0, 1.0)
+			* clamp((f.y - 0.3) / dg.y + 0.5, 0.0, 1.0) * clamp((0.82 - f.y) / dg.y + 0.5, 0.0, 1.0);
 		// longe demais: a grade vira a média (sem cintilação)
 		float wmix = mix(0.3, win, fw);
 		base = mix(base, vec3(0.05, 0.06, 0.07) + vec3(0.1, 0.12, 0.14) * daylight, wmix * 0.75);

@@ -47,7 +47,7 @@ func _ready() -> void:
 	pivot.add_child(spring)
 	cam = Camera3D.new()
 	cam.name = "GameplayCamera"
-	cam.near = 0.08
+	cam.near = 0.12
 	cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0)
 	cam.fov = Settings.get_fov()
 	spring.add_child(cam)
@@ -166,7 +166,7 @@ func update_camera(delta: float) -> void:
 	var hb := float(Settings.accessibility.get("head_bob", 1.0)) * bob_amount * (1.0 - fp * 0.6)
 	var bob := Vector3(0, sin(bob_phase * 2.0) * 0.025, 0) * hb
 	global_position = _smoothed_pos + bob
-	cam.near = lerpf(0.08, 0.04, fp)
+	cam.near = lerpf(0.12, 0.05, fp)   # plano próximo maior = mais precisão no depth (menos z-fighting)
 	pivot.rotation = Vector3(pitch, yaw, 0)
 	spring.spring_length = length
 	spring.position = Vector3(sh, 0, 0)

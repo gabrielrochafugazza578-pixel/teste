@@ -90,6 +90,9 @@ func set_indoor(v: bool) -> void:
 	indoor_target = 1.0 if v else 0.0
 
 
+var _sun_dir := Vector3.ZERO
+
+
 func _process(delta: float) -> void:
 	_update(delta)
 
@@ -133,7 +136,12 @@ func _update(delta: float) -> void:
 	# --- sol / lua ----------------------------------------------------------
 	var night := sh < -0.05
 	var light_dir := sd if not night else Vector3(-sd.x, absf(sd.y) * 0.6 + 0.35, -sd.z).normalized()
-	sun.look_at_from_position(Vector3.ZERO, -light_dir, Vector3.UP if absf(light_dir.y) < 0.99 else Vector3.FORWARD)
+	# a direção da luz anda em passos de 0,15° (≈1 s de jogo): girar o sol um
+	# pouquinho a cada quadro faz os texels do mapa de sombra "rastejarem" e as
+	# bordas das sombras tremem; em passos quase não se nota
+	if _sun_dir == Vector3.ZERO or _sun_dir.angle_to(light_dir) > deg_to_rad(0.15):
+		_sun_dir = light_dir
+		sun.look_at_from_position(Vector3.ZERO, -light_dir, Vector3.UP if absf(light_dir.y) < 0.99 else Vector3.FORWARD)
 	# sol some e a lua entra a partir de zero: sem salto de luz na troca de direção
 	if night:
 		# luar: frio e fraco; a cidade não tem energia, então a noite é escura de verdade
@@ -171,6 +179,11 @@ func _update(delta: float) -> void:
 	env.fog_light_color = hor.lerp(Color(0.5, 0.52, 0.55), 0.3)
 	env.fog_light_energy = 0.8 + dl * 0.35
 	env.fog_sun_scatter = 0.12 * dl * (1.0 - clouds)
+	# névoa baixa: bruma de madrugada/amanhecer e na chuva, rente ao chão da cidade
+	var hr := TimeManager.hour
+	var mist := smoothstep(3.5, 5.5, hr) * (1.0 - smoothstep(7.5, 9.5, hr))
+	env.fog_height = 2.5
+	env.fog_height_density = (mist * 0.06 + wm.rain * 0.025 + wm.fog * 0.04) * (1.0 - indoor)
 	# --- cor / tonemap ---------------------------------------------------------
 	env.adjustment_saturation = mood_saturation * lerpf(0.95, 0.8, clouds * 0.5)
 	env.adjustment_contrast = lerpf(1.0, 1.1, dl)
@@ -189,6 +202,7 @@ func _update(delta: float) -> void:
 		env.ambient_light_color = Color(0.17, 0.18, 0.21)
 		env.ambient_light_energy = 1.0
 		env.fog_density = 0.004
+		env.fog_height_density = 0.0
 		env.fog_light_color = Color(0.1, 0.1, 0.11)
 		env.tonemap_exposure = exposure * bright * 1.45
 		dl = 0.0

@@ -47,7 +47,7 @@ static func build(layout: WorldLayout, c: Vector2i, res: int, want_collision: bo
 			var z := z0 + float(iz) * cell
 			var i := iz * n + ix
 			heights[i] = h + (layout.road_lift(x, z) if has_road else 0.0)
-			verts[i] = Vector3(x, h, z)
+			verts[i] = Vector3(x, h - layout.visual_sink(x, z, h), z)
 			var nrm := Vector3(hl - hr, 2.0 * cell, hd - hu).normalized()
 			norms[i] = nrm
 			var t := Vector3(1, 0, 0)

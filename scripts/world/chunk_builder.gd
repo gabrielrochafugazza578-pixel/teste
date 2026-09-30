@@ -677,12 +677,17 @@ static func _street_clutter(layout: WorldLayout, c: Vector2i, rect: Rect2, phase
 			elif roll < 0.55:
 				var p := a + dir * t + side * r.randf_range(-hw + 1.0, hw - 1.0)
 				_add_prop(props, "road_patch", Transform3D(Basis(Vector3.UP, yaw_road + r.randf_range(-0.4, 0.4)).scaled(Vector3.ONE * r.randf_range(0.7, 1.6)), Vector3(p.x, y, p.y)))
+			elif roll < 0.75 and urban:
+				# óleo onde os carros ficam parados (junto ao meio-fio) ou no meio da faixa
+				var lat := (hw - 1.3) * (1.0 if r.randf() < 0.5 else -1.0) if r.randf() < 0.6 else r.randf_range(-hw * 0.6, hw * 0.6)
+				var p := a + dir * t + side * lat
+				_add_prop(props, "oil_stain", Transform3D(Basis(Vector3.UP, yaw_road + r.randf_range(-0.3, 0.3)).scaled(Vector3.ONE * r.randf_range(0.8, 1.4)), Vector3(p.x, y, p.y)))
 			if not pre:
 				var p := a + dir * (t + r.randf() * 6.0) + side * r.randf_range(-hw + 0.6, hw - 0.6)
 				var v := r.randf()
-				if v < (0.42 if urban else 0.12):
+				if v < (0.34 if urban else 0.12):
 					_add_prop(props, "litter", Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.7, 1.3)), Vector3(p.x, y, p.y)))
-				elif v < 0.36 and urban:
+				elif v < 0.4 and urban:
 					# cones espalhados (alguns tombados)
 					for k in r.randi_range(2, 5):
 						var q := p + dir * r.randf_range(-3.0, 3.0) + side * r.randf_range(-1.2, 1.2)
@@ -692,11 +697,11 @@ static func _street_clutter(layout: WorldLayout, c: Vector2i, rect: Rect2, phase
 							bs = bs * Basis(Vector3.BACK, PI * 0.5)
 							yy += 0.16
 						_add_prop(props, "traffic_cone", Transform3D(bs, Vector3(q.x, yy, q.y)))
-				elif v < 0.39 and urban:
+				elif v < 0.43 and urban:
 					_add_prop(props, "road_barrier", Transform3D(Basis(Vector3.UP, yaw_road + PI * 0.5 + r.randf_range(-0.5, 0.5)), Vector3(p.x, y, p.y)), none, colliders, true)
-				elif v < 0.43:
+				elif v < 0.47:
 					_add_prop(props, "tire_single", Transform3D(Basis(Vector3.UP, r.randf() * TAU), Vector3(p.x, y, p.y)))
-				elif v < (0.455 if post else 0.47):
+				elif v < (0.485 if post else 0.5):
 					_add_prop(props, "blood_smear", Transform3D(Basis(Vector3.UP, yaw_road + r.randf_range(-0.6, 0.6)).scaled(Vector3.ONE * r.randf_range(0.8, 1.3)), Vector3(p.x, y, p.y)))
 			t += r.randf_range(10.0, 18.0)
 	if not pre:

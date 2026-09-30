@@ -55,6 +55,15 @@ void vertex() {
 	v_up = normalize((MODELVIEW_MATRIX * vec4(NORMAL * 0.25 + vec3(0.0, 1.0, 0.0), 0.0)).xyz);
 }
 
+// alfa com cobertura preservada nos mipmaps (ver foliage.gdshader)
+float coverage_alpha(float a, vec2 uv, vec2 tsize, float cut) {
+	vec2 dx = dFdx(uv * tsize);
+	vec2 dy = dFdy(uv * tsize);
+	float mip = max(0.0, 0.5 * log2(max(dot(dx, dx), dot(dy, dy))));
+	a *= 1.0 + mip * 0.25;
+	return clamp((a - cut) / max(fwidth(a), 0.0001) + 0.5, 0.0, 1.0);
+}
+
 void fragment() {
 	vec4 tex = texture(grass_tex, UV);
 	vec3 c = tex.rgb * tint * (0.82 + v_tone * 0.36);
@@ -63,8 +72,8 @@ void fragment() {
 	c *= mix(0.5, 1.0, smoothstep(0.0, 0.55, v_h));   // raiz sombreada pela própria moita
 	c *= mix(1.0, 0.72, wetness);
 	ALBEDO = c;
-	ALPHA = tex.a;
-	ALPHA_SCISSOR_THRESHOLD = alpha_cut;
+	ALPHA = coverage_alpha(tex.a, UV, vec2(textureSize(grass_tex, 0)), alpha_cut);
+	ALPHA_SCISSOR_THRESHOLD = 0.5;
 	NORMAL = v_up;
 	ROUGHNESS = mix(0.85, 0.45, wetness);
 	BACKLIGHT = c * 0.35;

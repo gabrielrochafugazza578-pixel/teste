@@ -1465,7 +1465,7 @@ func _decay(rr: Rect2, tp: String, y_off: float, doors: Array, amount: float = 1
 		var q := _rand_in(rr, 0.3)
 		var paper := Color(0.97, 0.95, 0.88).lerp(Color(0.78, 0.7, 0.52), rng.randf())
 		mesh.box_xf(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.05, 0.05)), fr.p(q.x, q.y, fy + 0.003 + i * 0.0005)),
-			Vector3(0.21, 0.0015, 0.297), PLA, rng.randf(), paper)
+			Vector3(0.21, 0.0015, 0.297), PLA, 2.0 + 26.0 + rng.randf() * 0.99, paper)
 	# 3) entulho de reboco caído perto das paredes
 	for i in int(float(rng.randi_range(2, 6)) * k):
 		var q := _rand_near_wall(rr)
@@ -1584,8 +1584,19 @@ func _rand_near_wall(rr: Rect2, inset: float = 0.45) -> Vector2:
 
 
 ## Mancha irregular no piso (três anéis: borda quase da cor do piso até o miolo escuro).
+## Decalques no piso/parede: UV2.y = 2 + nível + semente (world_surface puxa para
+## a câmera no depth; cada nível vence o anterior). Cicla por 8 níveis.
+var _decal_level: int = 0
+
+
+func _decal_seed(extra: int = 0) -> float:
+	_decal_level = (_decal_level + 1) % 8
+	return 2.0 + float(_decal_level * 3 + extra) + 0.37
+
+
 func _stain(c: Vector3, r: float, code: float, col: Color) -> void:
 	var n := 16
+	var ds := _decal_seed()
 	var rs: Array = []
 	var ph := rng.randf() * TAU
 	for i in n:
@@ -1607,7 +1618,7 @@ func _stain(c: Vector3, r: float, code: float, col: Color) -> void:
 		for i in n:
 			var p0: Vector3 = pts[i]
 			var p1: Vector3 = pts[(i + 1) % n]
-			mesh.tri(cen, p0, p1, Vector3.UP, Vector2(cen.x, cen.z), Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), code, 0.37, cc)
+			mesh.tri(cen, p0, p1, Vector3.UP, Vector2(cen.x, cen.z), Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), code, ds + ring, cc)
 
 
 func _blood_trail(rr: Rect2, y: float, code: float) -> void:
@@ -1685,6 +1696,7 @@ func _wall_has_door(wd: Dictionary, s: float, half: float, doors: Array) -> bool
 
 ## Polígono (s = ao longo, v = altura) desenhado rente à parede.
 func _wall_poly(wd: Dictionary, pts: PackedVector2Array, y_off: float, code: float, col: Color, off: float = 0.006) -> void:
+	var ds := _decal_seed(1) - 0.37 + 0.53
 	var o: Vector2 = wd["o"]
 	var dir: Vector2 = wd["dir"]
 	var n2: Vector2 = wd["n"]
@@ -1700,7 +1712,7 @@ func _wall_poly(wd: Dictionary, pts: PackedVector2Array, y_off: float, code: flo
 		var i0 := tris[t]
 		var i1 := tris[t + 1]
 		var i2 := tris[t + 2]
-		mesh.tri(w3[i0], w3[i1], w3[i2], n, pts[i0], pts[i1], pts[i2], code, 0.53, col)
+		mesh.tri(w3[i0], w3[i1], w3[i2], n, pts[i0], pts[i1], pts[i2], code, ds, col)
 
 
 func _wall_streak(wd: Dictionary, s: float, y_off: float, doors: Array) -> void:

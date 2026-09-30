@@ -102,6 +102,12 @@ NOVIDADES DESTA VERSÃO
     quarentena nas barricadas.
   - Carros novos: carroceria arredondada, faróis, grade, retrovisores,
     rodas com raios, e versões limpa, empoeirada, destruída e queimada.
+  - Texturas que piscavam corrigidas: asfalto e chão brigando com o terreno,
+    manchas e papéis no chão, janelas dos prédios e faixas da rua cintilando
+    ao andar, folhas das árvores sumindo de longe e sombras tremendo.
+  - Gráficos: texturas mais nítidas de longe, base dos prédios com sujeira de
+    contato com o chão, manchas de óleo no asfalto, bruma baixa de madrugada
+    e na chuva, vidros com reflexo mais suave.
   - Marcas de violência discretas: manchas de sangue, furos de bala nas
     paredes, alguns restos cobertos. Tiros deixam furos, golpes e tiros em
     infectados deixam respingos e os corpos deixam uma poça.

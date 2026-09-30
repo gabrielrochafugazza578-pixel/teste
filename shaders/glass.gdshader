@@ -23,7 +23,8 @@ void fragment() {
 	float fog = condensation * smoothstep(0.2, 0.7, n.r + 0.3);
 	float cr = crack * (1.0 - smoothstep(0.0, 0.03, n.a));
 	ALBEDO = mix(tint * 0.2, vec3(0.75), smudge * 0.5 + fog * 0.7 + cr);
-	ROUGHNESS = mix(0.03, 0.6, smudge + fog);
+	// reflexo levemente desfocado: vidro 100% liso faz o brilho "estalar" ao andar
+	ROUGHNESS = mix(0.08, 0.6, smudge + fog);
 	METALLIC = 0.0;
 	SPECULAR = 0.9;
 	ALPHA = clamp(base_alpha + fres * 0.45 + smudge * 0.25 + fog * 0.55 + cr * 0.8, 0.0, 0.95);

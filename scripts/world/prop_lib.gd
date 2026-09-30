@@ -25,7 +25,7 @@ const NAMES := ["bed", "bed_single", "bunk", "hospital_bed", "sofa", "armchair",
 	"vending_machine", "water_cooler", "coat_rack", "mirror", "wall_shelf", "radiator", "gondola_hw", "gondola_ph",
 	"traffic_cone", "road_barrier", "shopping_cart", "suitcase", "bicycle", "litter", "manhole", "manhole_open", "road_patch",
 	"mattress", "tire_single", "quarantine_sign", "tape_barrier", "wall_poster", "newspaper_stand",
-	"blood_pool", "blood_pool_2", "blood_smear", "blood_wall", "bullet_holes", "body_bag", "covered_body", "remains", "severed_arm", "bones"]
+	"oil_stain", "blood_pool", "blood_pool_2", "blood_smear", "blood_wall", "bullet_holes", "body_bag", "covered_body", "remains", "severed_arm", "bones"]
 
 
 static func warm() -> void:
@@ -704,7 +704,8 @@ static func _build(name: String, b: MeshBuf) -> void:
 				var p := Vector3(r.randf_range(-1.1, 1.1), 0.012 + i * 0.0006, r.randf_range(-1.1, 1.1))
 				var kind := r.randf()
 				if kind < 0.55:
-					b.box_xf(Transform3D(Basis(Vector3.UP, r.randf() * TAU), p), Vector3(r.randf_range(0.15, 0.3), 0.003, r.randf_range(0.2, 0.32)), PLA, r.randf(),
+					# papel chapado no chão: decalque (nível = ordem da pilha)
+					b.box_xf(Transform3D(Basis(Vector3.UP, r.randf() * TAU), p), Vector3(r.randf_range(0.15, 0.3), 0.003, r.randf_range(0.2, 0.32)), PLA, 3.0 + float(i % 8) + r.randf() * 0.99,
 						Color(0.95, 0.93, 0.86).lerp(Color(0.7, 0.62, 0.45), r.randf()))
 				elif kind < 0.75:
 					b.cylinder(Transform3D(Basis(Vector3.UP, r.randf() * TAU) * Basis(Vector3.BACK, PI * 0.5), p + Vector3(0, 0.03, 0)), 0.033, 0.11, 6, MET, r.randf(), Color.from_hsv(r.randf(), 0.6, 0.7))
@@ -732,7 +733,7 @@ static func _build(name: String, b: MeshBuf) -> void:
 				pts.append(Vector3(cos(a) * rr * 1.1, 0.008, sin(a) * rr * 0.7))
 			for i in 12:
 				b.tri(Vector3(0, 0.008, 0), pts[i], pts[(i + 1) % 12], Vector3.UP, Vector2(0, 0), Vector2((pts[i] as Vector3).x, (pts[i] as Vector3).z),
-					Vector2((pts[(i + 1) % 12] as Vector3).x, (pts[(i + 1) % 12] as Vector3).z), _c(Assets.L_ASPHALT), 0.6, Color(0.55, 0.55, 0.56))
+					Vector2((pts[(i + 1) % 12] as Vector3).x, (pts[(i + 1) % 12] as Vector3).z), _c(Assets.L_ASPHALT), 2.6, Color(0.55, 0.55, 0.56))
 		"mattress":
 			b.box_xf(Transform3D(Basis(Vector3.RIGHT, 0.04), Vector3(0, 0.1, 0)), Vector3(0.95, 0.18, 1.95), FAB, 0.3, Color(0.82, 0.78, 0.66))
 			b.box(Vector3(0.2, 0.2, 0.3), Vector3(0.5, 0.01, 0.6), FAB, 0.8, Color(0.5, 0.42, 0.3))
@@ -755,12 +756,29 @@ static func _build(name: String, b: MeshBuf) -> void:
 				b.box_xf(Transform3D(Basis(Vector3.BACK, 0.04 * sin(float(i))), Vector3(x0 + 0.175, 0.9 - 0.08 * sin(float(i) / 7.0 * PI), 0)), Vector3(0.35, 0.07, 0.004), PLA, 0.0, cc)
 		"wall_poster":
 			b.box(Vector3(0, 0, 0), Vector3(0.42, 0.6, 0.004), PLA, 0.6, Color(0.93, 0.9, 0.82))
-			b.box(Vector3(0, 0.15, -0.003), Vector3(0.3, 0.22, 0.002), PLA, 0.2, Color(0.45, 0.4, 0.36))
-			b.box(Vector3(0, -0.12, -0.003), Vector3(0.34, 0.05, 0.002), PLA, 0.1, Color(0.7, 0.1, 0.08))
-			b.box(Vector3(0, -0.22, -0.003), Vector3(0.3, 0.03, 0.002), PLA, 0.1, Color(0.2, 0.2, 0.2))
+			b.box(Vector3(0, 0.15, -0.003), Vector3(0.3, 0.22, 0.002), PLA, 2.2, Color(0.45, 0.4, 0.36))
+			b.box(Vector3(0, -0.12, -0.003), Vector3(0.34, 0.05, 0.002), PLA, 2.1, Color(0.7, 0.1, 0.08))
+			b.box(Vector3(0, -0.22, -0.003), Vector3(0.3, 0.03, 0.002), PLA, 2.1, Color(0.2, 0.2, 0.2))
 		"newspaper_stand":
 			b.box(Vector3(0, 0.55, 0), Vector3(0.5, 1.1, 0.45), MET, 0.2, Color(0.2, 0.35, 0.6))
 			b.box(Vector3(0, 0.8, -0.226), Vector3(0.4, 0.3, 0.004), TIL, 0.0, Color(0.3, 0.35, 0.4))
+		"oil_stain":
+			# mancha de óleo/fuligem onde carros ficavam parados (decalque)
+			var r := RandomNumberGenerator.new()
+			r.seed = 5150
+			for k in 3:
+				var cen := Vector3(r.randf_range(-0.5, 0.5), 0.006, r.randf_range(-0.9, 0.9))
+				var rad := r.randf_range(0.25, 0.6)
+				var pts: Array = []
+				for i in 14:
+					var a := TAU * float(i) / 14.0
+					var rr := rad * r.randf_range(0.65, 1.0)
+					pts.append(cen + Vector3(cos(a) * rr, 0.0, sin(a) * rr * r.randf_range(0.7, 1.3)))
+				var cc := Color(0.35, 0.34, 0.33).darkened(r.randf() * 0.3)
+				for i in 14:
+					var p0: Vector3 = pts[i]
+					var p1: Vector3 = pts[(i + 1) % 14]
+					b.tri(cen, p0, p1, Vector3.UP, Vector2(cen.x, cen.z), Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), _c(Assets.L_ASPHALT), 3.0 + float(k) + 0.4, cc)
 		# --- marcas de violência (discretas) ---------------------------------------
 		"blood_pool", "blood_pool_2", "blood_smear":
 			var r := RandomNumberGenerator.new()
@@ -781,34 +799,34 @@ static func _build(name: String, b: MeshBuf) -> void:
 				for i in n:
 					var p0: Vector3 = pts[i]
 					var p1: Vector3 = pts[(i + 1) % n]
-					b.tri(Vector3(0, y, 0), p0, p1, Vector3.UP, Vector2.ZERO, Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), TIL, 0.0, cc)
+					b.tri(Vector3(0, y, 0), p0, p1, Vector3.UP, Vector2.ZERO, Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), TIL, 3.0 + float(ring), cc)
 			# respingos em volta
 			for i in 9:
 				var a := r.randf() * TAU
 				var d := r.randf_range(0.6, 1.2)
 				var sz := r.randf_range(0.03, 0.08)
-				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(cos(a) * d, 0.009, sin(a) * d * ex)), sz, 0.002, 6, TIL, 0.0, Color(0.25, 0.03, 0.02))
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(cos(a) * d, 0.009, sin(a) * d * ex)), sz, 0.002, 6, TIL, 2.0, Color(0.25, 0.03, 0.02))
 		"blood_wall":
 			# respingo vertical (frente para -Z, encostado na parede)
 			var r := RandomNumberGenerator.new()
 			r.seed = 91
-			b.box(Vector3(0, 0, 0), Vector3(0.35, 0.28, 0.002), TIL, 0.0, Color(0.28, 0.04, 0.03))
+			b.box(Vector3(0, 0, 0), Vector3(0.35, 0.28, 0.002), TIL, 2.0, Color(0.28, 0.04, 0.03))
 			for i in 14:
 				var a := r.randf() * TAU
 				var d := r.randf_range(0.15, 0.55)
 				var sz := r.randf_range(0.02, 0.07)
-				b.box_xf(Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * d, sin(a) * d * 0.7, -0.001)), Vector3(sz * 2.5, sz, 0.002), TIL, 0.0, Color(0.3, 0.04, 0.03))
+				b.box_xf(Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * d, sin(a) * d * 0.7, -0.001)), Vector3(sz * 2.5, sz, 0.002), TIL, 3.0, Color(0.3, 0.04, 0.03))
 			for i in 4:
 				var x := r.randf_range(-0.15, 0.15)
 				var ln := r.randf_range(0.2, 0.6)
-				b.box(Vector3(x, -0.14 - ln * 0.5, -0.0012), Vector3(0.018, ln, 0.002), TIL, 0.0, Color(0.25, 0.03, 0.02))
+				b.box(Vector3(x, -0.14 - ln * 0.5, -0.0012), Vector3(0.018, ln, 0.002), TIL, 4.0, Color(0.25, 0.03, 0.02))
 		"bullet_holes":
 			var r := RandomNumberGenerator.new()
 			r.seed = 13
 			for i in 9:
 				var p := Vector3(r.randf_range(-0.5, 0.5), r.randf_range(-0.35, 0.35), -0.002)
-				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), p), 0.035, 0.003, 8, CON, 0.0, Color(0.6, 0.58, 0.55))
-				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), p + Vector3(0, 0, -0.001)), 0.012, 0.003, 6, TIL, 0.0, Color(0.02, 0.02, 0.02))
+				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), p), 0.035, 0.003, 8, CON, 2.0 + float(i % 3), Color(0.6, 0.58, 0.55))
+				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), p + Vector3(0, 0, -0.001)), 0.012, 0.003, 6, TIL, 6.0, Color(0.02, 0.02, 0.02))
 		"body_bag":
 			b.box_xf(Transform3D(Basis.IDENTITY, Vector3(0, 0.1, 0)), Vector3(0.55, 0.2, 1.8), FAB, 0.2, Color(0.08, 0.08, 0.09))
 			b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0.11, -0.95)), 0.2, 0.1, 10, FAB, 0.2, Color(0.08, 0.08, 0.09))

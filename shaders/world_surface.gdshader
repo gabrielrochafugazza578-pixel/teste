@@ -44,6 +44,21 @@ varying flat float v_wmode;
 varying float v_seed;
 varying vec4 v_tint;
 
+// Degrau/faixa com antisserrilhado analítico (largura de 1 pixel via fwidth):
+// padrões finos (janelas, faixas, caixilhos) não "cintilam" ao andar.
+float aa_step(float edge, float x) {
+	float w = max(fwidth(x), 1e-4);
+	return clamp((x - edge) / w + 0.5, 0.0, 1.0);
+}
+float aa_band(float x, float half_w) {
+	float w = max(fwidth(x), 1e-4);
+	return clamp((half_w - abs(x)) / w + 0.5, 0.0, 1.0);
+}
+// idem com a largura do pixel dada (para coordenadas com fract, que saltam)
+float aa_band_w(float x, float half_w, float w) {
+	return clamp((half_w - abs(x)) / max(w, 1e-4) + 0.5, 0.0, 1.0);
+}
+
 float h21(vec2 p) {
 	p = fract(p * vec2(233.34, 851.73));
 	p += dot(p, p + 23.45);
@@ -57,6 +72,22 @@ void vertex() {
 	v_layer = mod(floor(code), 16.0);
 	v_wmode = floor(code / 16.0);
 	v_seed = UV2.y;
+	// Decalques (manchas, papéis, marcas, remendos): UV2.y = 2 + nível + semente.
+	// Ficam a milímetros da superfície e brigariam pelo depth (piscando); aqui
+	// o vértice vai um pouco na direção da câmera ao longo do raio de visão —
+	// a posição na tela não muda, só a profundidade (e cada nível vence o anterior).
+	if (UV2.y > 1.5) {
+		float level = floor(UV2.y) - 2.0;
+		v_seed = fract(UV2.y);
+		vec3 wv = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		vec3 tc = CAMERA_POSITION_WORLD - wv;
+		float dc = length(tc);
+		// a precisão do depth cai com o quadrado da distância: o empurrão também
+		// (0,5 mm perto, ~4 mm a 30 m); cada nível de sobreposição soma metade
+		vec3 dw = tc / max(dc, 0.001) * (0.0005 + 4e-6 * dc * dc) * (1.0 + level * 0.5);
+		mat3 m = mat3(MODEL_MATRIX);
+		VERTEX += transpose(m) * dw / max(dot(m[0], m[0]), 1e-6);
+	}
 	// Em MultiMesh com use_colors, COLOR já vem multiplicado pela cor da instância.
 	v_tint = COLOR;
 	if (use_instance_tint) {
@@ -67,6 +98,8 @@ void vertex() {
 void fragment() {
 	int li = int(v_layer);
 	float sc = layer_scales[li];
+	// derivadas fora dos "if" (dentro de desvio não uniforme o GLSL não garante)
+	vec2 dUV = fwidth(UV);
 	vec3 uvw = vec3(UV * sc, v_layer);
 	vec4 a = texture(tex_a, uvw);
 	vec4 b = texture(tex_b, uvw);
@@ -113,19 +146,26 @@ void fragment() {
 	// UV.x = distância do eixo da via (m), UV.y = distância ao longo da via.
 	if (v_wmode > 3.5) {
 		float ax = abs(UV.x);
-		float dash = step(fract(UV.y / 6.0), 0.5);
+		// tracejado: distância até o centro do traço (contínua, sem o salto do fract)
+		float d6 = (fract(UV.y / 6.0 + 0.25) - 0.5) * 6.0;
+		float wy = dUV.y;
+		float wx = dUV.x;
+		float dash = aa_band_w(d6, 1.5, wy);
 		float m = 0.0;
 		vec3 mc = vec3(0.78, 0.62, 0.16);
 		if (v_wmode < 4.5) {
-			m = step(ax, 0.07) * dash;
+			m = aa_band_w(UV.x, 0.07, wx) * dash;
 		} else if (v_wmode < 5.5) {
-			m = step(abs(ax - 0.12), 0.05);
-			float lane = step(abs(ax - 3.4), 0.06) * step(fract(UV.y / 9.0), 0.4);
-			if (lane > 0.5) { m = 1.0; mc = vec3(0.8); }
+			m = aa_band_w(ax - 0.12, 0.05, wx);
+			float d9 = (fract(UV.y / 9.0 + 0.3) - 0.5) * 9.0;
+			float lane = aa_band_w(ax - 3.4, 0.06, wx) * aa_band_w(d9, 1.8, wy);
+			mc = mix(mc, vec3(0.8), lane);
+			m = max(m, lane);
 		} else {
-			m = step(ax, 0.07) * dash;
-			float edge = step(abs(ax - 4.55), 0.07);
-			if (edge > 0.5) { m = 1.0; mc = vec3(0.8); }
+			m = aa_band_w(UV.x, 0.07, wx) * dash;
+			float edge = aa_band_w(ax - 4.55, 0.07, wx);
+			mc = mix(mc, vec3(0.8), edge);
+			m = max(m, edge);
 		}
 		float wear = smoothstep(0.2, 0.55, nz.g + 0.35 - world_decay * 0.3);
 		alb = mix(alb, mc, m * 0.85 * wear);
@@ -146,45 +186,65 @@ void fragment() {
 			wmin = vec2(0.06, 0.08);
 			wmax = vec2(0.94, 0.78);
 		}
-		float inx = step(wmin.x, f.x) * step(f.x, wmax.x);
-		float iny = step(wmin.y, f.y) * step(f.y, wmax.y);
-		float frame_x = step(wmin.x - 0.04, f.x) * step(f.x, wmax.x + 0.04);
-		float frame_y = step(wmin.y - 0.05, f.y) * step(f.y, wmax.y + 0.03);
+		// tamanho do pixel medido em células: de longe as janelas viram a média
+		// (senão a grade de janelas faz moiré e cintila ao andar)
+		vec2 fw = max(dUV / cell_size, vec2(1e-4));
+		float far_fade = smoothstep(0.1, 0.35, max(fw.x, fw.y));
+		float inx = clamp((f.x - wmin.x) / fw.x + 0.5, 0.0, 1.0) * clamp((wmax.x - f.x) / fw.x + 0.5, 0.0, 1.0);
+		float iny = clamp((f.y - wmin.y) / fw.y + 0.5, 0.0, 1.0) * clamp((wmax.y - f.y) / fw.y + 0.5, 0.0, 1.0);
+		float frx = clamp((f.x - wmin.x + 0.04) / fw.x + 0.5, 0.0, 1.0) * clamp((wmax.x + 0.04 - f.x) / fw.x + 0.5, 0.0, 1.0);
+		float fry = clamp((f.y - wmin.y + 0.05) / fw.y + 0.5, 0.0, 1.0) * clamp((wmax.y + 0.03 - f.y) / fw.y + 0.5, 0.0, 1.0);
+		float cov = (wmax.x - wmin.x) * (wmax.y - wmin.y);
+		float fcov = (wmax.x - wmin.x + 0.08) * (wmax.y - wmin.y + 0.08) - cov;
+		float win = mix(inx * iny, cov, far_fade);
+		float frame = mix(max(frx * fry - inx * iny, 0.0), fcov, far_fade);
 		float rnd = h21(cell + v_seed * 131.0);
 		float rnd2 = h21(cell.yx + v_seed * 71.0 + 3.0);
-		if (inx * iny > 0.5) {
-			is_window = 1.0;
+		if (win + frame > 0.001) {
 			// vidro escuro com reflexo falso do céu (fresnel) + cortinas variadas
-			vec3 interior = mix(vec3(0.012, 0.014, 0.018), vec3(0.05, 0.045, 0.04), rnd2) * (0.6 + 0.4 * f.y);
+			vec3 interior = mix(vec3(0.012, 0.014, 0.018), vec3(0.05, 0.045, 0.04), mix(rnd2, 0.5, far_fade)) * (0.6 + 0.4 * mix(f.y, 0.55, far_fade));
 			float curtain = step(0.62, rnd) * step(0.45 + rnd2 * 0.3, f.y) * step(0.5, fract(rnd * 7.0 + (f.x > 0.5 ? 0.5 : 0.0)));
+			curtain = mix(curtain, 0.08, far_fade);
 			interior = mix(interior, vec3(0.28, 0.25, 0.21) * (0.6 + rnd2 * 0.6), curtain * 0.8);
 			float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-			vec3 refl = mix(vec3(0.16, 0.18, 0.2), vec3(0.42, 0.47, 0.53), f.y) * (0.2 + daylight * 0.8);
+			vec3 refl = mix(vec3(0.16, 0.18, 0.2), vec3(0.42, 0.47, 0.53), mix(f.y, 0.55, far_fade)) * (0.2 + daylight * 0.8);
 			vec3 glass_col = mix(interior, refl, 0.25 + fres * 0.55);
 			float broken = step(1.0 - world_decay * 0.2, rnd2) * (exterior ? 1.0 : 0.0);
-			alb = mix(glass_col, vec3(0.008), broken);
-			// rugosidade moderada: reflexo do céu desfocado evita cintilação (aliasing) nas janelas
-			rough = mix(0.24, 0.95, broken);
-			metal = 0.0;
-			ao = 1.0;
-			nmap = vec3(0.0, 0.0, 1.0);
+			broken = mix(broken, world_decay * 0.2 * (exterior ? 1.0 : 0.0), far_fade);
+			vec3 g_alb = mix(glass_col, vec3(0.008), broken);
+			// rugosidade moderada: reflexo do céu desfocado evita cintilação nas janelas
+			float g_rough = mix(0.24, 0.95, broken);
 			// caixilho central nas janelas largas
-			if (v_wmode > 1.5 && abs(f.x - (wmin.x + wmax.x) * 0.5) < 0.012) {
-				alb = vec3(0.12);
-				rough = 0.5;
+			if (v_wmode > 1.5) {
+				float mull = clamp((0.012 - abs(f.x - (wmin.x + wmax.x) * 0.5)) / fw.x + 0.5, 0.0, 1.0) * (1.0 - far_fade);
+				g_alb = mix(g_alb, vec3(0.12), mull);
+				g_rough = mix(g_rough, 0.5, mull);
 			}
+			// moldura / peitoril
+			alb = mix(alb, alb * 0.62, frame);
+			rough = mix(rough, 0.6, frame);
+			nmap = normalize(mix(nmap, vec3(0.0, 0.0, 1.0), clamp(frame + win, 0.0, 1.0)));
+			// vidro
+			alb = mix(alb, g_alb, win);
+			rough = mix(rough, g_rough, win);
+			metal = mix(metal, 0.0, win);
+			ao = mix(ao, 1.0, win);
+			is_window = win;
 			// luz acesa (energia + apagão progressivo em onda)
 			float powered = city_power * step(blackout_radius, distance(w_pos.xz, blackout_origin.xz) + rnd * 25.0);
 			float occupancy = shop ? 0.85 : (0.25 + 0.45 * (1.0 - daylight));
-			float lit = step(rnd, occupancy) * powered * (1.0 - broken);
+			float lit = mix(step(rnd, occupancy), occupancy, far_fade) * powered * (1.0 - broken);
 			vec3 warm = mix(vec3(1.0, 0.72, 0.42), vec3(0.75, 0.85, 1.0), step(0.7, rnd2));
-			emit = warm * lit * (0.55 + rnd * 0.9) * (shop ? 1.6 : 1.0) * mix(0.35, 1.0, 1.0 - daylight) * emission_boost;
-		} else if (frame_x * frame_y > 0.5) {
-			// moldura / peitoril
-			alb *= 0.62;
-			rough = 0.6;
-			nmap = vec3(0.0, 0.0, 1.0);
+			emit = warm * lit * (0.55 + rnd * 0.9) * (shop ? 1.6 : 1.0) * mix(0.35, 1.0, 1.0 - daylight) * emission_boost * win;
 		}
+	}
+
+	// --- Contato com o chão: a base das fachadas é mais escura (sujeira, respingo
+	// de chuva e a "oclusão" que o renderer Compatibility não calcula) ---------
+	if (exterior && v_wmode > 0.5 && v_wmode < 3.5 && an.y < 0.3) {
+		float hb = UV.y;
+		alb *= mix(0.62, 1.0, smoothstep(0.0, 1.1, hb)) * mix(0.9, 1.0, smoothstep(0.0, 3.5, hb));
+		ao *= mix(0.75, 1.0, smoothstep(0.0, 0.6, hb));
 	}
 
 	// --- Umidade, poças e ondulações de chuva -------------------------------------
@@ -219,6 +279,13 @@ void fragment() {
 		alb *= vec3(1.04, 1.0, 0.93);
 		emit += alb * vec3(1.0, 0.9, 0.76) * interior_fill * (1.0 + down * 1.4) * (0.2 + daylight * 0.8) * (0.55 + 0.45 * ao);
 	}
+	// antisserrilhado especular: onde a normal varia muito dentro do pixel (detalhe
+	// fino do relevo ou geometria vista de longe) o brilho fica mais fosco em vez
+	// de acender e apagar a cada passo
+	vec2 dn = fwidth(nmap.xy);
+	vec3 dg = fwidth(w_nrm);
+	float nvar = dot(dn, dn) + dot(dg, dg);
+	rough = sqrt(clamp(rough * rough + min(nvar * 1.5, 0.35), 0.0, 1.0));
 	ALBEDO = alb;
 	ROUGHNESS = clamp(rough, 0.02, 1.0);
 	METALLIC = metal;

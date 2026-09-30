@@ -83,6 +83,18 @@ não atravessar a gola. No carro a câmera volta para trás do veículo.
   Medido: 100–230 draw calls, ~80 MB de VRAM na cidade.
 * **Streaming**: anéis de LOD (0/1/2) por distância; geração em `WorkerThreadPool`; aplicação no main thread
   com orçamento em µs por quadro; interiores gerados sob demanda ao se aproximar.
+* **Sem piscar** (medido com `tests/flicker.tscn` + `tools/flicker_score.py`: a câmera anda milímetros por
+  quadro e o script marca os pixels que mudam de forma não suave):
+  - o terreno desenhado afunda 30 cm sob ruas e quarteirões da cidade e 16 cm sob o asfalto das rodovias
+    (`WorldLayout.visual_sink`; a física não muda) — antes ficava no mesmo plano do asfalto e brigava pelo depth;
+  - decalques (manchas, papéis, marcas de parede, remendos, sangue, óleo) têm `UV2.y = 2 + nível + semente` e o
+    `world_surface` os puxa para a câmera ao longo do raio de visão (a posição na tela não muda, só a
+    profundidade, proporcional ao quadrado da distância);
+  - janelas procedurais, faixas da rua e caixilhos com antisserrilhado analítico (`fwidth`) e, de longe, a
+    média da grade no lugar do padrão (sem moiré); rugosidade aumenta onde a normal varia dentro do pixel;
+  - folhas e grama com alfa que preserva a cobertura nos mipmaps e borda de 1 pixel (não somem de longe);
+  - sol girando em passos de 0,15° (as bordas das sombras não "rastejam" a cada quadro);
+  - plano próximo da câmera 0,12 m (0,05 m em 1ª pessoa) e filtro anisotrópico 8×.
 * **Camada distante** (`FarLayer`): terreno do mapa inteiro a 32 m/célula + silhueta de todos os prédios num
   único MultiMesh (janelas procedurais que acompanham energia/apagão). Some onde o chunk real está carregado
   (máscara 48×48 de chunks lida no shader) — dá para ver a cidade da serra por ~2 draw calls.
