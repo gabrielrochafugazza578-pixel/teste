@@ -31,17 +31,15 @@ void vertex() {
 void fragment() {
 	vec3 c = srgb_to_linear(COLOR.rgb);
 	float grassy = step(0.83, COLOR.a);
-	float natural = step(0.16, COLOR.a);
+	float snowy = step(0.5, COLOR.a) * (1.0 - grassy);
 	float s = normalize(world_normal).y;
-	// grama -> terra -> pedra conforme a inclinacao (bordas bem definidas, estilo cartoon)
+	// grama vira terra e neve vira pedra nas encostas (bordas bem definidas, estilo cartoon)
 	float to_dirt = 1.0 - smoothstep(0.60, 0.63, s);
 	float to_stone = 1.0 - smoothstep(0.50, 0.53, s);
-	float to_stone_steep = 1.0 - smoothstep(0.34, 0.37, s);
 	c = mix(c, dirt_color, to_dirt * grassy);
-	c = mix(c, stone_color, to_stone * natural * max(grassy, step(0.5, COLOR.a)));
-	c = mix(c, stone_color, to_stone_steep * natural);
+	c = mix(c, stone_color, to_stone * snowy);
 	// faixas de rocha (estratos) nas paredes de pedra
-	float rocky = max(to_stone * natural, 1.0 - step(0.01, abs(COLOR.r - COLOR.b) + abs(COLOR.g - COLOR.b) - 0.12));
+	float rocky = max(to_stone * snowy, 1.0 - step(0.01, abs(COLOR.r - COLOR.b) + abs(COLOR.g - COLOR.b) - 0.12));
 	float strata = step(0.5, fract(world_pos.y * 0.4 + vnoise(world_pos.xz * 0.08) * 1.2));
 	c *= mix(1.0, 0.93 + 0.07 * strata, rocky * (1.0 - s * s));
 	ALBEDO = c;

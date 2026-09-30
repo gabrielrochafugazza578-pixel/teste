@@ -112,14 +112,26 @@ func generate_chunk(cx: int, cz: int) -> Dictionary:
 	mats.resize(P * P * H)
 	var hmin := 1.0e9
 	var hmax := -1.0e9
+	# alturas primeiro (para saber a inclinacao de cada coluna)
+	var heights := PackedFloat32Array()
+	heights.resize(P * P)
+	for lz in P:
+		for lx in P:
+			heights[lz * P + lx] = height_at(float(cx * N + lx), float(cz * N + lz))
 	for lz in P:
 		for lx in P:
 			var wx := float(cx * N + lx)
 			var wz := float(cz * N + lz)
-			var h := height_at(wx, wz)
+			var h := heights[lz * P + lx]
 			var b := biome_at(wx, wz, h)
 			var top := top_material(b, h)
 			var sub := sub_material(b)
+			# penhascos naturais sao de pedra
+			var hx := heights[lz * P + mini(lx + 1, P - 1)] - heights[lz * P + maxi(lx - 1, 0)]
+			var hz := heights[mini(lz + 1, P - 1) * P + lx] - heights[maxi(lz - 1, 0) * P + lx]
+			if Vector2(hx, hz).length() > 3.4 and b != Biome.DESERT and b != Biome.BEACH and b != Biome.OCEAN:
+				top = Mats.STONE
+				sub = Mats.STONE
 			hmin = minf(hmin, h)
 			hmax = maxf(hmax, h)
 			var base := (lz * P + lx) * H

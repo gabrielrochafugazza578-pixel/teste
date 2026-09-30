@@ -302,7 +302,8 @@ func break_deco(ch: Chunk, i: int, who: Player) -> void:
 
 
 ## Tira plantinhas (flores, grama...) de perto de onde o terreno mudou.
-func remove_small_decos(pos: Vector3, r: float) -> void:
+## Com `all = true` remove tambem arvores e pedras.
+func remove_small_decos(pos: Vector3, r: float, all := false) -> void:
 	var k := Vector2i(floori(pos.x / N), floori(pos.z / N))
 	for dz in [-1, 0, 1]:
 		for dx in [-1, 0, 1]:
@@ -311,13 +312,17 @@ func remove_small_decos(pos: Vector3, r: float) -> void:
 				continue
 			var changed := false
 			for i in ch.deco_count():
-				if ch.deco_removed.has(i) or not SMALL_DECOS.has(ch.deco_type(i)):
+				if ch.deco_removed.has(i) or (not all and not SMALL_DECOS.has(ch.deco_type(i))):
 					continue
-				if ch.deco_position(i).distance_to(pos) < r:
+				var dp := ch.deco_position(i)
+				if Vector2(dp.x - pos.x, dp.z - pos.z).length() < r:
 					ch.deco_removed[i] = true
 					changed = true
 			if changed:
 				ch._rebuild_deco_meshes()
+				if ch.deco_body:
+					ch.update_deco_collision(false)
+					ch.update_deco_collision(true)
 
 
 ## Cava (add=false) ou constroi (add=true) uma esfera suave.

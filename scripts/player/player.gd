@@ -85,6 +85,7 @@ func set_look(yaw_deg: float, pitch_deg: float) -> void:
 func _build_hand() -> void:
 	hand = Node3D.new()
 	hand.position = Vector3(0.36, -0.34, -0.5)
+	hand.scale = Vector3.ONE * 0.72
 	camera.add_child(hand)
 	var sleeve := MeshInstance3D.new()
 	sleeve.mesh = MeshBuilder.capsule(0.075, 0.42)
@@ -248,7 +249,7 @@ func _process(delta: float) -> void:
 	swing = maxf(0.0, swing - delta * 3.5)
 	# animacao da mao: balanco ao andar + golpe
 	var walk := sin(bob_time) * 0.02
-	hand.position = Vector3(0.36, -0.34 + walk, -0.5)
+	hand.position = Vector3(0.34, -0.3 + walk, -0.55)
 	hand.rotation = Vector3(-sin(swing * PI) * 1.1, sin(swing * PI) * 0.3, 0.0)
 
 	# vida volta aos poucos

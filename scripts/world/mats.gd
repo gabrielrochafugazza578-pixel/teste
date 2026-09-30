@@ -40,14 +40,12 @@ const NAMES: Array[String] = [
 
 ## Codigo guardado no alfa da cor do vertice:
 ## 1.0 = grama (vira terra e depois pedra nas encostas), 0.66 = neve (vira pedra),
-## 0.33 = terra (vira pedra em paredes muito ingremes), 0 = nao muda.
+## 0 = nao muda.
 static func slope_code(m: int) -> float:
 	if m == GRASS or m == FOREST_GRASS or m == MAGIC_GRASS:
 		return 1.0
 	if m == SNOW:
 		return 0.66
-	if m == DIRT:
-		return 0.33
 	return 0.0
 
 
