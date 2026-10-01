@@ -4,3 +4,4 @@
 # Screenshots temporarios das ferramentas
 /screenshots/tmp/
 /build/
+*.tar.gz
