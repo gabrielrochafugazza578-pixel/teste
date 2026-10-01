@@ -11,12 +11,53 @@ extends Node
 var world_seed: int = 20260930
 var args: Dictionary = {}
 
+# estado entre recarregamentos da cena
+var started := false             # ja saiu do menu inicial?
+
+# configuracoes (salvas em user://config.cfg)
+var view_distance := 8
+var mouse_sens := 1.0
+var fullscreen := false
+var outline := true
+
+const CONFIG_PATH := "user://config.cfg"
+
 
 func _ready() -> void:
 	_parse_args()
 	_setup_input()
+	if not is_screenshot_mode() and not args.has("autotest"):
+		load_config()
 	if args.has("seed"):
 		world_seed = int(args["seed"])
+
+
+func load_config() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(CONFIG_PATH) != OK:
+		return
+	view_distance = int(cf.get_value("video", "view_distance", view_distance))
+	fullscreen = bool(cf.get_value("video", "fullscreen", fullscreen))
+	outline = bool(cf.get_value("video", "outline", outline))
+	mouse_sens = float(cf.get_value("controls", "mouse_sens", mouse_sens))
+	world_seed = int(cf.get_value("world", "seed", world_seed))
+	apply_fullscreen()
+
+
+func save_config() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("video", "view_distance", view_distance)
+	cf.set_value("video", "fullscreen", fullscreen)
+	cf.set_value("video", "outline", outline)
+	cf.set_value("controls", "mouse_sens", mouse_sens)
+	cf.set_value("world", "seed", world_seed)
+	cf.save(CONFIG_PATH)
+
+
+func apply_fullscreen() -> void:
+	if is_screenshot_mode():
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 func _parse_args() -> void:
@@ -46,6 +87,13 @@ func is_screenshot_mode() -> bool:
 	return args.has("shot")
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_fullscreen"):
+		fullscreen = not fullscreen
+		apply_fullscreen()
+		save_config()
+
+
 func _setup_input() -> void:
 	_add_keys("move_forward", [KEY_W, KEY_UP])
 	_add_keys("move_back", [KEY_S, KEY_DOWN])
@@ -57,6 +105,7 @@ func _setup_input() -> void:
 	_add_keys("pause", [KEY_ESCAPE])
 	_add_keys("toggle_fly", [KEY_F])
 	_add_keys("toggle_creative", [KEY_G])
+	_add_keys("toggle_fullscreen", [KEY_F11])
 	for i in range(0, 10):
 		_add_keys("slot_%d" % i, [KEY_0 + i])
 	_add_mouse("attack", MOUSE_BUTTON_LEFT)

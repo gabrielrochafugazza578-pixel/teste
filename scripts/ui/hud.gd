@@ -48,7 +48,7 @@ func _ready() -> void:
 	hint_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	hint_label.position = Vector2(14, -120)
 	hint_label.size = Vector2(520, 110)
-	hint_label.text = "WASD andar  |  Espaco pular  |  Shift correr\nClique esq. cavar/bater  |  Clique dir. construir\n1-0 / roda do mouse: escolher material  |  Esc pausa"
+	hint_label.text = "WASD andar  |  Espaço pular  |  Shift correr\nClique esquerdo: cavar/bater  |  Clique direito: construir\n1-0 / roda do mouse: escolher material  |  Esc pausa"
 	hint_label.modulate.a = 0.85
 
 

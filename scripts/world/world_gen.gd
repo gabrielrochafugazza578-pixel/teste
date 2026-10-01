@@ -11,7 +11,7 @@ const DMAX := 8.0             # limite da densidade armazenada
 
 enum Biome { OCEAN, BEACH, PLAINS, FOREST, DESERT, SNOWY, MAGIC, MOUNTAIN }
 
-const BIOME_NAMES := ["Oceano", "Praia", "Planicie", "Floresta", "Deserto", "Neve", "Bosque Magico", "Montanha"]
+const BIOME_NAMES := ["Oceano", "Praia", "Planície", "Floresta", "Deserto", "Neve", "Bosque Mágico", "Montanha"]
 
 var seed_value: int
 var n_cont: FastNoiseLite

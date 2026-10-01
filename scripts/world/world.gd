@@ -52,6 +52,15 @@ func _exit_tree() -> void:
 	remesh_tasks.clear()
 
 
+## Muda a distancia de visao (configuracoes).
+func set_view_radius(r: int) -> void:
+	view_radius = r
+	var pm: PlaneMesh = water.mesh
+	var size := float((view_radius * 2 + 3) * N)
+	pm.size = Vector2(size, size)
+	center = Vector2i(1 << 30, 1 << 30)  # forca recalcular os chunks
+
+
 func _make_water() -> void:
 	water = MeshInstance3D.new()
 	var pm := PlaneMesh.new()

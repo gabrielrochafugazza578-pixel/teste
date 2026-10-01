@@ -12,6 +12,11 @@ var hud: Hud
 var mobs: MobManager
 var fireflies: CPUParticles3D
 var spawn_point := Vector3.ZERO
+var menu: GameMenu
+var outline_quad: MeshInstance3D
+var in_title := false
+var loaded_save := false
+var _autosave := 0.0
 
 var _shot_frames := 0
 var _shot_elapsed := 0.0
@@ -22,6 +27,7 @@ func _ready() -> void:
 	_build_environment()
 	world = World.new()
 	world.name = "World"
+	world.view_radius = Game.view_distance
 	if Game.has_arg("radius"):
 		world.view_radius = int(Game.arg("radius"))
 	add_child(world)
@@ -53,32 +59,167 @@ func _ready() -> void:
 	day_night.night_started.connect(func(): hud.show_message("A noite chegou... cuidado com as criaturas!", 4.0))
 	day_night.day_started.connect(func(): hud.show_message("Bom dia! Dia %d" % day_night.day_count, 3.0))
 
+	menu = GameMenu.new()
+	menu.name = "Menu"
+	add_child(menu)
+	menu.play_pressed.connect(_on_play)
+	menu.resume_pressed.connect(_resume)
+	menu.save_menu_pressed.connect(_on_save_menu)
+	menu.save_quit_pressed.connect(_on_save_quit)
+	menu.respawn_pressed.connect(_on_respawn)
+	menu.settings_changed.connect(_apply_settings)
+
+	_apply_fog()
 	spawn_point = find_spawn()
+	player.global_position = spawn_point
 	if Game.is_screenshot_mode():
 		_setup_screenshot()
+		match String(Game.arg("menu", "")):
+			"1", "title":
+				_show_title()
+			"pause":
+				menu.show_screen(GameMenu.Screen.PAUSE)
+			"settings":
+				menu.show_screen(GameMenu.Screen.SETTINGS)
+			"death":
+				player.hp = 0
+				menu.show_screen(GameMenu.Screen.DEATH)
+		return
+	if Game.has_arg("autotest"):
+		_start_playing()
+		var at: Node = load("res://scripts/autotest.gd").new()
+		at.set("main", self)
+		at.set("player", player)
+		at.set("world", world)
+		at.set("mobs", mobs)
+		at.set("day_night", day_night)
+		at.set("duration", float(Game.arg("autotest")))
+		add_child(at)
+		return
+	# mundo salvo? carrega antes dos chunks aparecerem
+	loaded_save = SaveGame.load_into(world, player, day_night)
+	if Game.started:
+		_start_playing()
 	else:
+		_show_title()
+
+
+## Tela inicial: a camera fica girando devagar mostrando o mundo.
+func _show_title() -> void:
+	in_title = true
+	player.set_physics_process(false)
+	hud.visible = false
+	mobs.enabled = false
+	menu.has_save = loaded_save
+	player.hand.visible = false
+	menu.show_screen(GameMenu.Screen.TITLE)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.global_position.y = maxf(player.global_position.y, world.height_at(player.global_position.x, player.global_position.z) + 0.2) + 2.0
+
+
+func _start_playing() -> void:
+	in_title = false
+	Game.started = true
+	menu.show_screen(GameMenu.Screen.NONE)
+	hud.visible = not Game.has_arg("nohud")
+	mobs.enabled = true
+	player.hand.visible = true
+	player.set_physics_process(true)
+	player.frozen = true
+	if not loaded_save:
 		player.global_position = spawn_point
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		hud.show_message("Bem-vindo a Terra Redonda!", 4.0)
+		player.set_look(randf() * 360.0, -5.0)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	hud.show_message("Bem-vindo à Terra Redonda!" if not loaded_save else "Bem-vindo de volta!", 4.0)
+	_apply_settings()
+
+
+func _on_play(new_seed: int) -> void:
+	if new_seed != Game.world_seed:
+		# outro mundo: recarrega a cena com a nova semente
+		Game.world_seed = new_seed
+		Game.started = true
+		Game.save_config()
+		get_tree().reload_current_scene()
+		return
+	Game.save_config()
+	_start_playing()
+
+
+func _pause() -> void:
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	menu.show_screen(GameMenu.Screen.PAUSE)
+
+
+func _resume() -> void:
+	get_tree().paused = false
+	menu.show_screen(GameMenu.Screen.NONE)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func save_now() -> void:
+	if in_title or Game.is_screenshot_mode() or Game.has_arg("autotest"):
+		return
+	if SaveGame.save(world, player, day_night):
+		loaded_save = true
+
+
+func _on_save_menu() -> void:
+	save_now()
+	get_tree().paused = false
+	Game.started = false
+	get_tree().reload_current_scene()
+
+
+func _on_save_quit() -> void:
+	save_now()
+	get_tree().quit()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		save_now()
+
+
+func _apply_settings() -> void:
+	if not Game.has_arg("radius") and world.view_radius != Game.view_distance:
+		world.set_view_radius(Game.view_distance)
+	if outline_quad:
+		outline_quad.visible = Game.outline
+	_apply_fog()
+
+
+## A neblina acompanha a distancia de visao (esconde a borda do mundo).
+func _apply_fog() -> void:
+	env.fog_depth_end = world.view_radius * WorldGen.N - 4.0
+	env.fog_depth_begin = env.fog_depth_end * 0.55
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if in_title or Game.is_screenshot_mode():
+		return
 	if event.is_action_pressed("pause"):
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			hud.show_message("Pausado - clique para continuar", 9999.0)
-			get_tree().paused = false
-	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Game.is_screenshot_mode():
+		if menu.screen == GameMenu.Screen.NONE and not player.dead:
+			_pause()
+		elif menu.screen == GameMenu.Screen.PAUSE:
+			_resume()
+	elif event is InputEventMouseButton and event.pressed and menu.screen == GameMenu.Screen.NONE and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		hud.show_message("", 0.0)
 		get_viewport().set_input_as_handled()
 
 
 func _on_player_died() -> void:
-	hud.show_message("Voce desmaiou! Voltando para casa...", 3.0)
-	await get_tree().create_timer(3.0).timeout
+	await get_tree().create_timer(1.2).timeout
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	menu.show_screen(GameMenu.Screen.DEATH)
+
+
+func _on_respawn() -> void:
 	mobs.clear_all()
 	player.respawn(spawn_point)
+	menu.show_screen(GameMenu.Screen.NONE)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _build_environment() -> void:
@@ -90,7 +231,7 @@ func _build_environment() -> void:
 	sky_mat.shader = load("res://shaders/sky.gdshader")
 	sky.sky_material = sky_mat
 	sky.radiance_size = Sky.RADIANCE_SIZE_32
-	sky.process_mode = Sky.PROCESS_MODE_REALTIME
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_energy = 1.0
@@ -186,6 +327,7 @@ func _add_outline(cam: Camera3D) -> void:
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	quad.position = Vector3(0, 0, -1)
 	cam.add_child(quad)
+	outline_quad = quad
 
 
 ## Procura um lugar em terra firme perto da origem para nascer.
@@ -238,6 +380,13 @@ func _process(delta: float) -> void:
 	if fireflies:
 		fireflies.global_position = player.global_position + Vector3(0, 1.8, 0)
 		fireflies.emitting = day_night.night_factor > 0.6
+	if in_title:
+		player.set_look(rad_to_deg(player.yaw) + delta * 4.0, -6.0)
+	elif not Game.is_screenshot_mode() and not Game.has_arg("autotest"):
+		_autosave += delta
+		if _autosave > 120.0:
+			_autosave = 0.0
+			save_now()
 	if not Game.is_screenshot_mode():
 		return
 	_shot_elapsed += delta

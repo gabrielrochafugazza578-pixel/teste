@@ -34,7 +34,7 @@ const COLORS: Array[Color] = [
 
 const NAMES: Array[String] = [
 	"Ar", "Grama", "Terra", "Pedra", "Areia", "Neve", "Madeira", "Folhas",
-	"Tijolo", "Cristal", "Grama da Floresta", "Grama Magica", "Argila",
+	"Tijolo", "Cristal", "Grama da Floresta", "Grama Mágica", "Argila",
 ]
 
 

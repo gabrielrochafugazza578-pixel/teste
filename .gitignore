@@ -1,6 +1,5 @@
 # Godot 4
 .godot/
 /android/
-export_presets.cfg
 # Screenshots temporarios das ferramentas
 /screenshots/tmp/

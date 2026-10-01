@@ -25,6 +25,7 @@ var yaw := 0.0
 var pitch := 0.0
 var frozen := true           # espera o chao carregar
 var flying := false
+var autopilot := false       # usado pelo teste automatico
 var in_water := false
 var head_in_water := false
 var bob_time := 0.0
@@ -140,8 +141,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if dead:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		yaw -= event.relative.x * MOUSE_SENS
-		pitch = clampf(pitch - event.relative.y * MOUSE_SENS, -1.54, 1.54)
+		yaw -= event.relative.x * MOUSE_SENS * Game.mouse_sens
+		pitch = clampf(pitch - event.relative.y * MOUSE_SENS * Game.mouse_sens, -1.54, 1.54)
 		rotation.y = yaw
 		head.rotation.x = pitch
 	elif event.is_action_pressed("toggle_fly") and OS.is_debug_build():
@@ -186,7 +187,7 @@ func _physics_process(delta: float) -> void:
 	head_in_water = eye_y < WorldGen.SEA - 0.2
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not autopilot:
 		input = Vector2.ZERO
 	var dir := (transform.basis * Vector3(input.x, 0.0, input.y)).normalized()
 	var speed := SPRINT_SPEED if Input.is_action_pressed("sprint") else WALK_SPEED
@@ -264,7 +265,7 @@ func _process(delta: float) -> void:
 		return
 	var hit := _raycast()
 	_update_marker(hit)
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or autopilot:
 		return
 	if Input.is_action_pressed("attack") and action_cooldown <= 0.0:
 		action_cooldown = 0.3

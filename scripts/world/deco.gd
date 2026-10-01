@@ -5,7 +5,7 @@ class_name Deco
 enum { TREE_ROUND, TREE_AUTUMN, TREE_PINE, TREE_PINE_SNOW, TREE_PALM, BUSH, FLOWER,
 	ROCK, CACTUS, MUSHROOM_GIANT, MUSHROOM_GLOW, GRASS, CRYSTAL, DEAD_BUSH, COUNT }
 
-const NAMES := ["Arvore", "Arvore de Outono", "Pinheiro", "Pinheiro Nevado", "Palmeira",
+const NAMES := ["Árvore", "Árvore de Outono", "Pinheiro", "Pinheiro Nevado", "Palmeira",
 	"Arbusto", "Flor", "Pedra", "Cacto", "Cogumelo Gigante", "Cogumelo Brilhante", "Grama",
 	"Cristal", "Arbusto Seco"]
 
