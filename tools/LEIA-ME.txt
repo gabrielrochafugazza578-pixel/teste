@@ -1,0 +1,32 @@
+TERRA REDONDA - mundo infinito, redondo e cartoon
+=================================================
+
+COMO JOGAR NO LINUX
+  1. Extraia o pacote:      tar -xzf TerraRedonda-linux-x86_64.tar.gz
+  2. Entre na pasta:        cd TerraRedonda
+  3. Rode o jogo:           ./TerraRedonda.x86_64
+     (ou de dois cliques no arquivo TerraRedonda.x86_64 no gerenciador de arquivos)
+
+  Se aparecer "permissao negada":  chmod +x TerraRedonda.x86_64
+  PC ou placa de video antiga (sem Vulkan):
+                            ./TerraRedonda.x86_64 --rendering-driver opengl3
+
+CONTROLES
+  WASD / setas ........ andar
+  Mouse ............... olhar
+  Espaco .............. pular / nadar para cima
+  Shift ............... correr
+  Clique esquerdo ..... cavar, cortar arvore, bater nos bichos
+  Clique direito ...... construir com o material escolhido
+  1 a 0 / roda mouse .. escolher material
+  G ................... modo criativo (material infinito)
+  F11 ................. tela cheia
+  Esc ................. pausa (configuracoes, salvar e sair)
+
+DICAS
+  - A noite chegam criaturas: Lobo Sombrio, Gosma Lunar, Espirito Vaga-lume
+    e o raro Golem de Cristal. Derrote-as para ganhar cristais!
+  - De dia aparecem porcos, vacas, ovelhas, galinhas e coelhos.
+  - O mundo e salvo automaticamente (a cada 2 minutos e ao sair) em
+    ~/.local/share/godot/app_userdata/Terra Redonda/
+  - Mude a "semente" no menu inicial para gerar um mundo totalmente diferente.
