@@ -1,0 +1,35 @@
+{
+ "fonte": "Poly Haven (CC0)",
+ "ids": {
+  "0": "asphalt_02",
+  "1": "concrete_pavement",
+  "2": "brick_wall_02",
+  "3": "painted_plaster_wall",
+  "4": "clay_roof_tiles",
+  "5": "rusty_metal_sheet",
+  "6": "brown_planks_03",
+  "8": "dirt",
+  "9": "rock_ground",
+  "10": "grey_tiles",
+  "11": "floor_tiles_02",
+  "12": "gravel_floor",
+  "13": "bark_brown_02",
+  "15": "linoleum_brown"
+ },
+ "escala": {
+  "0": 0.3333,
+  "1": 0.5556,
+  "2": 0.5,
+  "3": 0.5,
+  "4": 0.25,
+  "5": 0.5,
+  "6": 1.0,
+  "8": 0.5,
+  "9": 0.6667,
+  "10": 0.4545,
+  "11": 0.25,
+  "12": 0.4444,
+  "13": 1.0,
+  "15": 0.5
+ }
+}

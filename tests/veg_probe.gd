@@ -74,6 +74,14 @@ func _ready() -> void:
 			mi.mesh = mb.to_mesh(mat)
 			mi.position = Vector3(-6 + i * 2.4, 0, 2)
 			add_child(mi)
+	if "--props" in OS.get_cmdline_user_args():
+		var names := ["barrel", "trash_bags", "barrel", "traffic_cone", "trash_bags"]
+		for i in names.size():
+			var mi := MeshInstance3D.new()
+			mi.mesh = PropLib.mesh(names[i])
+			mi.position = Vector3(-3 + i * 1.6, 0, 4.5)
+			mi.rotation.y = i * 0.7
+			add_child(mi)
 	if "--encosta" in OS.get_cmdline_user_args():
 		# encosta virada para longe do sol da tarde (sol a +x): só luz ambiente
 		var hill := MeshInstance3D.new()

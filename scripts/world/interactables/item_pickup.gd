@@ -41,6 +41,22 @@ func animate_drop(from_height: float = 0.85) -> void:
 	tw.tween_property(mesh_node, "position:y", 0.0, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
+static var _hl_mat: ShaderMaterial
+
+
+## Item na mira do jogador: contorno brilhante pulsando.
+func set_highlight(on: bool) -> void:
+	if mesh_node == null:
+		return
+	if on:
+		if _hl_mat == null:
+			_hl_mat = ShaderMaterial.new()
+			_hl_mat.shader = load("res://shaders/highlight.gdshader")
+		mesh_node.material_overlay = _hl_mat
+	else:
+		mesh_node.material_overlay = null
+
+
 ## Nome curto + quantidade (painel "Itens por perto").
 func label_text() -> String:
 	var q := int(stack.get("qty", 1))

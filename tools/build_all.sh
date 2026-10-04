@@ -23,6 +23,7 @@ cp tools/dist/LEIA-ME.txt "build/$PKG/"
 # cópia do LEIA-ME com quebras de linha do Windows dentro da pasta Windows
 sed 's/$/\r/' tools/dist/LEIA-ME.txt > "build/$PKG/Windows/LEIA-ME.txt"
 cp assets/textures/grass_bush_LICENSE.txt "build/$PKG/licencas/SimpleGrassTextured_MIT.txt"
+cp assets/materials/LICENCA.txt "build/$PKG/licencas/PolyHaven_texturas_CC0.txt"
 chmod +x "build/$PKG/Linux/o_inicio_do_fim.x86_64" "build/$PKG/Linux/jogar.sh"
 # zip que guarda a permissão de execução do Linux (o Gerenciador de Arquivos respeita)
 python3 - "build/$PKG" "build/${PKG}_Windows_e_Linux.zip" <<'PY'

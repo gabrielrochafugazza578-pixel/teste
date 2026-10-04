@@ -376,6 +376,8 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		phase_node.add_child(mmi)
 		mmi.visibility_range_end = 120.0
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if phase == GameState.Phase.POST and Settings.get_particle_multiplier() > 0.0:
+		_ambient_fx(by_type)
 	var cols: Array = p.get("colliders", [])
 	if not cols.is_empty():
 		phase_body = PhysicsServer3D.body_create()
@@ -384,6 +386,76 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		PhysicsServer3D.body_set_collision_layer(phase_body, 1)
 		PhysicsServer3D.body_set_collision_mask(phase_body, 0)
 		_add_boxes(phase_body, cols, phase_shapes)
+
+
+## Detalhes vivos depois do surto: fiapo de fumaça em alguns carros queimados
+## (ainda fumegando) e papéis rolando com o vento nas ruas da cidade.
+func _ambient_fx(by_type: Dictionary) -> void:
+	var smokes := 0
+	for key in by_type.keys():
+		if not str(key).ends_with("|burned"):
+			continue
+		for car in by_type[key]:
+			if smokes >= 2 or absi(Util.hash_str(str(car["uid"]) + "fumo")) % 3 != 0:
+				continue
+			smokes += 1
+			var sm := GPUParticles3D.new()
+			sm.amount = maxi(4, int(10 * Settings.get_particle_multiplier()))
+			sm.lifetime = 7.0
+			sm.preprocess = 7.0
+			sm.visibility_aabb = AABB(Vector3(-6, -1, -6), Vector3(12, 16, 12))
+			var q := QuadMesh.new()
+			q.size = Vector2(1.4, 1.4)
+			q.material = Assets.particle_material(Assets.SPR_SMOKE, Color(0.22, 0.21, 0.2, 0.42))
+			sm.draw_pass_1 = q
+			var pm := ParticleProcessMaterial.new()
+			pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+			pm.emission_sphere_radius = 0.35
+			pm.direction = Vector3(0, 1, 0)
+			pm.spread = 12.0
+			pm.initial_velocity_min = 0.5
+			pm.initial_velocity_max = 0.9
+			pm.gravity = Vector3(0.25, 0.18, 0.1)
+			pm.scale_min = 0.7
+			pm.scale_max = 2.6
+			var grad := Gradient.new()
+			grad.set_color(0, Color(1, 1, 1, 0.0))
+			grad.add_point(0.15, Color(1, 1, 1, 0.55))
+			grad.set_color(grad.get_point_count() - 1, Color(1, 1, 1, 0.0))
+			var gt := GradientTexture1D.new()
+			gt.gradient = grad
+			pm.color_ramp = gt
+			sm.process_material = pm
+			sm.position = (car["pos"] as Vector3) + Vector3(0, 0.9, 0)
+			sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			phase_node.add_child(sm)
+	# papéis ao vento (só na cidade, um emissor por chunk)
+	var c := Vector3((coord.x + 0.5) * WorldLayout.CHUNK, 0, (coord.y + 0.5) * WorldLayout.CHUNK)
+	if not WorldLayout.URBAN.has_point(Vector2(c.x, c.z)) or absi(Util.hash2(coord.x, coord.y, 77)) % 2 != 0:
+		return
+	var pp := GPUParticles3D.new()
+	pp.amount = maxi(3, int(7 * Settings.get_particle_multiplier()))
+	pp.lifetime = 6.0
+	pp.preprocess = 6.0
+	pp.visibility_aabb = AABB(Vector3(-40, -1, -40), Vector3(80, 8, 80))
+	var q2 := QuadMesh.new()
+	q2.size = Vector2(0.28, 0.2)
+	q2.material = Assets.particle_material(Assets.SPR_PAPER, Color(0.85, 0.83, 0.78, 1.0))
+	pp.draw_pass_1 = q2
+	var pm2 := ParticleProcessMaterial.new()
+	pm2.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm2.emission_box_extents = Vector3(WorldLayout.CHUNK * 0.45, 0.1, WorldLayout.CHUNK * 0.45)
+	pm2.direction = Vector3(1, 0.35, 0.3)
+	pm2.spread = 35.0
+	pm2.initial_velocity_min = 1.2
+	pm2.initial_velocity_max = 3.0
+	pm2.gravity = Vector3(0.4, -0.9, 0.2)
+	pm2.angular_velocity_min = -220.0
+	pm2.angular_velocity_max = 220.0
+	pp.process_material = pm2
+	pp.position = c + Vector3(0, WorldLayout.CURB + 0.15, 0)
+	pp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	phase_node.add_child(pp)
 
 
 # ---------------------------------------------------------------------------

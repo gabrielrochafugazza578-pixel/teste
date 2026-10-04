@@ -48,9 +48,70 @@ static func buf(name: String) -> MeshBuf:
 static func mesh(name: String) -> ArrayMesh:
 	if _meshes.has(name):
 		return _meshes[name]
-	var m := buf(name).to_mesh(Assets.world_material("props"))
+	var m: ArrayMesh = _model_mesh(name) if MODELS.has(name) else null
+	if m == null:
+		m = buf(name).to_mesh(Assets.world_material("props"))
 	_meshes[name] = m
 	return m
+
+
+## Props de rua com modelo 3D de verdade (Poly Haven, CC0): caminho, altura
+## alvo (m) e quantas cópias agrupar (sacos de lixo vêm em monte).
+const MODELS := {
+	"barrel": ["res://assets/models/props/barrel/barrel.gltf", 0.92, 1],
+	"trash_bags": ["res://assets/models/props/trash_bag/trash_bag.gltf", 0.52, 3],
+}
+
+
+static func _model_mesh(name: String) -> ArrayMesh:
+	var spec: Array = MODELS[name]
+	if not ResourceLoader.exists(spec[0]):
+		return null
+	var ps := load(spec[0]) as PackedScene
+	if ps == null:
+		return null
+	var root := ps.instantiate()
+	var parts: Array = []
+	var stack: Array = [[root, Transform3D.IDENTITY]]
+	while not stack.is_empty():
+		var e: Array = stack.pop_back()
+		var n: Node = e[0]
+		var xf: Transform3D = e[1]
+		if n is Node3D:
+			xf = xf * (n as Node3D).transform
+		if n is MeshInstance3D and (n as MeshInstance3D).mesh:
+			parts.append([n, xf])
+		for c in n.get_children():
+			stack.append([c, xf])
+	if parts.is_empty():
+		root.free()
+		return null
+	# caixa do modelo para pôr a base no chão, centrar e escalar à altura alvo
+	var box := AABB()
+	var first := true
+	for pr in parts:
+		var a: AABB = (pr[1] as Transform3D) * ((pr[0] as MeshInstance3D).mesh.get_aabb())
+		box = a if first else box.merge(a)
+		first = false
+	var k := float(spec[1]) / maxf(box.size.y, 0.001)
+	var center := box.get_center()
+	var norm := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-center.x * k, -box.position.y * k, -center.z * k))
+	var copies: Array = [Transform3D.IDENTITY]
+	if int(spec[2]) > 1:
+		copies = [Transform3D(Basis(Vector3.UP, 0.4), Vector3(-0.32, 0, 0.05)), Transform3D(Basis(Vector3.UP, 2.1).scaled(Vector3.ONE * 0.9), Vector3(0.3, 0, -0.12)),
+			Transform3D(Basis(Vector3.UP, 4.0).scaled(Vector3.ONE * 0.8), Vector3(0.05, 0, 0.38))]
+	var out := ArrayMesh.new()
+	for pr in parts:
+		var mi: MeshInstance3D = pr[0]
+		for si in mi.mesh.get_surface_count():
+			var st := SurfaceTool.new()
+			for cxf in copies:
+				st.append_from(mi.mesh, si, (cxf as Transform3D) * norm * (pr[1] as Transform3D))
+			st.commit(out)
+			var mat: Material = mi.get_active_material(si)
+			out.surface_set_material(out.get_surface_count() - 1, mat)
+	root.free()
+	return out
 
 
 ## Tamanho aproximado (para colisão). Vector3.ZERO = sem colisão.

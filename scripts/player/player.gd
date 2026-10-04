@@ -911,6 +911,11 @@ func _scan_interactables() -> void:
 		prompt = best.get_prompt(self)
 	elif world != null and inventory.has("garrafa_vazia") and _near_water():
 		prompt = "Encher garrafas (água suja)"
+	if best != current_interactable:
+		if is_instance_valid(current_interactable) and current_interactable.has_method("set_highlight"):
+			current_interactable.set_highlight(false)
+		if best != null and best.has_method("set_highlight"):
+			best.set_highlight(true)
 	if best != current_interactable or prompt != "":
 		current_interactable = best
 	EventBus.interaction_prompt.emit(prompt)

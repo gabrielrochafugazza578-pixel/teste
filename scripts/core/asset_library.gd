@@ -116,10 +116,15 @@ func _bake_gpu(size: int) -> void:
 	var done := 0
 	var imgs_a: Array[Image] = []
 	var imgs_b: Array[Image] = []
+	_load_photo_scales()
 	for layer in LAYER_COUNT:
 		for ch in 2:
-			var img := await _render(vp, mat, 0, layer, ch, size)
-			img.generate_mipmaps(ch == 1)
+			# foto CC0 (assets/materials) quando existe; senão a textura procedural
+			var img := _photo_layer(layer, ch, size)
+			if img == null:
+				img = await _render(vp, mat, 0, layer, ch, size)
+			# sem "renormalizar": o canal azul de B é a oclusão (o shader refaz o z da normal)
+			img.generate_mipmaps(false)
 			if ch == 0:
 				imgs_a.append(img)
 			else:
@@ -230,6 +235,54 @@ func _make_fallback(s: int) -> void:
 	noise_tex = ImageTexture.create_from_image(nz)
 
 
+# ---------------------------------------------------------------------------
+# Texturas fotográficas (Poly Haven, CC0) — tools/fetch_textures.py
+# ---------------------------------------------------------------------------
+const PHOTO_DIR := "res://assets/materials/"
+## escala real (repetições por metro) das camadas que têm foto
+var photo_scales: Dictionary = {}
+
+
+func _load_photo_scales() -> void:
+	photo_scales.clear()
+	var txt := FileAccess.get_file_as_string(PHOTO_DIR + "escala.json")
+	var d = JSON.parse_string(txt) if txt != "" else null
+	if typeof(d) == TYPE_DICTIONARY and d.has("escala"):
+		for k in (d["escala"] as Dictionary).keys():
+			if ResourceLoader.exists("%s%02d_a.png" % [PHOTO_DIR, int(k)]):
+				photo_scales[int(k)] = float(d["escala"][k])
+
+
+func _photo_layer(layer: int, ch: int, size: int) -> Image:
+	if not photo_scales.has(layer):
+		return null
+	var path := "%s%02d_%s.png" % [PHOTO_DIR, layer, "a" if ch == 0 else "b"]
+	if not ResourceLoader.exists(path):
+		return null
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	if img == null:
+		return null
+	if img.is_compressed():
+		img.decompress()
+	if img.has_mipmaps():
+		img.clear_mipmaps()
+	img.convert(Image.FORMAT_RGBA8)
+	if img.get_width() != size or img.get_height() != size:
+		img.resize(size, size, Image.INTERPOLATE_LANCZOS)
+	return img
+
+
+## Escala por camada usada pelos materiais: a real da foto ou a procedural.
+func layer_scales() -> PackedFloat32Array:
+	var out := PackedFloat32Array(LAYER_SCALES)
+	for k in photo_scales.keys():
+		out[int(k)] = float(photo_scales[k])
+	return out
+
+
 ## Atlas 2×2 de personagens (pele, malha, brim, couro) => Texture2DArray de 4
 ## camadas: sem "vazamento" do quadrante vizinho nas bordas de repetição.
 func _atlas_to_array(img: Image, normal: bool) -> Texture2DArray:
@@ -247,9 +300,14 @@ func _atlas_to_array(img: Image, normal: bool) -> Texture2DArray:
 
 
 func _refresh_materials() -> void:
+	var sc := layer_scales()
 	for m in _tex_users:
 		if m is ShaderMaterial:
 			_assign_textures(m)
+			if (m as ShaderMaterial).shader and (m as ShaderMaterial).shader.resource_path.ends_with("world_surface.gdshader"):
+				m.set_shader_parameter("layer_scales", sc)
+			elif (m as ShaderMaterial).shader and (m as ShaderMaterial).shader.resource_path.ends_with("terrain.gdshader"):
+				_terrain_scales(m)
 
 
 func _assign_textures(m: ShaderMaterial) -> void:
@@ -283,7 +341,7 @@ func world_material(kind: String = "exterior") -> ShaderMaterial:
 		return _mats[key]
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/world_surface.gdshader")
-	m.set_shader_parameter("layer_scales", PackedFloat32Array(LAYER_SCALES))
+	m.set_shader_parameter("layer_scales", layer_scales())
 	match kind:
 		"interior":
 			m.set_shader_parameter("exterior", false)
@@ -313,7 +371,19 @@ func terrain_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/terrain.gdshader")
 	_mats["terrain"] = _track(m)
+	_terrain_scales(m)
 	return m
+
+
+## Terreno: terra/rocha/cascalho com a escala real da foto (rocha um pouco
+## maior: encosta inteira com a mesma pedra miúda fica repetitiva)
+func _terrain_scales(m: ShaderMaterial) -> void:
+	if photo_scales.has(L_DIRT):
+		m.set_shader_parameter("dirt_scale", float(photo_scales[L_DIRT]))
+	if photo_scales.has(L_ROCK):
+		m.set_shader_parameter("rock_scale", float(photo_scales[L_ROCK]) * 0.5)
+	if photo_scales.has(L_GRAVEL):
+		m.set_shader_parameter("gravel_scale", float(photo_scales[L_GRAVEL]))
 
 
 func water_material() -> ShaderMaterial:

@@ -18,6 +18,7 @@ if "$GODOT" --headless --path . --export-release "Linux" "$OUT/o_inicio_do_fim.x
 	cp "$OUT/o_inicio_do_fim.x86_64" "$OUT/o_inicio_do_fim.pck" tools/dist/jogar.sh tools/dist/LEIA-ME.txt "build/$PKG/"
 	mkdir -p "build/$PKG/licencas"
 	cp assets/textures/grass_bush_LICENSE.txt "build/$PKG/licencas/SimpleGrassTextured_MIT.txt"
+	cp assets/materials/LICENCA.txt "build/$PKG/licencas/PolyHaven_texturas_CC0.txt"
 	chmod +x "build/$PKG/o_inicio_do_fim.x86_64" "build/$PKG/jogar.sh"
 	tar -C build -czf "build/$PKG.tar.gz" "$PKG"
 	echo "Executável: $OUT/o_inicio_do_fim.x86_64"
