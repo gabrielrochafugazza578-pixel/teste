@@ -267,8 +267,14 @@ static func _details(b: Dictionary, d: MeshBuf, top: float, seedf: float) -> voi
 		d.cylinder(Transform3D(Basis.IDENTITY, Vector3(r.end.x - 4.0, top - 1.0, r.end.y - 4.0)), 1.6, 24.0, 12, Assets.uv2_code(Assets.L_BRICK), seedf, Color(1, 1, 1), true, 1.1)
 	# igreja: torre + cruz
 	if t == "church":
-		var tx := c.x
-		var tz := r.end.y - 3.0 if facing == 2 else r.position.y + 3.0
+		# torre no canto da fachada (centrada na porta, o bloco dela tampava a entrada)
+		var cdi := door_info(b)
+		var cn: Vector3 = cdi[1]
+		var cside := cn.cross(Vector3.UP)
+		var half_w := (r.size.x if absf(cn.z) > 0.5 else r.size.y) * 0.5
+		var tp: Vector3 = (cdi[0] as Vector3) - cn * 2.8 + cside * maxf(half_w - 2.8, 3.0)
+		var tx := tp.x
+		var tz := tp.z
 		d.box(Vector3(tx, base + 9.0, tz), Vector3(5.0, 18.0, 5.0), Assets.uv2_code(int(b["layer"])), seedf, b["tint"])
 		d.box(Vector3(tx, base + 18.0 + 1.5, tz), Vector3(0.25, 3.0, 0.25), MET, seedf, Color(0.8, 0.75, 0.5))
 		d.box(Vector3(tx, base + 19.6, tz), Vector3(1.4, 0.25, 0.25), MET, seedf, Color(0.8, 0.75, 0.5))

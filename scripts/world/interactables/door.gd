@@ -18,6 +18,9 @@ var panel: MeshInstance3D
 var body: AnimatableBody3D
 var _tween: Tween
 var _open_amount: float = 0.0
+## lado para onde a folha gira (+1/-1): sempre para longe de quem abre, senão a
+## porta varre a pessoa e a empurra contra a parede ao lado do batente
+var _swing: float = -1.0
 
 
 func setup(d: Dictionary) -> void:
@@ -39,7 +42,10 @@ func setup(d: Dictionary) -> void:
 	body = AnimatableBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
-	body.sync_to_physics = true
+	# sync_to_physics=true não acompanha o movimento do nó pai (pivot): a folha
+	# abria na tela e a colisão ficava fechada no batente — parede invisível
+	# na porta. Sem sincronizar, o corpo segue a transformação na hora.
+	body.sync_to_physics = false
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(width, height, 0.08)
@@ -60,6 +66,7 @@ func setup(d: Dictionary) -> void:
 		barricade = float(st.get("barricade", 0.0))
 		broken = bool(st.get("broken", false))
 		hp = float(st.get("hp", 100.0))
+		_swing = float(st.get("swing", -1.0))
 		if bool(st.get("open", false)) or broken:
 			_set_open_amount(1.0)
 			is_open = true
@@ -139,6 +146,9 @@ func set_open(open: bool, by: Node = null) -> void:
 	if open == is_open:
 		return
 	is_open = open
+	if open and kind == "hinged" and by is Node3D and _open_amount < 0.05:
+		var lp := to_local((by as Node3D).global_position)
+		_swing = 1.0 if lp.z > 0.0 else -1.0
 	if _tween and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween()
@@ -152,7 +162,7 @@ func _set_open_amount(v: float) -> void:
 	_open_amount = v
 	match kind:
 		"hinged":
-			pivot.rotation.y = -v * deg_to_rad(100.0)
+			pivot.rotation.y = _swing * v * deg_to_rad(100.0)
 		"sliding":
 			pivot.position.x = v * width * 0.95
 		"roller":
@@ -194,4 +204,4 @@ func blocks_path() -> bool:
 func _save() -> void:
 	if uid == "":
 		return
-	GameState.store_door(uid, {"open": is_open, "locked": locked, "barricade": barricade, "broken": broken, "hp": hp})
+	GameState.store_door(uid, {"open": is_open, "locked": locked, "barricade": barricade, "broken": broken, "hp": hp, "swing": _swing})

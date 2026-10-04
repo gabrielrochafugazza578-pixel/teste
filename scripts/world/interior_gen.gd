@@ -200,6 +200,8 @@ func _build(b: Dictionary) -> Dictionary:
 		_:
 			layout = _layout_bsp(door_u)
 	_rooms0 = layout["rooms"]
+	# faixa livre da porta da frente já antes de mobiliar (o nó da porta é criado depois)
+	_door_zones = [{"pos": fr.p(door_u, 0.0, 0.0), "yaw": fr.yaw_for(0, 1), "width": door_w}]
 	_emit_shell_inner(door_u, door_w, dh)
 	_emit_rooms(layout, 0.0)
 	# porta principal (nó animado)
@@ -1009,7 +1011,28 @@ func _spill_products(c: Vector3, r: float) -> void:
 
 
 ## Registra um prop: mescla geometria, colisão e contêiner (se aplicável).
+## Faixa de passagem das portas (1,2 m de cada lado): nada com colisão fica ali,
+## senão o jogador abre a porta e dá de cara com um móvel/entulho e não entra.
+var _door_zones: Array = []
+
+
+func _blocks_door(pos: Vector3, cs: Vector3) -> bool:
+	var r := maxf(cs.x, cs.z) * 0.5
+	for d in _door_zones + (out["doors"] as Array):
+		var dd: Dictionary = d
+		var lp: Vector3 = Basis(Vector3.UP, float(dd["yaw"])).inverse() * (pos - (dd["pos"] as Vector3))
+		if absf(lp.y) > 2.2:
+			continue
+		if absf(lp.x) < float(dd["width"]) * 0.5 + 0.25 + r and absf(lp.z) < 1.2 + r:
+			return true
+	return false
+
+
 func _place(pb: MeshBuf, pn: String, pos: Vector3, yaw: float, collide: bool) -> void:
+	# (vale também sem "collide": alguns props já trazem a própria colisão na malha)
+	var bc := PropLib.collision_size(pn)
+	if bc.y > 0.12 and _blocks_door(pos, bc):
+		return
 	var xf := Transform3D(Basis(Vector3.UP, yaw), pos)
 	mesh.append(pb, xf)
 	if debug_counts != null:
@@ -1419,6 +1442,8 @@ func _place_tipped(pn: String, pos: Vector3, yaw: float, tip: Basis, collide: bo
 		return
 	var bs := Basis(Vector3.UP, yaw) * tip
 	var xf := Transform3D(bs, pos + Vector3(0, -lo + 0.003, 0))
+	if _blocks_door(pos, PropLib.collision_size(pn)):
+		return
 	mesh.append(src, xf)
 	if collide:
 		var cs := PropLib.collision_size(pn)

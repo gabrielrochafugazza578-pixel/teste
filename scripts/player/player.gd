@@ -316,6 +316,7 @@ func _drop_to_world(s: Dictionary) -> void:
 	ip.uid = "drop_%d" % Time.get_ticks_msec()
 	get_parent().add_child(ip)
 	ip.setup(s, p, true)
+	ip.animate_drop()
 	GameState.add_dropped(p, s)
 
 
@@ -928,7 +929,9 @@ func _begin_interact() -> void:
 		return
 	var t: float = current_interactable.hold_time(self)
 	if t <= 0.0:
-		body.play("interact", 1.3)
+		# item no chão: abaixa para pegar; em mesa/balcão, só estende a mão
+		var low := current_interactable is ItemPickup and (current_interactable as Node3D).global_position.y < global_position.y + 0.45
+		body.play("pickup" if low else "interact", 1.6 if low else 1.3)
 		current_interactable.interact(self)
 	else:
 		_hold_target = current_interactable
