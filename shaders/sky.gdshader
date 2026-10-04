@@ -66,6 +66,8 @@ void sky() {
 		float thr = mix(0.75, 0.0, cloud_cover);
 		// borda mais definida: nuvem de tempo bom tem contorno (não é só uma mancha)
 		float c = smoothstep(thr, thr + 0.13, dens);
+		// encoberto/chuva: as nuvens se fundem num teto contínuo (só o relevo varia)
+		c = max(c, smoothstep(0.7, 0.97, cloud_cover));
 		float shade = 0.35 + 0.65 * smoothstep(thr + 0.55, thr - 0.05, dens + n2 * 0.1);
 		vec3 cc = mix(cloud_shadow, cloud_light, shade * (1.0 - cloud_dark * 0.8));
 		cc += sun_color * pow(max(sdot, 0.0), 6.0) * 0.4 * (1.0 - c * 0.5);

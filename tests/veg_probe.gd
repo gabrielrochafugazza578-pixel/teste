@@ -38,7 +38,11 @@ func _ready() -> void:
 	GameState.in_game = false
 	TimeManager.locked_hour = hour
 	TimeManager.set_time(hour)
-	WeatherManager.set_weather(WeatherManager.State.CLEAR, true, true)
+	var clima := WeatherManager.State.CLEAR
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--clima="):
+			clima = int(a.substr(8))
+	WeatherManager.set_weather(clima, true, true)
 	var env := EnvironmentController.new()
 	add_child(env)
 	_ground()
