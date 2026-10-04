@@ -53,8 +53,14 @@ void fragment() {
 
 	vec3 alb = A.rgb;
 	// variação macro de cor (manchas secas / úmidas)
-	alb *= 0.82 + macro.r * 0.36;
+	alb *= 0.76 + macro.r * 0.48;
 	alb = mix(alb, alb * vec3(1.12, 1.02, 0.78), smoothstep(0.55, 0.8, macro.g) * w_grass * 0.6);
+	// pasto de verdade não é um tapete: manchas de ~50 m mais secas (palha) e
+	// outras mais verdes/úmidas, que quebram o verde uniforme dos campos abertos
+	float dryp = smoothstep(0.42, 0.72, meso.g * 0.6 + macro.b * 0.4);
+	alb = mix(alb, alb * vec3(1.2, 1.06, 0.68), dryp * w_grass * 0.55);
+	float lush = smoothstep(0.55, 0.8, meso.b) * (1.0 - dryp);
+	alb = mix(alb, alb * vec3(0.82, 1.0, 0.8), lush * w_grass * 0.45);
 	// pós-colapso: vegetação mais alta/escura e descuidada
 	alb = mix(alb, alb * vec3(0.85, 1.05, 0.8), world_decay * w_grass * 0.35);
 	float rough = A.a;

@@ -60,9 +60,13 @@ void sky() {
 		float n2 = texture(noise_tex, cuv * 0.27 + drift * 1.7).g;
 		float n3 = texture(noise_tex, cuv * 0.8 + drift * 2.3).b;
 		float dens = n1 * 0.65 + n2 * 0.28 + n3 * 0.07;
-		float thr = mix(0.72, 0.2, cloud_cover);
-		float c = smoothstep(thr, thr + 0.22, dens);
-		float shade = smoothstep(thr + 0.35, thr - 0.05, dens + n2 * 0.1);
+		// o ruído fica entre ~0,25 e ~0,55 (mediana 0,35): normaliza para 0..1, senão
+		// só o céu totalmente encoberto tinha nuvem e o "parcialmente" era liso
+		dens = clamp((dens - 0.25) / 0.32, 0.0, 1.0);
+		float thr = mix(0.75, 0.0, cloud_cover);
+		// borda mais definida: nuvem de tempo bom tem contorno (não é só uma mancha)
+		float c = smoothstep(thr, thr + 0.13, dens);
+		float shade = 0.35 + 0.65 * smoothstep(thr + 0.55, thr - 0.05, dens + n2 * 0.1);
 		vec3 cc = mix(cloud_shadow, cloud_light, shade * (1.0 - cloud_dark * 0.8));
 		cc += sun_color * pow(max(sdot, 0.0), 6.0) * 0.4 * (1.0 - c * 0.5);
 		cc = mix(cc, cloud_shadow * 0.45, cloud_dark * 0.6);

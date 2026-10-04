@@ -300,10 +300,10 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 		out.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, y + 0.3, Vector3.RIGHT, cc, 0.0, Color(0.7, 0.7, 0.68))
 		if lod <= 1:
 			out.add_box_collider(Vector3(br.get_center().x, (y - 0.4) * 0.5, br.get_center().y), Vector3(br.size.x, y + 0.4, br.size.y))
-		# estacionamento: faixas das vagas
-		if lod == 0 and kind == "parking":
+		# estacionamento (e pátios de asfalto de mercado, hospital, delegacia, terminal): faixas das vagas
+		if lod == 0 and kind in LOT_KINDS:
 			var paint := Assets.uv2_code(Assets.L_CONCRETE)
-			for bay in parking_bays(inner):
+			for bay in lot_bays(layout, blk):
 				var bp: Vector3 = bay[0]
 				_top(out, Rect2(bp.x - 1.36, bp.z - 2.5, 0.12, 5.0), y + 0.012, paint, Color(0.93, 0.92, 0.86))
 				if bool(bay[2]):
@@ -313,6 +313,40 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 			var pc := br.get_center()
 			_top(out, Rect2(pc.x - 1.5, inner.position.y, 3.0, inner.size.y), y + 0.01, SW, Color(0.75, 0.72, 0.66))
 			_top(out, Rect2(inner.position.x, pc.y - 1.5, inner.size.x, 3.0), y + 0.012, SW, Color(0.75, 0.72, 0.66))
+
+
+const LOT_KINDS := ["parking", "market", "hospital", "police", "terminal"]
+
+
+## Vagas de um quarteirão: o estacionamento inteiro, ou nos pátios de asfalto
+## dos prédios só onde sobra chão — longe das paredes e da frente das portas
+## (entrada, ambulâncias e as cenas da abertura ficam livres).
+static func lot_bays(layout: WorldLayout, blk: Dictionary) -> Array:
+	var kind: String = blk["kind"]
+	if not kind in LOT_KINDS:
+		return []
+	var br: Rect2 = blk["rect"]
+	var bays := parking_bays(br.grow(-WorldLayout.SIDEWALK))
+	if kind == "parking":
+		return bays
+	var doors: Array = []
+	for b in layout.buildings:
+		if (b["rect"] as Rect2).intersects(br):
+			var dp: Vector3 = BuildingGen.door_info(b)[0]
+			doors.append(Vector2(dp.x, dp.z))
+	var out: Array = []
+	for bay in bays:
+		var bp: Vector3 = bay[0]
+		if layout.building_at(Vector3(bp.x, 0.0, bp.z), 3.2) >= 0:
+			continue
+		var near_door := false
+		for d: Vector2 in doors:
+			if d.distance_to(Vector2(bp.x, bp.z)) < 16.0:
+				near_door = true
+				break
+		if not near_door:
+			out.append(bay)
+	return out
 
 
 ## Vagas de um estacionamento: [centro, yaw do carro, última da fileira].
@@ -622,7 +656,7 @@ static func _grass(layout: WorldLayout, c: Vector2i, opts: Dictionary) -> Array:
 	var x0 := c.x * WorldLayout.CHUNK
 	var z0 := c.y * WorldLayout.CHUNK
 	var r := Util.rng(Util.hash2(c.x, c.y, 551))
-	var step := 1.9 / sqrt(dens)
+	var step := 1.4 / sqrt(dens)
 	var n := int(64.0 / step)
 	var urban := WorldLayout.URBAN
 	var decay := float(opts.get("decay", 1.0))
@@ -656,9 +690,13 @@ static func _grass(layout: WorldLayout, c: Vector2i, opts: Dictionary) -> Array:
 				y = layout.ground_height(p.x, p.y)
 				if y > 45.0 and r.randf() < 0.6:
 					continue
-			var s := r.randf_range(0.7, 1.35)
+			# touceiras: densidade varia em manchas (campo de verdade não é um tabuleiro)
+			var patch := 0.5 + 0.5 * sin(p.x * 0.13 + sin(p.y * 0.11) * 2.0) * cos(p.y * 0.09 + p.x * 0.05)
+			if r.randf() > 0.3 + patch * 0.9:
+				continue
+			var s := r.randf_range(0.7, 1.25)
 			var xf := Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(s, 1.0, s)), Vector3(p.x, y, p.y))
-			out.append([xf, Color(r.randf_range(0.7, 1.4), r.randf(), r.randf() * (0.6 if in_urban else 0.35), 0)])
+			out.append([xf, Color(r.randf_range(0.5, 1.0) + patch * 0.25, r.randf(), r.randf() * (0.6 if in_urban else 0.35), 0)])
 	return out
 
 
@@ -893,9 +931,9 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 	for bid in layout.chunk_blocks.get(c, []):
 		var blk: Dictionary = layout.blocks[bid]
 		var br: Rect2 = blk["rect"]
-		if blk["kind"] != "parking" or not rect.has_point(br.get_center()):
+		if not blk["kind"] in LOT_KINDS or not rect.has_point(br.get_center()):
 			continue
-		for bay in parking_bays(br.grow(-WorldLayout.SIDEWALK)):
+		for bay in lot_bays(layout, blk):
 			if r.randf() > (0.6 if phase == GameState.Phase.PRE else 0.4):
 				continue
 			var bp: Vector3 = bay[0]

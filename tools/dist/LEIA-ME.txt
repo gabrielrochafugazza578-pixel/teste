@@ -118,6 +118,15 @@ NOVIDADES DESTA VERSÃO
     vitrines que não estouram em branco, laboratório com luzes acesas que
     apagam no acidente e dão lugar à luz vermelha de emergência.
   - Telhados com caixas d'água, ar-condicionado, dutos e claraboias.
+  - Vegetação: moitas de grama no mesmo verde do gramado (antes eram
+    verde-limão e pareciam coladas) e em touceiras; copas das árvores sem
+    as arestas retas dos "cartões" de folhas, cada árvore num tom; troncos
+    menos pretos; gramado sem a "estampa de bolinhas" e com manchas de
+    pasto seco e úmido nos campos abertos.
+  - Luz: sombras de dia menos pretas e fim de tarde/manhã cedo mais claros
+    (encostas não somem mais no escuro).
+  - Pátios do mercado, hospital, delegacia e terminal com vagas pintadas e
+    carros estacionados.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

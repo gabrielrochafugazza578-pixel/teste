@@ -6,7 +6,7 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_lambert_wrap, specular_disabled;
 
 uniform sampler2D grass_tex : source_color, filter_linear_mipmap, repeat_disable;
-uniform vec3 tint = vec3(0.78, 0.86, 0.62);
+uniform vec3 tint = vec3(0.68, 0.74, 0.54);
 uniform vec3 color_dry = vec3(0.62, 0.55, 0.3);
 uniform float fade_distance = 30.0;
 uniform float alpha_cut = 0.42;
@@ -66,10 +66,14 @@ float coverage_alpha(float a, vec2 uv, vec2 tsize, float cut) {
 
 void fragment() {
 	vec4 tex = texture(grass_tex, UV);
-	vec3 c = tex.rgb * tint * (0.82 + v_tone * 0.36);
+	// a textura é verde-limão saturado; o gramado do terreno é oliva: dessatura
+	// para a moita "sair" do chão em vez de parecer colada por cima
+	float tl = dot(tex.rgb, vec3(0.3, 0.59, 0.11));
+	vec3 c = mix(vec3(tl), tex.rgb, 0.72) * tint * (0.82 + v_tone * 0.36);
+	c += vec3(0.01, 0.006, 0.0) * v_tone;
 	float lum = dot(c, vec3(0.3, 0.59, 0.11));
 	c = mix(c, color_dry * lum * 2.2, v_dry * 0.8);
-	c *= mix(0.5, 1.0, smoothstep(0.0, 0.55, v_h));   // raiz sombreada pela própria moita
+	c *= mix(0.62, 1.0, smoothstep(0.0, 0.5, v_h));   // raiz sombreada pela própria moita
 	c *= mix(1.0, 0.72, wetness);
 	ALBEDO = c;
 	ALPHA = coverage_alpha(tex.a, UV, vec2(textureSize(grass_tex, 0)), alpha_cut);

@@ -312,7 +312,7 @@ func _enter_scene(si: int) -> void:
 		game.env.fog_scale = float(sc.get("fog_scale", 1.7))
 		# cidade "normal" mais viva; depois do colapso, a paleta dessatura
 		game.env.mood_saturation = float(sc.get("saturation", 0.85))
-		game.env.env.fog_sky_affect = float(sc.get("sky_fog", 0.65))
+		game.env.env.fog_sky_affect = float(sc.get("sky_fog", 0.38))
 	# luz de preenchimento presa à câmera (cenas noturnas)
 	var fill := cam.get_node_or_null("Fill") as OmniLight3D
 	if sc.has("fill"):
@@ -947,7 +947,7 @@ func _complete_handoff() -> void:
 		game.env.fog_scale = 1.0
 		game.env.exposure = 1.0
 		game.env.mood_saturation = 0.85
-		game.env.env.fog_sky_affect = 0.65
+		game.env.env.fog_sky_affect = 0.38
 		game.env.emergency = 0.0
 		game.env.set_indoor_lit(false)
 	player.cam_rig.align_to(Transform3D(Basis(Vector3.UP, player._yaw), Vector3.ZERO))

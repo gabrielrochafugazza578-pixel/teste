@@ -16,6 +16,7 @@ global uniform float veg_growth;
 global uniform float wetness;
 
 varying float v_shade;
+varying flat float v_hue;
 
 void vertex() {
 	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -28,6 +29,8 @@ void vertex() {
 	mat3 m = mat3(MODEL_MATRIX);
 	VERTEX += transpose(m) * offs / max(dot(m[0], m[0]), 0.0001);
 	v_shade = COLOR.g;
+	// tom por árvore (posição da instância): umas mais amareladas, outras mais escuras
+	v_hue = fract(sin(dot(MODEL_MATRIX[3].xz, vec2(12.9898, 78.233))) * 43758.5453);
 	// distância: encolhe cartões para evitar "pop"
 	float d = distance(wp, CAMERA_POSITION_WORLD);
 	float f = 1.0 - smoothstep(fade_start, fade_end, d);
@@ -49,11 +52,16 @@ float coverage_alpha(float a, vec2 uv, vec2 tsize, float cut) {
 
 void fragment() {
 	vec4 c = texture(leaf_tex, UV);
-	float a = coverage_alpha(c.a, UV, vec2(textureSize(leaf_tex, 0)), alpha_cut);
+	// cartão "redondo" e irregular: as folhas dos cantos somem, então a copa não
+	// mostra as arestas retas dos polígonos (aspecto de papel amassado)
+	float rr = length(UV - 0.5) * 2.0;
+	float edge = 1.0 - smoothstep(0.55, 0.95, rr + (c.g - 0.12) * 0.6);
+	float a = coverage_alpha(c.a * mix(0.35, 1.0, edge) * step(rr, 0.97), UV, vec2(textureSize(leaf_tex, 0)), alpha_cut);
 	if (a < 0.5) {
 		discard;
 	}
-	vec3 alb = c.rgb * tint * (0.55 + v_shade * 0.6);
+	vec3 leaf = c.rgb * mix(vec3(0.9, 1.0, 0.85), vec3(1.15, 1.08, 0.8), v_hue);
+	vec3 alb = leaf * tint * (0.68 + v_shade * 0.62);
 	alb *= mix(1.0, 0.7, wetness);
 	ALBEDO = alb;
 	ROUGHNESS = mix(0.8, 0.4, wetness);

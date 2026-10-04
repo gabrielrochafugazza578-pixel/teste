@@ -131,7 +131,8 @@ void fragment() {
 
 	// --- Deterioração: fuligem, escorridos, musgo -------------------------------
 	float decay = world_decay * grime;
-	if (decay > 0.01) {
+	// fuligem/escorridos são de prédio: tronco de árvore (casca) fica de fora
+	if (decay > 0.01 && li != 13) {
 		float streak = texture(noise_tex, vec2(np.x * 0.35, np.y * 0.02)).g;
 		float vertical = 1.0 - an.y;
 		float dirt = smoothstep(0.35, 0.8, streak * 0.7 + nz.r * 0.5) * vertical;

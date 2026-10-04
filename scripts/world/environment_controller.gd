@@ -33,7 +33,9 @@ func _ready() -> void:
 	env.tonemap_white = 8.0
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_sky_affect = 0.65
+	# a neblina cobre só parte do céu: azul no alto e nuvens visíveis (o próprio
+	# shader do céu já clareia o horizonte)
+	env.fog_sky_affect = 0.38
 	env.adjustment_enabled = true
 	world_env = WorldEnvironment.new()
 	world_env.environment = env
@@ -147,7 +149,9 @@ func _update(delta: float) -> void:
 	sky_mat.set_shader_parameter("zenith_color", zen)
 	sky_mat.set_shader_parameter("horizon_color", hor)
 	sky_mat.set_shader_parameter("ground_color", hor.darkened(0.55))
-	sky_mat.set_shader_parameter("cloud_cover", clouds)
+	# céu "limpo" ainda tem umas nuvens de tempo bom (só no desenho do céu; a
+	# luz do sol continua usando a cobertura real)
+	sky_mat.set_shader_parameter("cloud_cover", maxf(clouds, 0.42))
 	sky_mat.set_shader_parameter("cloud_dark", dark)
 	sky_mat.set_shader_parameter("cloud_light", Color(0.95, 0.93, 0.9).lerp(Color(1.0, 0.7, 0.5), dusk) * (0.12 + dl * 0.88))
 	sky_mat.set_shader_parameter("cloud_shadow", Color(0.36, 0.38, 0.44) * (0.1 + dl * 0.9))
@@ -190,7 +194,13 @@ func _update(delta: float) -> void:
 	# crepúsculo: o céu ainda clareia um pouco depois que o sol se põe
 	var twilight := smoothstep(-0.26, -0.03, sh) * (1.0 - smoothstep(-0.03, 0.12, sh))
 	# dentro dos prédios quase não chega céu: quem ilumina são as janelas e a lanterna
-	var amb_out := lerpf(1.1, 0.82, dl) + twilight * 0.9
+	# de dia o céu (e o chão rebatendo) ilumina bastante a sombra: sem isso o lado
+	# sombreado de troncos, carros e paredes escuras virava preto
+	var amb_out := lerpf(1.1, 0.98, dl) + twilight * 0.9
+	# sol baixo (manhã cedo, fim de tarde): a luz direta rasante quase não chega
+	# ao chão, mas o céu ainda está claro — sem isso encostas e sombras ficavam pretas
+	var low_sun := (1.0 - smoothstep(0.08, 0.45, sh)) * smoothstep(-0.05, 0.08, sh)
+	amb_out += low_sun * 0.3
 	var amb_in := lerpf(0.2, 0.13, dl) + twilight * 0.08
 	amb_in = lerpf(amb_in, 0.5, indoor_lit)
 	# luz de emergência: vermelho escuro rebatido pelas paredes
@@ -228,6 +238,8 @@ func _update(delta: float) -> void:
 		adapt *= lerpf(1.0, 0.72, indoor * (1.0 - dl))
 	# o "olho" da noite só vale fora ou no escuro; sob luz acesa a exposição é a do dia
 	env.tonemap_exposure = exposure * bright * lerpf(1.05, 2.2, (1.0 - dl) * (1.0 - lit)) * adapt
+	# com o sol baixo o olho também se acostuma (fora de casa): chão e encostas não afundam no preto
+	env.tonemap_exposure *= 1.0 + low_sun * 0.28 * (1.0 - indoor)
 	if underground:
 		sun.visible = false
 		env.background_mode = Environment.BG_COLOR

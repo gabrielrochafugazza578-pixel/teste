@@ -339,8 +339,10 @@ void surface(int id, vec2 uv, out vec3 alb, out float h, out float rough, out fl
 		float blades2 = vnoise((uv + 0.5) * vec2(0.4, 1.0), vec2(96.0, 240.0));
 		float dry = smoothstep(0.5, 0.75, fbm(uv + 5.0, 2.0, 4));
 		float bald = smoothstep(0.68, 0.74, fbm(uv + 8.0, 3.0, 5));
-		vec3 cl = voronoi(uv, 60.0);
-		float clover = smoothstep(0.3, 0.12, cl.x) * step(0.7, cl.z);
+		// trevos em manchas irregulares (sem a "estampa de bolinhas" das células redondas)
+		vec2 wuv = uv + (vec2(vnoise(uv, vec2(36.0)), vnoise(uv + 3.1, vec2(36.0))) - 0.5) * 0.035;
+		vec3 cl = voronoi(wuv, 60.0);
+		float clover = smoothstep(0.3, 0.1, cl.x + (vnoise(uv, vec2(180.0)) - 0.5) * 0.25) * step(0.86, cl.z) * 0.45;
 		vec3 g = mix(vec3(0.11, 0.19, 0.05), vec3(0.22, 0.3, 0.09), n);
 		g = mix(g, vec3(0.34, 0.31, 0.15), dry * 0.7);
 		g *= 0.55 + max(blades, blades2) * 0.8;
@@ -356,15 +358,16 @@ void surface(int id, vec2 uv, out vec3 alb, out float h, out float rough, out fl
 		float n = fbm(uv, 4.0, 6);
 		vec3 v = voronoi(uv, 22.0);
 		vec3 v2 = voronoi(uv + 0.4, 55.0);
-		float peb = smoothstep(0.34, 0.16 + v.z * 0.1, v.x) * step(0.8, v.z);
-		float peb2 = smoothstep(0.3, 0.12, v2.x) * step(0.86, v2.z);
+		// pedrinhas raras e de contraste baixo: misturada na grama, a terra virava "bolinhas"
+		float peb = smoothstep(0.34, 0.16 + v.z * 0.1, v.x) * step(0.88, v.z);
+		float peb2 = smoothstep(0.3, 0.12, v2.x) * step(0.93, v2.z);
 		float clod = smoothstep(0.4, 0.0, voronoi(uv + 0.8, 30.0).x);
 		float dryc = cracks(uv, 7.0, 0.2, 0.025) * smoothstep(0.55, 0.7, fbm(uv + 6.0, 2.0, 3));
 		float twig = scratches(uv, 14.0, 0.25, 0.035);
 		vec3 d = mix(vec3(0.2, 0.15, 0.1), vec3(0.37, 0.28, 0.19), n);
 		d *= 0.85 + clod * 0.25;
-		d = mix(d, vec3(0.44, 0.4, 0.35) * (0.75 + v.z * 0.35), peb);
-		d = mix(d, vec3(0.38, 0.34, 0.3) * (0.8 + v2.z * 0.3), peb2);
+		d = mix(d, vec3(0.38, 0.34, 0.29) * (0.75 + v.z * 0.3), peb * 0.8);
+		d = mix(d, vec3(0.33, 0.29, 0.25) * (0.8 + v2.z * 0.25), peb2 * 0.7);
 		d = mix(d, vec3(0.28, 0.2, 0.12), twig * 0.8);
 		d *= 1.0 - dryc * 0.5;
 		alb = d;
@@ -451,14 +454,15 @@ void surface(int id, vec2 uv, out vec3 alb, out float h, out float rough, out fl
 		float ridges = smoothstep(0.35, 0.65, fib);
 		float plates = voronoi(uv * vec2(1.0, 0.4), 10.0).y;
 		float deep = 1.0 - smoothstep(0.0, 0.08, plates);
-		vec3 bc = mix(vec3(0.13, 0.09, 0.06), vec3(0.32, 0.26, 0.2), ridges);
-		bc *= 1.0 - deep * 0.5;
+		// valores em sRGB (a textura é source_color): casca real fica em ~0,2 linear
+		vec3 bc = mix(vec3(0.34, 0.28, 0.21), vec3(0.6, 0.53, 0.43), ridges);
+		bc *= 1.0 - deep * 0.4;
 		float moss = smoothstep(0.6, 0.72, fbm(uv, 4.0, 4));
 		bc = mix(bc, vec3(0.2, 0.25, 0.1), moss * 0.5);
 		alb = bc * (0.9 + vnoise(uv, vec2(160.0)) * 0.2);
 		h = ridges - deep * 0.4;
 		rough = 0.92;
-		ao = 0.45 + ridges * 0.55 - deep * 0.2;
+		ao = 0.62 + ridges * 0.38 - deep * 0.15;
 	} else if (id == 14) { // tecido (estofado): trama, fiapos, manchas, desbotado
 		float wx = 0.5 + 0.5 * sin(uv.x * 160.0 * PI);
 		float wy = 0.5 + 0.5 * sin(uv.y * 160.0 * PI);
