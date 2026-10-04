@@ -57,9 +57,12 @@ static func mesh(name: String) -> ArrayMesh:
 
 ## Props de rua com modelo 3D de verdade (Poly Haven, CC0): caminho, altura
 ## alvo (m) e quantas cópias agrupar (sacos de lixo vêm em monte).
+## nome -> [arquivo, altura alvo (m), cópias, clareamento do albedo]. O saco
+## de lixo do Poly Haven tem albedo quase 0 (plástico preto de estúdio): sem
+## reflexos de ambiente no GL3 ele virava uma pedra preta, então clareia um pouco.
 const MODELS := {
-	"barrel": ["res://assets/models/props/barrel/barrel.gltf", 0.92, 1],
-	"trash_bags": ["res://assets/models/props/trash_bag/trash_bag.gltf", 0.52, 3],
+	"barrel": ["res://assets/models/props/barrel/barrel.gltf", 0.92, 1, 1.0],
+	"trash_bags": ["res://assets/models/props/trash_bag/trash_bag.gltf", 0.52, 3, 2.3],
 }
 
 
@@ -109,6 +112,9 @@ static func _model_mesh(name: String) -> ArrayMesh:
 				st.append_from(mi.mesh, si, (cxf as Transform3D) * norm * (pr[1] as Transform3D))
 			st.commit(out)
 			var mat: Material = mi.get_active_material(si)
+			if mat is BaseMaterial3D and float(spec[3]) != 1.0:
+				mat = mat.duplicate()
+				(mat as BaseMaterial3D).albedo_color = Color(float(spec[3]), float(spec[3]), float(spec[3]))
 			out.surface_set_material(out.get_surface_count() - 1, mat)
 	root.free()
 	return out

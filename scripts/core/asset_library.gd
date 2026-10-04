@@ -308,6 +308,8 @@ func _refresh_materials() -> void:
 				m.set_shader_parameter("layer_scales", sc)
 			elif (m as ShaderMaterial).shader and (m as ShaderMaterial).shader.resource_path.ends_with("terrain.gdshader"):
 				_terrain_scales(m)
+	if _mats.has("leaf_particle") and SPR_LEAF < sprites.size():
+		(_mats["leaf_particle"] as ShaderMaterial).set_shader_parameter("tex", sprites[SPR_LEAF])
 
 
 func _assign_textures(m: ShaderMaterial) -> void:
@@ -569,8 +571,8 @@ func particle_material(sprite: int, color: Color = Color.WHITE, additive: bool =
 
 
 ## Papel/folhas voando: iluminado, com recorte alfa.
-func debris_material(sprite: int) -> StandardMaterial3D:
-	var key := "debris_%d" % sprite
+func debris_material(sprite: int, vcol: bool = false) -> StandardMaterial3D:
+	var key := "debris_%d_%s" % [sprite, str(vcol)]
 	if _mats.has(key):
 		return _mats[key]
 	var m := StandardMaterial3D.new()
@@ -580,7 +582,20 @@ func debris_material(sprite: int) -> StandardMaterial3D:
 		m.albedo_texture = sprites[sprite]
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.roughness = 0.9
+	m.vertex_color_use_as_albedo = vcol
 	_mats[key] = m
+	return m
+
+
+## Folha solta caindo das árvores (partícula tingida pela cor da instância).
+func leaf_particle_material() -> ShaderMaterial:
+	if _mats.has("leaf_particle"):
+		return _mats["leaf_particle"]
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/leaf_particle.gdshader")
+	if SPR_LEAF < sprites.size():
+		m.set_shader_parameter("tex", sprites[SPR_LEAF])
+	_mats["leaf_particle"] = m
 	return m
 
 

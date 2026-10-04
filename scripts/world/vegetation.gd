@@ -24,7 +24,9 @@ static func mesh(kind: String, lod: int) -> ArrayMesh:
 			_trunk(trunk, h * 0.62, 0.18 if kind == "broadleaf" else 0.3, lod, r)
 			if lod == 0:
 				_branches(trunk, h * 0.5, h * 0.7, 4, cr * 0.7, r)
-			_canopy(leaves, Vector3(0, h * 0.72, 0), Vector3(cr, cr * 0.75, cr), 38 if lod == 0 else 7, 1.5 if lod == 0 else 3.2, r)
+			# copa grande tem 2,6x a área da pequena: mais cartões para não ficar rala
+			var nc := (38 if kind == "broadleaf" else 60) if lod == 0 else (7 if kind == "broadleaf" else 10)
+			_canopy(leaves, Vector3(0, h * 0.72, 0), Vector3(cr, cr * 0.75, cr), nc, 1.5 if lod == 0 else 3.2, r)
 			if lod == 0:
 				_canopy(leaves, Vector3(cr * 0.4, h * 0.6, -cr * 0.2), Vector3(cr * 0.6, cr * 0.5, cr * 0.6), 12, 1.3, r)
 		"pine":

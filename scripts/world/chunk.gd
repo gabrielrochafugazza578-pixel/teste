@@ -200,6 +200,60 @@ func _step_trees(d: Dictionary) -> void:
 		far.visibility_range_begin = near_end if lod <= 1 else 0.0
 		far.visibility_range_end = far_end
 		far.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if lod <= 1 and Settings.get_particle_multiplier() > 0.0:
+		_falling_leaves(trees)
+
+
+## Folhas soltando das copas e caindo girando (algumas árvores por chunk).
+func _falling_leaves(trees: Dictionary) -> void:
+	var n := 0
+	for kind in ["broadleaf_big", "broadleaf"]:
+		for xf: Transform3D in trees.get(kind, []):
+			if n >= 3 or absi(Util.hash2(int(xf.origin.x * 3.0), int(xf.origin.z * 3.0), 51)) % 4 != 0:
+				continue
+			n += 1
+			add_child(leaf_emitter(xf, kind))
+
+
+static func leaf_emitter(xf: Transform3D, kind: String) -> GPUParticles3D:
+	var s := xf.basis.get_scale().y
+	var h := (9.0 if kind == "broadleaf_big" else 5.5) * 0.72 * s
+	var cr := (4.2 if kind == "broadleaf_big" else 2.6) * s
+	var lp := GPUParticles3D.new()
+	lp.amount = maxi(4, int(12 * Settings.get_particle_multiplier()))
+	# caem a ~0,8 m/s: vida = tempo até o chão
+	lp.lifetime = clampf(h / 0.8, 4.0, 10.0)
+	lp.preprocess = lp.lifetime
+	lp.visibility_aabb = AABB(Vector3(-cr - 6, -h - 1, -cr - 6), Vector3(cr * 2 + 12, h + 3, cr * 2 + 12))
+	var q := QuadMesh.new()
+	q.size = Vector2(0.18, 0.18)
+	q.material = Assets.leaf_particle_material()
+	lp.draw_pass_1 = q
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(cr * 0.7, 0.4, cr * 0.7)
+	pm.direction = Vector3(0.35, -1.0, 0.2)
+	pm.spread = 30.0
+	pm.initial_velocity_min = 0.55
+	pm.initial_velocity_max = 0.85
+	pm.gravity = Vector3(0.08, -0.06, 0.03)
+	pm.angular_velocity_min = -160.0
+	pm.angular_velocity_max = 160.0
+	pm.scale_min = 0.7
+	pm.scale_max = 1.3
+	# folha: verde do pé, amarelada ou seca
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.45, 0.5, 0.22))
+	grad.add_point(0.5, Color(0.66, 0.55, 0.22))
+	grad.set_color(grad.get_point_count() - 1, Color(0.5, 0.33, 0.17))
+	var gt := GradientTexture1D.new()
+	gt.gradient = grad
+	pm.color_initial_ramp = gt
+	lp.process_material = pm
+	lp.position = xf.origin + Vector3(0, h, 0)
+	lp.visibility_range_end = 70.0
+	lp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return lp
 
 
 func _multimesh(mesh: Mesh, xforms: Array, colors: Array, _custom: bool) -> MultiMeshInstance3D:

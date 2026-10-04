@@ -102,11 +102,15 @@ func _ready() -> void:
 		env.env.ambient_light_source, env.sun.light_energy, env.sun.light_color, env.env.tonemap_exposure, TimeManager.sun_height(), TimeManager.daylight()])
 	var views := [["perto", Vector3(0, 1.6, 9), Vector3(0, 0.6, -6)], ["campo", Vector3(-6, 2.2, 22), Vector3(4, 1.0, -20)],
 		["arvores", Vector3(10, 1.7, 6), Vector3(-6, 3.0, -14)], ["ceu", Vector3(0, 1.7, 10), Vector3(0, 30, -60)]]
+	if "--folhas" in OS.get_cmdline_user_args():
+		views.append(["folhas", Vector3(-11.5, 1.8, -5.5), Vector3(-13.5, 2.6, -12.0)])
 	for v in views:
 		cam.global_position = v[1]
 		cam.look_at(v[2], Vector3.UP)
 		for i in 6:
 			await get_tree().process_frame
+		if v[0] == "folhas":
+			await get_tree().create_timer(3.0).timeout
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("%s/veg_%s.png" % [out, v[0]])
 		print("foto ", v[0])
@@ -172,3 +176,10 @@ func _trees() -> void:
 		mi.mesh = Vegetation.mesh(kinds[i], 0)
 		mi.position = Vector3(-14 + i * 5.0, 0, -12 - (i % 2) * 6.0)
 		add_child(mi)
+		if "--folhas" in OS.get_cmdline_user_args() and str(kinds[i]).begins_with("broadleaf"):
+			var le := Chunk.leaf_emitter(Transform3D(Basis(), mi.position), kinds[i])
+			add_child(le)
+			print("folhas ", le.amount, " vida ", le.lifetime, " pos ", le.position)
+			if OS.get_environment("FOLHA_DBG") != "":
+				le.amount = 60
+				(le.draw_pass_1 as QuadMesh).size = Vector2(0.6, 0.6)

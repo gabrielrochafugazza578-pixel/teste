@@ -646,9 +646,19 @@ vec4 sprite(int id, vec2 uv) {
 	} else if (id == 3) { // gota de chuva (risco vertical)
 		float a = smoothstep(0.12, 0.0, abs(c.x)) * smoothstep(0.5, 0.2, abs(c.y));
 		return vec4(vec3(0.8, 0.85, 0.9), a * 0.8);
-	} else { // folha seca
-		vec4 l = leaves(uv * 0.25);
-		return vec4(mix(l.rgb, vec3(0.4, 0.3, 0.15), 0.6), l.a);
+	} else { // folha solta: uma folha só, com nervura e cabinho; cor clara (a
+		// partícula tinge de verde, amarelo ou marrom)
+		vec2 q = vec2(c.x + c.y, c.y - c.x) * 0.7071;
+		float t = q.y / 0.44;
+		float w = 0.19 * pow(max(0.0, 1.0 - t * t), 0.7) * (1.0 + 0.3 * t);
+		float inside = step(abs(t), 1.0) * smoothstep(w, w - 0.025, abs(q.x));
+		float stem = step(abs(q.x), 0.014) * step(-1.18, t) * step(t, -0.85);
+		float vein = smoothstep(0.014, 0.0, abs(q.x)) * step(abs(t), 0.95);
+		float side = smoothstep(0.012, 0.0, abs(fract((q.y - abs(q.x) * 1.2) * 9.0) - 0.5) * 0.06) * step(0.02, abs(q.x));
+		float n = fbm(uv, 6.0, 3);
+		vec3 col = vec3(0.93, 0.9, 0.82) * (0.84 + n * 0.22) * (1.0 - vein * 0.22 - side * inside * 0.08);
+		col *= 0.88 + 0.12 * smoothstep(w, 0.0, abs(q.x));
+		return vec4(col, max(inside, stem));
 	}
 }
 

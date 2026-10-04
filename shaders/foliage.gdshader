@@ -56,7 +56,12 @@ void fragment() {
 	// mostra as arestas retas dos polígonos (aspecto de papel amassado)
 	float rr = length(UV - 0.5) * 2.0;
 	float edge = 1.0 - smoothstep(0.55, 0.95, rr + (c.g - 0.12) * 0.6);
-	float a = coverage_alpha(c.a * mix(0.35, 1.0, edge) * step(rr, 0.97), UV, vec2(textureSize(leaf_tex, 0)), alpha_cut);
+	// cartão visto de lado vira um risco fino ("palito" saindo da copa): some
+	// aos poucos quando o plano do cartão fica alinhado com a visão
+	vec3 fn = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+	float facing = abs(dot(fn, normalize(-VERTEX)));
+	float side = smoothstep(0.1, 0.3, facing);
+	float a = coverage_alpha(c.a * mix(0.35, 1.0, edge) * step(rr, 0.97) * side, UV, vec2(textureSize(leaf_tex, 0)), alpha_cut);
 	if (a < 0.5) {
 		discard;
 	}
