@@ -125,6 +125,9 @@ NOVIDADES DESTA VERSÃO
     pasto seco e úmido nos campos abertos.
   - Luz: sombras de dia menos pretas e fim de tarde/manhã cedo mais claros
     (encostas não somem mais no escuro).
+  - Céu: azul de verdade no alto e nuvens que aparecem (antes só o céu
+    totalmente encoberto tinha nuvem); tempo bom com nuvens esparsas,
+    nublado com nuvens grandes, chuva com um teto de nuvens escuro.
   - Pátios do mercado, hospital, delegacia e terminal com vagas pintadas e
     carros estacionados.
 
