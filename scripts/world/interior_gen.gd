@@ -191,6 +191,7 @@ func _build(b: Dictionary) -> Dictionary:
 	var door_w: float = di[2]
 	var dh := BuildingGen.door_height(b)
 	_door_u = door_u
+	_door_w = door_w
 	var layout: Dictionary
 	match context:
 		"lab":
@@ -344,6 +345,17 @@ func _split(r: Rect2, depth: int, rooms: Array, doors: Array, max_side: float, m
 	var ratio := rng.randf_range(0.38, 0.62)
 	if long_u:
 		var cut := r.position.x + r.size.x * ratio
+		# parede interna que nasce na fachada não pode encostar no vão da porta da
+		# frente (estreitava a passagem e o jogador não entrava)
+		if r.position.y < 0.01:
+			var margin := _door_w * 0.5 + 0.8
+			if absf(cut - _door_u) < margin:
+				cut = _door_u - margin if cut < _door_u else _door_u + margin
+				if cut - r.position.x < min_side * 0.8 or r.end.x - cut < min_side * 0.8:
+					cut = _door_u + margin if cut < _door_u else _door_u - margin
+				if cut - r.position.x < min_side * 0.8 or r.end.x - cut < min_side * 0.8:
+					rooms.append({"rect": r, "type": ""})
+					return
 		var a := Rect2(r.position.x, r.position.y, cut - r.position.x, r.size.y)
 		var b := Rect2(cut, r.position.y, r.end.x - cut, r.size.y)
 		doors.append({"a": Vector2(cut, r.position.y + rng.randf_range(0.9, maxf(1.0, r.size.y - 0.9))), "axis": "w", "w": DOOR_W})
@@ -1014,6 +1026,7 @@ func _spill_products(c: Vector3, r: float) -> void:
 ## Faixa de passagem das portas (1,2 m de cada lado): nada com colisão fica ali,
 ## senão o jogador abre a porta e dá de cara com um móvel/entulho e não entra.
 var _door_zones: Array = []
+var _door_w: float = 1.0
 
 
 func _blocks_door(pos: Vector3, cs: Vector3) -> bool:
