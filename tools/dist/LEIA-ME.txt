@@ -154,6 +154,8 @@ NOVIDADES DESTA VERSÃO
     as asas de vez em quando; somem à noite e na chuva forte.
   - Luminárias pendentes das casas balançam de leve com o vento que entra
     pelas janelas quebradas.
+  - Prédio religado no gerador: uma das lâmpadas fluorescentes fica falhando
+    (a luz e a lâmpada piscam juntas).
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

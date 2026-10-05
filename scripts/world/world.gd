@@ -605,8 +605,22 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		root.add_child(wb)
 		wb.setup("workbench", wbs[0], 0.0, "wb_%d" % bi)
 	var powered := building_powered(bi)
-	if powered and not (data.get("lamps", []) as Array).is_empty():
-		root.add_child(_lamp_panels(data["lamps"]))
+	# religado no gerador depois do surto: uma das lâmpadas fica falhando
+	var flick_pos := Vector3.INF
+	var lamp_xfs: Array = (data.get("lamps", []) as Array).duplicate()
+	if powered and GameState.world_phase != GameState.Phase.PRE and not lamp_xfs.is_empty():
+		var fi := absi(Util.hash2(bi, 91)) % lamp_xfs.size()
+		var fxf: Transform3D = lamp_xfs[fi]
+		lamp_xfs.remove_at(fi)
+		flick_pos = fxf.origin
+		var fp := _lamp_panels([fxf])
+		var fm := ((fp.multimesh.mesh as QuadMesh).material as StandardMaterial3D).duplicate() as StandardMaterial3D
+		(fp.multimesh.mesh as QuadMesh).material = fm
+		fp.name = "LampFlicker"
+		root.add_child(fp)
+		fp.set_meta("mat", fm)
+	if powered and not lamp_xfs.is_empty():
+		root.add_child(_lamp_panels(lamp_xfs))
 	for s in data["screens"]:
 		var q := QuadMesh.new()
 		q.size = s["size"]
@@ -669,6 +683,17 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		ol.set_meta("room_type", li.get("type", ""))
 		root.add_child(ol)
 		nlights += 1
+	# a luz mais perto da lâmpada falhando pisca junto com ela
+	if flick_pos != Vector3.INF:
+		var best: OmniLight3D = null
+		var bd := 8.0
+		for c in root.get_children():
+			if c is OmniLight3D and c.is_in_group("interior_light"):
+				var dd := (c as OmniLight3D).position.distance_to(flick_pos)
+				if dd < bd:
+					bd = dd
+					best = c
+		_flicker(best, root.get_node_or_null("LampFlicker"))
 	# posto: bombas
 	if b["type"] == "gas_station":
 		var di := BuildingGen.door_info(b)
@@ -937,6 +962,33 @@ func _update_light_pool() -> void:
 
 
 ## Difusores acesos das luminárias fluorescentes (um MultiMesh por interior).
+## Lâmpada falhando: a luz e o difusor apagam juntos em pequenas rajadas.
+func _flicker(ol: OmniLight3D, panel: Node) -> void:
+	var mat: StandardMaterial3D = panel.get_meta("mat") if panel != null and panel.has_meta("mat") else null
+	var owner_node: Node = ol if ol != null else panel
+	if owner_node == null:
+		return
+	var e0 := ol.light_energy if ol != null else 0.0
+	var cyc := randf_range(3.5, 6.0)
+	var tw := owner_node.create_tween().set_loops()
+	tw.tween_method(func(k: float) -> void:
+		var v := _flicker_level(k)
+		if ol:
+			ol.light_energy = e0 * v
+		if mat:
+			mat.emission_energy_multiplier = 2.6 * v
+			mat.albedo_color = Color(0.9, 0.92, 0.95) * lerpf(0.35, 1.0, v), 0.0, 1.0, cyc)
+
+
+static func _flicker_level(k: float) -> float:
+	# acesa quase o tempo todo; perto do fim do ciclo, 3 falhas rápidas e uma
+	# "quase apagada" antes de voltar
+	for w: Vector3 in [Vector3(0.62, 0.635, 0.0), Vector3(0.66, 0.70, 0.08), Vector3(0.715, 0.725, 0.0), Vector3(0.9, 0.93, 0.35)]:
+		if k >= w.x and k < w.y:
+			return w.z
+	return 1.0
+
+
 func _lamp_panels(xfs: Array) -> MultiMeshInstance3D:
 	var q := QuadMesh.new()
 	q.size = Vector2(1.16, 0.22)

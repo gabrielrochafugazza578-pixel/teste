@@ -75,6 +75,8 @@ func _testa(bi: int) -> void:
 	var n: Vector3 = di[1]
 	var t := str(b.get("interior", b["type"]))
 	var stand := door + n * 2.2
+	if OS.get_environment("PORTAS_ENERGIA") != "":
+		GameState.set_flag("power_%d" % bi, true)
 	await _go(stand, door, 11.0, WeatherManager.State.CLEAR, -0.05)
 	var w := 0.0
 	while g.world.interior_root(bi) == null and w < 20.0:
@@ -154,6 +156,18 @@ func _testa(bi: int) -> void:
 			_log("  cápsula: caminho livre")
 	_log("  entrou=%s pos=%s dist_porta=%.2f" % [str(dentro), str(p.global_position.snapped(Vector3.ONE * 0.01)), Vector2(p.global_position.x - door.x, p.global_position.z - door.z).length()])
 	await _shot("%s_%d_b" % [t, bi])
+	if OS.get_environment("PORTAS_ENERGIA") != "":
+		var r2 := g.world.interior_root(bi)
+		var fl: Node = r2.get_node_or_null("LampFlicker") if r2 else null
+		var lights: Array = r2.find_children("*", "OmniLight3D", true, false) if r2 else []
+		var mn := INF
+		var mx := 0.0
+		for i in 40:
+			await _wait(0.15)
+			for l in lights:
+				mn = minf(mn, (l as OmniLight3D).light_energy)
+				mx = maxf(mx, (l as OmniLight3D).light_energy)
+		_log("  energia: luzes=%d lâmpada_falhando=%s energia min=%.2f max=%.2f" % [lights.size(), str(fl != null), mn, mx])
 	if OS.get_environment("PORTAS_MOVEIS") != "":
 		await moveis(bi)
 	if OS.get_environment("PORTAS_ITENS") != "":
