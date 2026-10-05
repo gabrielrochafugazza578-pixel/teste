@@ -113,7 +113,7 @@ scripts/
   core/        EventBus, Settings (presets), GameState, SimScheduler, ShaderGlobals, Assets (bake PBR), InputSetup, Util
   world/       WorldLayout (cidade/região), TerrainGen, BuildingGen, InteriorGen, PropLib, Vegetation,
                ChunkBuilder/Chunk/World (streaming), FarLayer (terreno/silhueta distantes),
-               EnvironmentController (sol/lua/céu/neblina), Setor7
+               EnvironmentController (sol/lua/céu/neblina), Setor7, Birds (urubus planando)
   world/interactables/  Door, LootContainer, ItemPickup, Station (cama/bancada/fogo/coletor/baú), StoryObject, FuelPump, Elevator
   character/   Appearance, HeadTemplate (cabeça/pescoço anatômicos via SDF), HumanoidMeshBuilder (malha skinned 18 ossos,
                1 draw call), AnimLibrary, ProceduralAnimator, HumanoidBody
@@ -139,7 +139,7 @@ scripts/
                InventoryScreen, MapScreen/MapView, JournalScreen, DialogueScreen, TradeScreen, PauseMenu,
                SleepDialog, DeathScreen, ReadableScreen, DebugOverlay, CinematicOverlay, EndingScreen, GameUI
   game/        Game (monta e conecta tudo)
-shaders/       bake_surface, world_surface, terrain, character, foliage, grass, water, sky, glass, flag, leaf_particle, highlight,
+shaders/       bake_surface, world_surface, terrain, character, foliage, grass, water, sky, glass, flag, leaf_particle, highlight, hazard_blink, bird,
                screen_monitor, window_light, emissive_power, post_accessibility, far_terrain, far_skyline
 cinematics/    opening.json (timeline editável da abertura)
 scenes/        boot, menu, game, cinematics/opening_cinematic.tscn
@@ -315,7 +315,7 @@ xvfb-run godot --path . --rendering-driver opengl3 res://tests/arms.tscn -- --ou
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/weapons_test.tscn -- --out=/tmp/armas                         # vitrine dos modelos de arma
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/tex_dump.tscn -- --out=/tmp/texturas                          # todas as texturas geradas
 PORTAS_N=7 xvfb-run godot --path . --rendering-driver opengl3 res://tests/doors.tscn -- --no-audio --out=/tmp/portas   # abre portas e entra (PORTAS_TIPOS=house,shop · PORTAS_MOVEIS=1 · PORTAS_ITENS=1)
-xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --folhas --bandeira]  # vegetação, props, folhas caindo e bandeira
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --folhas --bandeira --passaros]  # vegetação, props, folhas, bandeira e urubus
 ```
 
 ## Build

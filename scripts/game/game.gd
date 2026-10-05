@@ -155,6 +155,10 @@ func _build_scene() -> void:
 	weather_fx.name = "WeatherFX"
 	add_child(weather_fx)
 	weather_fx.camera = player.cam_rig.cam
+	var birds := Birds.new()
+	birds.name = "Birds"
+	add_child(birds)
+	birds.target = player
 	director = AIDirector.new()
 	director.name = "AIDirector"
 	add_child(director)

@@ -84,6 +84,14 @@ func _ready() -> void:
 			add_child(mi)
 	if "--bandeira" in OS.get_cmdline_user_args():
 		add_child(Chunk.flag_node(Vector3(1.5, 0, 1.0), 0.0))
+	if "--passaros" in OS.get_cmdline_user_args():
+		var alvo := Node3D.new()
+		add_child(alvo)
+		var bd := Birds.new()
+		add_child(bd)
+		bd.target = alvo
+		for fl in bd._flocks:
+			fl["off"] = Vector3(0, -25.0, -30.0)
 	if "--encosta" in OS.get_cmdline_user_args():
 		# encosta virada para longe do sol da tarde (sol a +x): só luz ambiente
 		var hill := MeshInstance3D.new()
@@ -104,6 +112,9 @@ func _ready() -> void:
 		env.env.ambient_light_source, env.sun.light_energy, env.sun.light_color, env.env.tonemap_exposure, TimeManager.sun_height(), TimeManager.daylight()])
 	var views := [["perto", Vector3(0, 1.6, 9), Vector3(0, 0.6, -6)], ["campo", Vector3(-6, 2.2, 22), Vector3(4, 1.0, -20)],
 		["arvores", Vector3(10, 1.7, 6), Vector3(-6, 3.0, -14)], ["ceu", Vector3(0, 1.7, 10), Vector3(0, 30, -60)]]
+	if "--passaros" in OS.get_cmdline_user_args():
+		views.append(["passaros", Vector3(0, 1.7, 10), Vector3(0, 22, -30)])
+		views.append(["passaros2", Vector3(0, 1.7, 10), Vector3(0, 22, -30)])
 	if "--bandeira" in OS.get_cmdline_user_args():
 		views.append(["bandeira", Vector3(2.6, 2.5, 9.5), Vector3(2.2, 7.2, 1.0)])
 	if "--folhas" in OS.get_cmdline_user_args():
