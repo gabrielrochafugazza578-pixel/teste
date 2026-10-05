@@ -634,6 +634,24 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		var xf: Transform3D = lb["xf"]
 		l.transform = Transform3D(xf.basis * Basis(Vector3.UP, PI), xf.origin)
 		root.add_child(l)
+	# luminárias pendentes balançando com a corrente de ar das janelas quebradas
+	for sxf: Transform3D in data.get("swing", []):
+		var piv := Node3D.new()
+		piv.transform = sxf
+		var lm := MeshInstance3D.new()
+		lm.mesh = Assets.cached_mesh("swing_pendant", func() -> Mesh: return PropLib.buf("pendant_lamp").to_mesh(Assets.world_material("interior")))
+		piv.add_child(lm)
+		root.add_child(piv)
+		# pêndulo de ~0,7 m: período ~1,7 s; amplitude pequena, um pouco elíptica
+		var amp := deg_to_rad(randf_range(1.5, 3.2))
+		var per := randf_range(1.6, 1.85)
+		piv.rotation.x = -amp
+		var tw := piv.create_tween().set_loops()
+		tw.tween_property(piv, "rotation:x", amp, per * 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(piv, "rotation:x", -amp, per * 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		var tz := piv.create_tween().set_loops()
+		tz.tween_property(piv, "rotation:z", amp * 0.4, per * 0.53).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tz.tween_property(piv, "rotation:z", -amp * 0.4, per * 0.53).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	var nlights := 0
 	# luzes marcadas com "prio" (salão do laboratório) primeiro: o limite é baixo
 	var lights: Array = (data["lights"] as Array).filter(func(l): return l.has("prio"))

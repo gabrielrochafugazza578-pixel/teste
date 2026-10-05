@@ -173,7 +173,7 @@ func _build(b: Dictionary) -> Dictionary:
 	glass = MeshBuf.new()
 	panes = MeshBuf.new()
 	out = {"mesh": mesh, "glass": glass, "panes": panes, "doors": [], "containers": [], "lights": [], "markers": {},
-		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": [], "lamps": []}
+		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": [], "lamps": [], "swing": []}
 	fr = make_frame(b)
 	rng = Util.rng(int(b["seed"]) * 31 + 17)
 	context = str(b.get("interior", b["type"]))
@@ -1353,6 +1353,10 @@ func _ceiling_lamp(pn: String, q: Vector2, top: float, y_off: float) -> void:
 		var ta := rng.randf_range(0.5, 0.9) * (1.0 if rng.randf() < 0.5 else -1.0)
 		tilt = Basis(Vector3.BACK, ta)
 		p.y -= 0.62 * absf(sin(ta))
+	if pn == "pendant_lamp":
+		# luminária pendente vira nó próprio e balança de leve (world.gd)
+		out["swing"].append(Transform3D(Basis(Vector3.UP, yaw), p))
+		return
 	mesh.append(PropLib.buf(pn), Transform3D(Basis(Vector3.UP, yaw) * tilt, p))
 	# difusor que acende quando o prédio tem energia (world.gd)
 	if pn == "fluoro_lamp" and tilt == Basis.IDENTITY:
