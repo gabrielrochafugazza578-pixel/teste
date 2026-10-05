@@ -8,6 +8,28 @@ var falhas := 0
 
 func _gallery() -> void:
 	var L := g.layout
+	# FOTO_POI=id: só uma foto olhando para o ponto de interesse (fumaça, props)
+	if OS.get_environment("FOTO_POI") != "":
+		var pp := L.poi_pos(OS.get_environment("FOTO_POI"))
+		await _go(pp + Vector3(5.5, 0, 5.5), pp + Vector3(0, 1.2, 0), 15.0, WeatherManager.State.CLEAR, -0.1)
+		await _wait(2.0)
+		var em := 0
+		for n in g.world.find_children("*", "GPUParticles3D", true, false):
+			if (n as Node3D).global_position.distance_to(pp) < 3.0:
+				em += 1
+				var gp := n as GPUParticles3D
+				_log("  emissor %s pos=%s emitting=%s amount=%d visível=%s lifetime=%.1f pai=%s cam=%s" % [gp.name, str(gp.global_position.snapped(Vector3.ONE * 0.1)), str(gp.emitting), gp.amount,
+					str(gp.is_visible_in_tree()), gp.lifetime, gp.get_parent().name, str(get_viewport().get_camera_3d().global_position.snapped(Vector3.ONE * 0.1))])
+		_log("POI: %d emissores de partícula a menos de 3 m (fase=%d)" % [em, GameState.world_phase])
+		if OS.get_environment("FOTO_SEM_OCLUSAO") != "":
+			get_viewport().use_occlusion_culling = false
+			_log("  oclusão desligada (estava %s)" % str(ProjectSettings.get_setting("rendering/occlusion_culling/use_occlusion_culling")))
+		if OS.get_environment("FOTO_TESTE") != "":
+			var t := Chunk._smoke_emitter(pp + Vector3(1.5, 0.25, 0), 16, 1.1, Color(0.4, 0.4, 0.4, 0.42), 0.35, 0.6)
+			g.add_child(t)
+			await _wait(3.0)
+		await _shot("poi_" + OS.get_environment("FOTO_POI"))
+		return
 	var av := L.poi_pos("avenida_central")
 	var p := g.player
 	# prédios enteráveis mais perto da avenida, de tipos variados

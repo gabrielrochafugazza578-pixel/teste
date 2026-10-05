@@ -92,6 +92,8 @@ func _ready() -> void:
 		var wfx := WeatherFX.new()
 		add_child(wfx)
 		wfx.camera = cam
+	if "--fumaca" in OS.get_cmdline_user_args():
+		add_child(Chunk._smoke_emitter(Vector3(0, 0.25, 4.0), 16, 1.1, Color(0.4, 0.4, 0.4, 0.42), 0.35, 0.6))
 	if "--fita" in OS.get_cmdline_user_args():
 		for pn in ["tape_barrier", "tape_strip"]:
 			var tm := MeshInstance3D.new()

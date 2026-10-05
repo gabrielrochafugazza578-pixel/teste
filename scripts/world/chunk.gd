@@ -496,7 +496,7 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		# fogueira de acampamento abandonado: brasas ainda soltando um fio de fumaça
 		if props.has("campfire"):
 			for fxf: Transform3D in props["campfire"]["xf"]:
-				phase_node.add_child(_smoke_emitter(fxf.origin + Vector3(0, 0.25, 0), 6, 0.8, Color(0.55, 0.55, 0.55, 0.3), 0.3, 0.55))
+				phase_node.add_child(_smoke_emitter(fxf.origin + Vector3(0, 0.25, 0), 16, 1.1, Color(0.4, 0.4, 0.4, 0.42), 0.35, 0.6))
 	var cols: Array = p.get("colliders", [])
 	if not cols.is_empty():
 		phase_body = PhysicsServer3D.body_create()
@@ -529,8 +529,9 @@ static func _smoke_emitter(pos: Vector3, amount: int, size: float, col: Color, v
 	pm.scale_min = 0.7
 	pm.scale_max = 2.6
 	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 0.0))
-	grad.add_point(0.15, Color(1, 1, 1, 0.55))
+	# já nasce visível junto às brasas/lataria e se dissolve subindo
+	grad.set_color(0, Color(1, 1, 1, 0.3))
+	grad.add_point(0.1, Color(1, 1, 1, 0.65))
 	grad.set_color(grad.get_point_count() - 1, Color(1, 1, 1, 0.0))
 	var gt := GradientTexture1D.new()
 	gt.gradient = grad
@@ -552,7 +553,7 @@ func _ambient_fx(by_type: Dictionary) -> void:
 			if smokes >= 2 or absi(Util.hash_str(str(car["uid"]) + "fumo")) % 3 != 0:
 				continue
 			smokes += 1
-			phase_node.add_child(_smoke_emitter((car["pos"] as Vector3) + Vector3(0, 0.9, 0), 10, 1.4, Color(0.22, 0.21, 0.2, 0.42), 0.5, 0.9))
+			phase_node.add_child(_smoke_emitter((car["pos"] as Vector3) + Vector3(0, 0.9, 0), 16, 1.4, Color(0.22, 0.21, 0.2, 0.45), 0.5, 0.9))
 	# pisca-alerta: alguns carros abandonados ainda piscando (bateria viva)
 	var blinks := 0
 	for key in by_type.keys():
