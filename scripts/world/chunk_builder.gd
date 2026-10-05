@@ -1003,7 +1003,9 @@ static func build_phase(layout: WorldLayout, c: Vector2i, phase: int) -> Diction
 			var sp := pc + (Vector2(6.0, pr.size.y * 0.5 + 3.2) if axis_x else Vector2(pr.size.x * 0.5 + 3.2, 6.0))
 			_add_prop(props, "quarantine_sign", Transform3D(Basis(Vector3.UP, 0.0 if axis_x else PI * 0.5), Vector3(sp.x, 0.02, sp.y)), Color(1, 1, 1, 0), colliders, true)
 			var tp := pc + (Vector2(-5.5, pr.size.y * 0.5 + 2.4) if axis_x else Vector2(pr.size.x * 0.5 + 2.4, -5.5))
-			_add_prop(props, "tape_barrier", Transform3D(Basis(Vector3.UP, (0.0 if axis_x else PI * 0.5) + r.randf_range(-0.2, 0.2)), Vector3(tp.x, 0.02, tp.y)))
+			var txf := Transform3D(Basis(Vector3.UP, (0.0 if axis_x else PI * 0.5) + r.randf_range(-0.2, 0.2)), Vector3(tp.x, 0.02, tp.y))
+			_add_prop(props, "tape_barrier", txf)
+			_add_prop(props, "tape_strip", txf)
 	# trepadeiras nas fachadas
 	for bi in layout.buildings_owned_by(c):
 		var b: Dictionary = layout.buildings[bi]

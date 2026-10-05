@@ -156,6 +156,7 @@ NOVIDADES DESTA VERSÃO
     pelas janelas quebradas.
   - Prédio religado no gerador: uma das lâmpadas fluorescentes fica falhando
     (a luz e a lâmpada piscam juntas).
+  - Fitas zebradas de isolamento tremulando com o vento entre os cavaletes.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

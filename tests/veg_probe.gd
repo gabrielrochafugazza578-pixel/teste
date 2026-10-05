@@ -84,6 +84,12 @@ func _ready() -> void:
 			add_child(mi)
 	if "--bandeira" in OS.get_cmdline_user_args():
 		add_child(Chunk.flag_node(Vector3(1.5, 0, 1.0), 0.0))
+	if "--fita" in OS.get_cmdline_user_args():
+		for pn in ["tape_barrier", "tape_strip"]:
+			var tm := MeshInstance3D.new()
+			tm.mesh = PropLib.mesh(pn)
+			tm.position = Vector3(0, 0, 6.0)
+			add_child(tm)
 	if "--passaros" in OS.get_cmdline_user_args():
 		var alvo := Node3D.new()
 		add_child(alvo)

@@ -315,7 +315,7 @@ xvfb-run godot --path . --rendering-driver opengl3 res://tests/arms.tscn -- --ou
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/weapons_test.tscn -- --out=/tmp/armas                         # vitrine dos modelos de arma
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/tex_dump.tscn -- --out=/tmp/texturas                          # todas as texturas geradas
 PORTAS_N=7 xvfb-run godot --path . --rendering-driver opengl3 res://tests/doors.tscn -- --no-audio --out=/tmp/portas   # abre portas e entra (PORTAS_TIPOS=house,shop · PORTAS_MOVEIS=1 · PORTAS_ITENS=1)
-xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --folhas --bandeira --passaros]  # vegetação, props, folhas, bandeira e urubus
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --folhas --bandeira --passaros --fita]  # vegetação, props, folhas, bandeira e urubus
 ```
 
 ## Build

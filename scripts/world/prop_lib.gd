@@ -24,7 +24,7 @@ const NAMES := ["bed", "bed_single", "bunk", "hospital_bed", "sofa", "armchair",
 	"plant_pot", "floor_lamp", "picture", "wall_clock", "poster", "notice_board", "fluoro_lamp", "pendant_lamp", "office_chair",
 	"vending_machine", "water_cooler", "coat_rack", "mirror", "wall_shelf", "radiator", "gondola_hw", "gondola_ph",
 	"traffic_cone", "road_barrier", "shopping_cart", "suitcase", "bicycle", "litter", "manhole", "manhole_open", "road_patch",
-	"mattress", "tire_single", "quarantine_sign", "tape_barrier", "wall_poster", "newspaper_stand",
+	"mattress", "tire_single", "quarantine_sign", "tape_barrier", "tape_strip", "wall_poster", "newspaper_stand",
 	"oil_stain", "blood_pool", "blood_pool_2", "blood_smear", "blood_wall", "bullet_holes", "body_bag", "covered_body", "remains", "severed_arm", "bones"]
 
 
@@ -48,10 +48,34 @@ static func buf(name: String) -> MeshBuf:
 static func mesh(name: String) -> ArrayMesh:
 	if _meshes.has(name):
 		return _meshes[name]
+	if name == "tape_strip":
+		_meshes[name] = _tape_mesh()
+		return _meshes[name]
 	var m: ArrayMesh = _model_mesh(name) if MODELS.has(name) else null
 	if m == null:
 		m = buf(name).to_mesh(Assets.world_material("props"))
 	_meshes[name] = m
+	return m
+
+
+## Fita zebrada entre os postes do cavalete (tape_barrier): faixa subdividida
+## com leve barriga; o vento e as listras ficam no shader (shaders/tape.gdshader).
+static func _tape_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 20
+	for i in n:
+		for k in [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]]:
+			var t := float(i + k[0]) / n
+			var x := -1.4 + t * 2.8
+			var y := 0.9 - 0.08 * sin(t * PI) + (float(k[1]) - 0.5) * 0.07
+			st.set_uv(Vector2(t, float(k[1])))
+			st.set_normal(Vector3(0, 0, -1))
+			st.add_vertex(Vector3(x, y, 0))
+	var m := st.commit()
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/tape.gdshader")
+	m.surface_set_material(0, mat)
 	return m
 
 
@@ -824,10 +848,7 @@ static func _build(name: String, b: MeshBuf) -> void:
 		"tape_barrier":
 			for sx: float in [-1.4, 1.4]:
 				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(sx, 0, 0)), 0.03, 1.0, 6, MET, 0.0, steel)
-			for i in 8:
-				var cc := Color(0.95, 0.85, 0.1) if i % 2 == 0 else Color(0.08, 0.08, 0.08)
-				var x0 := -1.4 + i * 0.35
-				b.box_xf(Transform3D(Basis(Vector3.BACK, 0.04 * sin(float(i))), Vector3(x0 + 0.175, 0.9 - 0.08 * sin(float(i) / 7.0 * PI), 0)), Vector3(0.35, 0.07, 0.004), PLA, 0.0, cc)
+			# a fita em si é o prop "tape_strip" (tremula com o vento)
 		"wall_poster":
 			b.box(Vector3(0, 0, 0), Vector3(0.42, 0.6, 0.004), PLA, 0.6, Color(0.93, 0.9, 0.82))
 			b.box(Vector3(0, 0.15, -0.003), Vector3(0.3, 0.22, 0.002), PLA, 2.2, Color(0.45, 0.4, 0.36))
