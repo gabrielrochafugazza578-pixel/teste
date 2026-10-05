@@ -493,6 +493,10 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if phase == GameState.Phase.POST and Settings.get_particle_multiplier() > 0.0:
 		_ambient_fx(by_type)
+		# fogueira de acampamento abandonado: brasas ainda soltando um fio de fumaça
+		if props.has("campfire"):
+			for fxf: Transform3D in props["campfire"]["xf"]:
+				phase_node.add_child(_smoke_emitter(fxf.origin + Vector3(0, 0.25, 0), 6, 0.8, Color(0.55, 0.55, 0.55, 0.3), 0.3, 0.55))
 	var cols: Array = p.get("colliders", [])
 	if not cols.is_empty():
 		phase_body = PhysicsServer3D.body_create()
@@ -501,6 +505,40 @@ func apply_phase(p: Dictionary, phase: int) -> void:
 		PhysicsServer3D.body_set_collision_layer(phase_body, 1)
 		PhysicsServer3D.body_set_collision_mask(phase_body, 0)
 		_add_boxes(phase_body, cols, phase_shapes)
+
+
+## Coluna de fumaça (carro queimado ainda fumegando, brasas de fogueira).
+static func _smoke_emitter(pos: Vector3, amount: int, size: float, col: Color, v0: float, v1: float) -> GPUParticles3D:
+	var sm := GPUParticles3D.new()
+	sm.amount = maxi(4, int(amount * Settings.get_particle_multiplier()))
+	sm.lifetime = 7.0
+	sm.preprocess = 7.0
+	sm.visibility_aabb = AABB(Vector3(-6, -1, -6), Vector3(12, 16, 12))
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	q.material = Assets.particle_material(Assets.SPR_SMOKE, col)
+	sm.draw_pass_1 = q
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.35 * size / 1.4
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 12.0
+	pm.initial_velocity_min = v0
+	pm.initial_velocity_max = v1
+	pm.gravity = Vector3(0.25, 0.18, 0.1)
+	pm.scale_min = 0.7
+	pm.scale_max = 2.6
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 0.0))
+	grad.add_point(0.15, Color(1, 1, 1, 0.55))
+	grad.set_color(grad.get_point_count() - 1, Color(1, 1, 1, 0.0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = grad
+	pm.color_ramp = gt
+	sm.process_material = pm
+	sm.position = pos
+	sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return sm
 
 
 ## Detalhes vivos depois do surto: fiapo de fumaça em alguns carros queimados
@@ -514,36 +552,7 @@ func _ambient_fx(by_type: Dictionary) -> void:
 			if smokes >= 2 or absi(Util.hash_str(str(car["uid"]) + "fumo")) % 3 != 0:
 				continue
 			smokes += 1
-			var sm := GPUParticles3D.new()
-			sm.amount = maxi(4, int(10 * Settings.get_particle_multiplier()))
-			sm.lifetime = 7.0
-			sm.preprocess = 7.0
-			sm.visibility_aabb = AABB(Vector3(-6, -1, -6), Vector3(12, 16, 12))
-			var q := QuadMesh.new()
-			q.size = Vector2(1.4, 1.4)
-			q.material = Assets.particle_material(Assets.SPR_SMOKE, Color(0.22, 0.21, 0.2, 0.42))
-			sm.draw_pass_1 = q
-			var pm := ParticleProcessMaterial.new()
-			pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-			pm.emission_sphere_radius = 0.35
-			pm.direction = Vector3(0, 1, 0)
-			pm.spread = 12.0
-			pm.initial_velocity_min = 0.5
-			pm.initial_velocity_max = 0.9
-			pm.gravity = Vector3(0.25, 0.18, 0.1)
-			pm.scale_min = 0.7
-			pm.scale_max = 2.6
-			var grad := Gradient.new()
-			grad.set_color(0, Color(1, 1, 1, 0.0))
-			grad.add_point(0.15, Color(1, 1, 1, 0.55))
-			grad.set_color(grad.get_point_count() - 1, Color(1, 1, 1, 0.0))
-			var gt := GradientTexture1D.new()
-			gt.gradient = grad
-			pm.color_ramp = gt
-			sm.process_material = pm
-			sm.position = (car["pos"] as Vector3) + Vector3(0, 0.9, 0)
-			sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			phase_node.add_child(sm)
+			phase_node.add_child(_smoke_emitter((car["pos"] as Vector3) + Vector3(0, 0.9, 0), 10, 1.4, Color(0.22, 0.21, 0.2, 0.42), 0.5, 0.9))
 	# pisca-alerta: alguns carros abandonados ainda piscando (bateria viva)
 	var blinks := 0
 	for key in by_type.keys():
