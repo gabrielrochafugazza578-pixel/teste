@@ -38,6 +38,33 @@ func _gallery() -> void:
 	for bi in lista:
 		await _testa(bi)
 	_log("PORTAS: %d falha(s) em %d prédios" % [falhas, lista.size()])
+	if OS.get_environment("PORTAS_PISCA") != "":
+		await pisca()
+
+
+## Carro abandonado com pisca-alerta, à noite.
+func pisca() -> void:
+	TimeManager.set_time(21.5)
+	var best: Node3D = null
+	var bd := INF
+	for n in g.world.find_children("Pisca*", "MeshInstance3D", true, false):
+		var dd := (n as Node3D).global_position.distance_to(g.player.global_position)
+		if dd < bd:
+			bd = dd
+			best = n
+	_log("PISCA: %d carros piscando no mundo carregado; mais perto a %.0f m" % [g.world.find_children("Pisca*", "MeshInstance3D", true, false).size(), bd])
+	if best == null:
+		return
+	var f := -best.global_transform.basis.z
+	var cam := Camera3D.new()
+	g.add_child(cam)
+	cam.current = true
+	cam.global_position = best.global_position + f * 6.5 + best.global_transform.basis.x * 2.5 + Vector3(0, 1.6, 0)
+	cam.look_at(best.global_position + Vector3(0, 0.7, 0), Vector3.UP)
+	g.ui.hud.visible = false
+	for i in 3:
+		await _wait(0.33)
+		await _shot("pisca_%d" % i)
 
 
 func _testa(bi: int) -> void:
@@ -129,6 +156,59 @@ func _testa(bi: int) -> void:
 	await _shot("%s_%d_b" % [t, bi])
 	if OS.get_environment("PORTAS_MOVEIS") != "":
 		await moveis(bi)
+	if OS.get_environment("PORTAS_ITENS") != "":
+		await itens(bi)
+	if OS.get_environment("PORTAS_BANDEIRA") != "" and str(b["type"]) in ChunkBuilder.FLAG_TYPES:
+		var side := n.cross(Vector3.UP)
+		var pole := door + n * 1.7 + side * (float(di[2]) * 0.5 + 2.2)
+		var cam := Camera3D.new()
+		g.add_child(cam)
+		cam.current = true
+		cam.global_position = pole + n * 9.0 + side * 3.0 + Vector3(0, 2.5, 0)
+		cam.look_at(pole + Vector3(0, 5.8, 0), Vector3.UP)
+		g.ui.hud.visible = false
+		await _wait(1.0)
+		await _shot("%s_%d_bandeira" % [t, bi])
+		cam.queue_free()
+		p.cam_rig.cam.current = true
+		g.ui.hud.visible = true
+
+
+## Item na mira (contorno pulsando) e o voo até a mão ao pegar.
+func itens(bi: int) -> void:
+	var root := g.world.interior_root(bi)
+	if root == null:
+		return
+	var p := g.player
+	var best: ItemPickup = null
+	var bd := INF
+	for c in get_tree().get_nodes_in_group("item_pickup"):
+		var ip := c as ItemPickup
+		if ip == null or not root.is_ancestor_of(ip):
+			continue
+		var dd := ip.global_position.distance_to(p.global_position)
+		if dd < bd:
+			bd = dd
+			best = ip
+	if best == null:
+		_log("  itens: nenhum item no interior")
+		return
+	var to := best.global_position - p.global_position
+	to.y = 0.0
+	var stand := best.global_position - to.normalized() * 1.1
+	p.global_position = Vector3(stand.x, p.global_position.y, stand.z)
+	var yaw := atan2(-to.x, -to.z)
+	p.cam_rig.yaw = yaw
+	p.set_yaw(yaw)
+	p.cam_rig.pitch = -0.55
+	await _wait(0.8)
+	_log("  itens: alvo=%s aviso='%s' destaque=%s" % [str(best.label_text()), p.current_interactable.get_prompt(p) if p.current_interactable else "-",
+		str(best.mesh_node.material_overlay != null)])
+	await _shot("item_%d_mira" % bi)
+	if p.current_interactable == best:
+		p._begin_interact()
+		await _wait(0.1)
+		await _shot("item_%d_pegando" % bi)
 
 
 ## Fotos das animações de móveis: num interior já carregado, abre o contêiner

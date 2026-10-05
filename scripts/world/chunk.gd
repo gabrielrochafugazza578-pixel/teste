@@ -215,6 +215,65 @@ func _falling_leaves(trees: Dictionary) -> void:
 			add_child(leaf_emitter(xf, kind))
 
 
+## Lâmpadas do pisca-alerta nos quatro cantos do carro (frente em -Z).
+static func _hazard_mesh(type: String) -> Mesh:
+	return Assets.cached_mesh("hazard_" + type, func() -> Mesh:
+		var dims := VehicleMeshBuilder.dims(type)
+		var L := float(dims["L"])
+		var hw := float(dims["W"]) * 0.5
+		var deck := float(dims["deck"])
+		var b := MeshBuf.new()
+		for sg: float in [-1.0, 1.0]:
+			b.box(Vector3(hw * 0.86 * sg, deck - 0.17, -L * 0.5 - 0.012), Vector3(0.15, 0.06, 0.03), 0.0)
+			b.box(Vector3(hw * 0.97 * sg, deck - 0.2, -L * 0.5 + 0.2), Vector3(0.03, 0.05, 0.1), 0.0)
+			b.box(Vector3(hw * 0.8 * sg, deck - 0.1, L * 0.5 + 0.012), Vector3(0.14, 0.06, 0.03), 0.0)
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/hazard_blink.gdshader")
+		return b.to_mesh(m))
+
+
+## Mastro com bandeira tremulando (frente de prédios públicos). `yaw` aponta o
+## lado para onde o pano se estende.
+static var _flag_mat: ShaderMaterial
+static var _flag_mesh: PlaneMesh
+const FLAG_H := 8.5
+
+
+static func flag_node(pos: Vector3, yaw: float) -> Node3D:
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation.y = yaw
+	var pole := MeshInstance3D.new()
+	pole.mesh = Assets.cached_mesh("flag_pole", func() -> Mesh:
+		var b := MeshBuf.new()
+		var metal := Assets.uv2_code(Assets.L_METAL)
+		b.cylinder(Transform3D.IDENTITY, 0.07, FLAG_H, 8, metal, 0.0, Color(0.85, 0.85, 0.84), true, 0.04)
+		b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 0, 0)), 0.2, 0.35, 8, Assets.uv2_code(Assets.L_CONCRETE), 0.0, Color(0.75, 0.74, 0.7), true, 0.16)
+		b.box(Vector3(0, FLAG_H + 0.04, 0), Vector3(0.1, 0.08, 0.1), metal, 0.0, Color(0.7, 0.62, 0.3))
+		return b.to_mesh(Assets.world_material("props")))
+	root.add_child(pole)
+	if _flag_mat == null:
+		_flag_mat = ShaderMaterial.new()
+		_flag_mat.shader = load("res://shaders/flag.gdshader")
+		_flag_mesh = PlaneMesh.new()
+		_flag_mesh.orientation = PlaneMesh.FACE_Z
+		_flag_mesh.size = Vector2(1.95, 1.3)
+		_flag_mesh.center_offset = Vector3(0.975, 0, 0)
+		_flag_mesh.subdivide_width = 14
+		_flag_mesh.subdivide_depth = 6
+		_flag_mesh.material = _flag_mat
+	var cloth := MeshInstance3D.new()
+	cloth.mesh = _flag_mesh
+	cloth.position = Vector3(0.06, FLAG_H - 0.75, 0)
+	# a malha deforma no shader: caixa folgada para não sumir no recorte de visão
+	cloth.custom_aabb = AABB(Vector3(-0.2, -1.5, -0.9), Vector3(2.5, 3.0, 1.8))
+	cloth.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	root.add_child(cloth)
+	pole.visibility_range_end = 220.0
+	cloth.visibility_range_end = 160.0
+	return root
+
+
 static func leaf_emitter(xf: Transform3D, kind: String) -> GPUParticles3D:
 	var s := xf.basis.get_scale().y
 	var h := (9.0 if kind == "broadleaf_big" else 5.5) * 0.72 * s
@@ -303,6 +362,8 @@ func _step_props(d: Dictionary) -> void:
 		var mmi := _multimesh(q, xfs, [], false)
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.visibility_range_end = 400.0
+	for fl in d.get("flags", []):
+		add_child(flag_node(fl["pos"], float(fl["yaw"])))
 	# letreiros
 	for lb in d.get("labels", []):
 		var l := Label3D.new()
@@ -483,6 +544,23 @@ func _ambient_fx(by_type: Dictionary) -> void:
 			sm.position = (car["pos"] as Vector3) + Vector3(0, 0.9, 0)
 			sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			phase_node.add_child(sm)
+	# pisca-alerta: alguns carros abandonados ainda piscando (bateria viva)
+	var blinks := 0
+	for key in by_type.keys():
+		var kp := str(key).split("|")
+		if kp[1] == "burned" or kp[1] == "clean" or kp[0] == "bus":
+			continue
+		for car in by_type[key]:
+			if blinks >= 2 or absf(float(car.get("roll", 0.0))) > 0.1 or absi(Util.hash_str(str(car["uid"]) + "pisca")) % 6 != 0:
+				continue
+			blinks += 1
+			var mi := MeshInstance3D.new()
+			mi.name = "Pisca"
+			mi.mesh = _hazard_mesh(kp[0])
+			mi.transform = Transform3D(Basis(Vector3.UP, float(car["yaw"])) * Basis(Vector3.RIGHT, float(car.get("pitch", 0.0))), car["pos"])
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.visibility_range_end = 220.0
+			phase_node.add_child(mi)
 	# papéis ao vento (só na cidade, um emissor por chunk)
 	var c := Vector3((coord.x + 0.5) * WorldLayout.CHUNK, 0, (coord.y + 0.5) * WorldLayout.CHUNK)
 	if not WorldLayout.URBAN.has_point(Vector2(c.x, c.z)) or absi(Util.hash2(coord.x, coord.y, 77)) % 2 != 0:

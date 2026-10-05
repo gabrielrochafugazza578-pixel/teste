@@ -130,6 +130,25 @@ NOVIDADES DESTA VERSÃO
     nublado com nuvens grandes, chuva com um teto de nuvens escuro.
   - Pátios do mercado, hospital, delegacia e terminal com vagas pintadas e
     carros estacionados.
+  - Portas corrigidas: dá para abrir e entrar em casas, lojas e na igreja (a
+    porta deixava uma parede invisível no batente; a folha agora abre para
+    longe de quem empurra; móveis, paredes internas e a torre da igreja não
+    tampam mais a entrada).
+  - Móveis animados ao revistar: gavetas deslizam, portas de armário,
+    geladeira e armário de remédios giram na dobradiça, tampas de caixas,
+    baús e tambores levantam.
+  - Itens: o item na mira ganha um contorno brilhante pulsando; ao pegar, ele
+    voa até a mão; ao largar, cai e quica no chão.
+  - Texturas fotográficas reais (Poly Haven, licença CC0) no asfalto,
+    calçadas, tijolos, reboco, telhas, chapas de metal, tábuas, terra, rocha,
+    pisos, cascalho, casca de árvore e linóleo, na escala real de cada foto.
+  - Tambores de metal e sacos de lixo com modelos 3D escaneados (Poly Haven).
+  - Detalhes vivos: fumaça saindo de alguns carros queimados, papéis rolando
+    com o vento nas ruas, folhas soltando das árvores e caindo girando.
+  - Copas das árvores sem os "palitos" (folhas vistas de lado) e mais cheias.
+  - Bandeiras do município tremulando ao vento (desbotadas e esfiapadas) nos
+    mastros em frente à delegacia, hospital, escola, posto de saúde e
+    terminal; com pouco vento elas caem, na tempestade batem forte.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

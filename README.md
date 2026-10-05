@@ -139,7 +139,7 @@ scripts/
                InventoryScreen, MapScreen/MapView, JournalScreen, DialogueScreen, TradeScreen, PauseMenu,
                SleepDialog, DeathScreen, ReadableScreen, DebugOverlay, CinematicOverlay, EndingScreen, GameUI
   game/        Game (monta e conecta tudo)
-shaders/       bake_surface, world_surface, terrain, character, foliage, grass, water, sky, glass,
+shaders/       bake_surface, world_surface, terrain, character, foliage, grass, water, sky, glass, flag, leaf_particle, highlight,
                screen_monitor, window_light, emissive_power, post_accessibility, far_terrain, far_skyline
 cinematics/    opening.json (timeline editável da abertura)
 scenes/        boot, menu, game, cinematics/opening_cinematic.tscn
@@ -157,6 +157,13 @@ Exceções (arquivos de fora, em `assets/`):
   texto em `assets/textures/grass_bush_LICENSE.txt`). Só a textura é usada: a grama continua espalhada
   proceduralmente por chunk (MultiMesh), em 3 planos cruzados com alpha scissor, vento e empurrão do jogador
   em `shaders/grass.gdshader`.
+* `assets/materials/NN_a.png` / `NN_b.png` — texturas fotográficas do [Poly Haven](https://polyhaven.com)
+  (CC0; lista em `assets/materials/LICENCA.txt`), empacotadas por `tools/fetch_textures.py` no formato das
+  camadas do jogo (A = cor + rugosidade, B = normal xy + AO + metal) com a escala real de cada foto em
+  `escala.json`. O bake usa a foto quando existe e cai no material procedural quando não (grama e tecido
+  continuam procedurais).
+* `assets/models/props/barrel`, `assets/models/props/trash_bag` — modelos glTF do Poly Haven (CC0), lidos por
+  `PropLib.MODELS` (base no chão, escala à altura alvo, várias cópias fundidas numa malha para o MultiMesh).
 
 ### Caio (modelo GLB)
 
@@ -307,6 +314,8 @@ xvfb-run godot --path . --rendering-driver opengl3 res://tests/interiors.tscn --
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/arms.tscn -- --out=/tmp/armas_mao [--only=rifle_caca]        # armas na mão e disparo
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/weapons_test.tscn -- --out=/tmp/armas                         # vitrine dos modelos de arma
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/tex_dump.tscn -- --out=/tmp/texturas                          # todas as texturas geradas
+PORTAS_N=7 xvfb-run godot --path . --rendering-driver opengl3 res://tests/doors.tscn -- --no-audio --out=/tmp/portas   # abre portas e entra (PORTAS_TIPOS=house,shop · PORTAS_MOVEIS=1 · PORTAS_ITENS=1)
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --folhas --bandeira]  # vegetação, props, folhas caindo e bandeira
 ```
 
 ## Build

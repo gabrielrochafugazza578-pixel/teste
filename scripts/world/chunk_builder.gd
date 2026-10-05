@@ -40,17 +40,40 @@ static func build(layout: WorldLayout, c: Vector2i, lod: int, opts: Dictionary) 
 	var lamps: Array = []
 	var labels: Array = []
 	var prop_colliders: Array = []
+	var flags: Array = []
 	if lod == 0:
 		_street_props(layout, c, props, trees, lamps, labels, prop_colliders, opts)
+		_flags(layout, c, flags, prop_colliders)
 	_nature(layout, c, trees, lod, opts)
 	d["props"] = props
 	d["trees"] = trees
 	d["lamps"] = lamps
 	d["labels"] = labels
+	d["flags"] = flags
 	d["prop_colliders"] = prop_colliders
 	if lod == 0 and bool(opts.get("grass", true)):
 		d["grass"] = _grass(layout, c, opts)
 	return d
+
+
+## Mastro com bandeira ao lado da entrada dos prédios públicos.
+const FLAG_TYPES := ["police", "hospital", "school", "clinic", "terminal"]
+
+
+static func _flags(layout: WorldLayout, c: Vector2i, flags: Array, colliders: Array) -> void:
+	for bi in layout.buildings_owned_by(c):
+		var b: Dictionary = layout.buildings[bi]
+		if not str(b["type"]) in FLAG_TYPES:
+			continue
+		var di := BuildingGen.door_info(b)
+		var door: Vector3 = di[0]
+		var n: Vector3 = di[1]
+		var side := n.cross(Vector3.UP)
+		var pos := door + n * 1.7 + side * (float(di[2]) * 0.5 + 2.2)
+		# o pano se estende para longe da porta, paralelo à fachada
+		var dir := side
+		flags.append({"pos": pos, "yaw": atan2(-dir.z, dir.x)})
+		colliders.append([Transform3D(Basis.IDENTITY, pos + Vector3(0, 1.8, 0)), Vector3(0.2, 3.6, 0.2)])
 
 
 # ---------------------------------------------------------------------------
