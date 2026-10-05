@@ -84,6 +84,14 @@ func _ready() -> void:
 			add_child(mi)
 	if "--bandeira" in OS.get_cmdline_user_args():
 		add_child(Chunk.flag_node(Vector3(1.5, 0, 1.0), 0.0))
+	if "--respingos" in OS.get_cmdline_user_args():
+		var pl := Node3D.new()
+		pl.add_to_group("player")
+		add_child(pl)
+		pl.position = Vector3(0, 0, 6)
+		var wfx := WeatherFX.new()
+		add_child(wfx)
+		wfx.camera = cam
 	if "--fita" in OS.get_cmdline_user_args():
 		for pn in ["tape_barrier", "tape_strip"]:
 			var tm := MeshInstance3D.new()
@@ -130,7 +138,7 @@ func _ready() -> void:
 		cam.look_at(v[2], Vector3.UP)
 		for i in 6:
 			await get_tree().process_frame
-		if v[0] == "folhas":
+		if v[0] == "folhas" or (v[0] == "perto" and "--respingos" in OS.get_cmdline_user_args()):
 			await get_tree().create_timer(3.0).timeout
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("%s/veg_%s.png" % [out, v[0]])
