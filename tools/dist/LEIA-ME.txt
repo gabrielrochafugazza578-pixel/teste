@@ -143,8 +143,8 @@ NOVIDADES DESTA VERSÃO
     calçadas, tijolos, reboco, telhas, chapas de metal, tábuas, terra, rocha,
     pisos, cascalho, casca de árvore e linóleo, na escala real de cada foto.
   - Tambores de metal e sacos de lixo com modelos 3D escaneados (Poly Haven).
-  - Detalhes vivos: papéis rolando com o vento nas ruas, folhas soltando das
-    árvores e caindo girando.
+  - Detalhes vivos: fumaça escura saindo de alguns carros queimados, papéis
+    rolando com o vento nas ruas, folhas soltando das árvores e caindo girando.
   - Copas das árvores sem os "palitos" (folhas vistas de lado) e mais cheias.
   - Bandeiras do município tremulando ao vento (desbotadas e esfiapadas) nos
     mastros em frente à delegacia, hospital, escola, posto de saúde e
@@ -158,6 +158,7 @@ NOVIDADES DESTA VERSÃO
     (a luz e a lâmpada piscam juntas).
   - Fitas zebradas de isolamento tremulando com o vento entre os cavaletes.
   - Chuva com respingos: gotinhas espirrando do chão em volta do Caio.
+  - Fogueiras dos acampamentos abandonados ainda soltando um fio de fumaça.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

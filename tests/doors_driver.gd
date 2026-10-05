@@ -25,9 +25,21 @@ func _gallery() -> void:
 			get_viewport().use_occlusion_culling = false
 			_log("  oclusão desligada (estava %s)" % str(ProjectSettings.get_setting("rendering/occlusion_culling/use_occlusion_culling")))
 		if OS.get_environment("FOTO_TESTE") != "":
-			var t := Chunk._smoke_emitter(pp + Vector3(1.5, 0.25, 0), 16, 1.1, Color(0.4, 0.4, 0.4, 0.42), 0.35, 0.6)
-			g.add_child(t)
+			var cam3 := get_viewport().get_camera_3d()
+			var right := cam3.global_transform.basis.x
+			for k in 3:
+				var t := Chunk._smoke_emitter(pp + right * (k - 1) * 2.0 + Vector3(0, 0.25, 0), 16, 1.1, Color(0.4, 0.4, 0.4, 0.42), 0.35, 0.6)
+				if k == 1:
+					t.preprocess = 0.0
+				if k == 2:
+					var red := StandardMaterial3D.new()
+					red.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+					red.albedo_color = Color(1, 0, 0)
+					red.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+					(t.draw_pass_1 as QuadMesh).material = red
+				g.add_child(t)
 			await _wait(3.0)
+			_log("  teste: 3 emissores (normal, sem preprocess, vermelho opaco) | pausado=%s modo=%d" % [str(get_tree().paused), g.process_mode])
 		await _shot("poi_" + OS.get_environment("FOTO_POI"))
 		return
 	var av := L.poi_pos("avenida_central")
