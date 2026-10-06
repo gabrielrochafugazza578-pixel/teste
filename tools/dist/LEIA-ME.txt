@@ -177,6 +177,9 @@ NOVIDADES DESTA VERSÃO
     caídos e samambaias escaneados (com colisão); na cidade, engradados
     plásticos largados e galões de combustível perto de carros abandonados.
   - Rios e lagos (Vulkan) refletem prédios, árvores e céu de verdade.
+  - Luz rebatida calibrada: sombras naturais na rua e na mata (sem "preto"),
+    grama acompanhando as encostas, chão seco sem brilho de espelho no
+    contraluz e cascalho da beira do lago em cinza natural.
   - Bandeiras do município tremulando ao vento (desbotadas e esfiapadas) nos
     mastros em frente à delegacia, hospital, escola, posto de saúde e
     terminal; com pouco vento elas caem, na tempestade batem forte.

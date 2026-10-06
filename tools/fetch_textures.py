@@ -52,6 +52,8 @@ CHAR = {
 ADJUST = {
     0: (0.6, 0.5),
     1: (1.02, 0.3),
+    # o cascalho claro da foto virava uma faixa branca na beira do lago
+    12: (0.68, 0.7),
 }
 
 API = "https://api.polyhaven.com"

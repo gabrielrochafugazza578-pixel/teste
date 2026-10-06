@@ -344,7 +344,8 @@ func _update(delta: float) -> void:
 	var night_gain := 1.35 if env.sdfgi_enabled else (1.7 if Settings.is_forward_plus() else 2.2)
 	env.tonemap_exposure = exposure * bright * lerpf(1.05, night_gain, (1.0 - dl) * (1.0 - lit)) * adapt
 	# com o sol baixo o olho também se acostuma (fora de casa): chão e encostas não afundam no preto
-	env.tonemap_exposure *= 1.0 + low_sun * 0.28 * (1.0 - indoor)
+	# (com GI de verdade a encosta já recebe luz rebatida: ganho menor)
+	env.tonemap_exposure *= 1.0 + low_sun * (0.1 if env.sdfgi_enabled else 0.28) * (1.0 - indoor)
 	# AgX (Forward+) comprime mais os meios-tons que o ACES: compensa a exposição
 	if env.tonemap_mode == Environment.TONE_MAPPER_AGX:
 		env.tonemap_exposure *= 1.18

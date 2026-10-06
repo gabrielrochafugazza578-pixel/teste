@@ -72,7 +72,9 @@ void fragment() {
 	alb = mix(alb, alb * vec3(0.82, 1.0, 0.8), lush * w_grass * 0.45);
 	// pós-colapso: vegetação mais alta/escura e descuidada
 	alb = mix(alb, alb * vec3(0.85, 1.05, 0.8), world_decay * w_grass * 0.35);
-	float rough = A.a;
+	// chão seco natural é fosco: as fotos de cascalho/terra têm trechos de
+	// rugosidade baixa (pedrinhas lisas) que no contraluz viravam um espelho
+	float rough = max(A.a, 0.62);
 	vec2 nxy = B.rg * 2.0 - 1.0;
 	vec3 nmap = vec3(nxy, sqrt(max(0.0, 1.0 - dot(nxy, nxy))));
 
@@ -89,6 +91,9 @@ void fragment() {
 	ALBEDO = alb;
 	ROUGHNESS = rough;
 	METALLIC = 0.0;
+	// terra/cascalho seco reflete pouco (sol baixo de frente virava um espelho);
+	// molhado volta ao especular normal
+	SPECULAR = mix(0.25, 0.5, wetness);
 	NORMAL_MAP = nmap * 0.5 + 0.5;
 	AO = B.b;
 	AO_LIGHT_AFFECT = 0.3;
