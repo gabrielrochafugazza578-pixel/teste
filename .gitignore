@@ -20,3 +20,6 @@ Thumbs.db
 
 # originais 2K das texturas (reproduzíveis com tools/fetch_textures.py)
 /assets/materials/src/
+
+# saída intermediária de tools/make_humans.py (reproduzível)
+/assets/characters/src/

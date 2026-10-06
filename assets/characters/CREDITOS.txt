@@ -1,0 +1,62 @@
+Personagens fotorrealistas: malha base, alvos, esqueleto, pesos e assets de sistema do
+MakeHuman (CC0 1.0, https://www.makehumancommunity.org). Assets da comunidade usados:
+
+  afro01                                     CC0      makehuman_system http://www.makehumancommunity.org
+  braid01                                    CC0      makehuman_system http://www.makehumancommunity.org
+  cortu_cargo_pants                          CC0      Cortu http://www.makehumancommunity.org/node/2798
+  elvs_crude_t-shirt_male                    CC0      Elvaerwyn http://www.makehumancommunity.org/node/1416
+  elvs_male_shirt_tie_tucked1                CC-BY    Elvaerwyn http://www.makehumancommunity.org/node/1799
+  elvs_male_shirt_untucked_bd1               CC-BY    Elvaerwyn http://www.makehumancommunity.org/node/1800
+  eyebrow001                                 CC0      makehuman_system http://www.makehumancommunity.org
+  eyebrow010                                 CC0      makehuman_system http://www.makehumancommunity.org
+  eyelashes01                                CC0      makehuman_system http://www.makehumancommunity.org
+  eyelashes02                                CC0      makehuman_system http://www.makehumancommunity.org
+  female_elegantsuit01                       CC0      makehuman_system http://www.makehumancommunity.org
+  frankyaye_glasses_library_male             CC0      frankyaye http://www.makehumancommunity.org/node/153
+  janexx_old_female_sweater                  CC-BY    janexx http://www.makehumancommunity.org/node/2767
+  joepal_crude_t-shirt_female                CC0      Joel Palmius http://www.makehumancommunity.org/node/894
+  long01                                     CC0      makehuman_system http://www.makehumancommunity.org
+  male_casualsuit03                          CC0      makehuman_system http://www.makehumancommunity.org
+  male_casualsuit05                          CC0      makehuman_system http://www.makehumancommunity.org
+  male_casualsuit06                          CC0      makehuman_system http://www.makehumancommunity.org
+  male_elegantsuit01                         CC0      makehuman_system http://www.makehumancommunity.org
+  male_worksuit01                            CC0      makehuman_system http://www.makehumancommunity.org
+  middleage_african_female                   CC0      makehuman_system http://www.makehumancommunity.org
+  middleage_asian_female                     CC0      makehuman_system http://www.makehumancommunity.org
+  middleage_asian_male                       CC0      makehuman_system http://www.makehumancommunity.org
+  middleage_caucasian_female                 CC0      makehuman_system http://www.makehumancommunity.org
+  middleage_caucasian_male                   CC0      makehuman_system http://www.makehumancommunity.org
+  mindfront_cardigan_long_open_front         CC-BY    Mindfront http://www.makehumancommunity.org/node/1528
+  mindfront_knitted_sweater_01               CC-BY    Mindfront http://www.makehumancommunity.org/node/660
+  mindfront_knitted_sweater_02               CC-BY    Mindfront http://www.makehumancommunity.org/node/661
+  mindfront_skin_male_african_middleage      CC0      Mindfront http://www.makehumancommunity.org/node/526
+  namuhekam_male_polo_shirt                  CC0      namuhekam http://www.makehumancommunity.org/node/2909
+  old_african_male                           CC0      makehuman_system http://www.makehumancommunity.org
+  old_caucasian_female                       CC0      makehuman_system http://www.makehumancommunity.org
+  old_caucasian_male                         CC0      makehuman_system http://www.makehumancommunity.org
+  ponytail01                                 CC0      makehuman_system http://www.makehumancommunity.org
+  shoes01                                    CC0      makehuman_system http://www.makehumancommunity.org
+  shoes02                                    CC0      makehuman_system http://www.makehumancommunity.org
+  shoes03                                    CC0      makehuman_system http://www.makehumancommunity.org
+  shoes04                                    CC0      makehuman_system http://www.makehumancommunity.org
+  shoes05                                    CC0      makehuman_system http://www.makehumancommunity.org
+  shoes06                                    CC0      makehuman_system http://www.makehumancommunity.org
+  short01                                    CC0      makehuman_system http://www.makehumancommunity.org
+  short02                                    CC0      makehuman_system http://www.makehumancommunity.org
+  short03                                    CC0      makehuman_system http://www.makehumancommunity.org
+  short04                                    CC0      makehuman_system http://www.makehumancommunity.org
+  toigo_ankle_boots_female                   CC0      MargaretToigo http://www.makehumancommunity.org/node/1738
+  toigo_ankle_boots_male                     CC0      MargaretToigo http://www.makehumancommunity.org/node/1743
+  toigo_basic_tucked_t-shirt                 CC0      MargaretToigo http://www.makehumancommunity.org/node/1203
+  toigo_fisherman_sweater                    CC0      MargaretToigo http://www.makehumancommunity.org/node/1187
+  toigo_light_skin_male_bronze               CC0      MargaretToigo http://www.makehumancommunity.org/node/1136
+  toigo_wool_pants                           CC0      MargaretToigo http://www.makehumancommunity.org/node/1194
+  young_african_female                       CC0      makehuman_system http://www.makehumancommunity.org
+  young_african_male                         CC0      makehuman_system http://www.makehumancommunity.org
+  young_asian_female                         CC0      makehuman_system http://www.makehumancommunity.org
+  young_asian_male                           CC0      makehuman_system http://www.makehumancommunity.org
+  young_caucasian_female                     CC0      makehuman_system http://www.makehumancommunity.org
+  young_caucasian_male                       CC0      makehuman_system http://www.makehumancommunity.org
+
+Os marcados CC-BY exigem atribuição: autores acima (CC BY 4.0).
+Gerados por tools/make_humans.py; mochila, máscaras de sangue/sujeira e textura de detalhe: próprios.

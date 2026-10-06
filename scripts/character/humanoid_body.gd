@@ -34,6 +34,7 @@ var hide_head: bool = false:
 
 
 func setup(ap: Dictionary, lod_level: int = 0) -> void:
+	ap = HumanModels.photo(ap)
 	appearance = ap
 	var joints := HumanoidMeshBuilder.compute_joints(ap)
 	skeleton = Skeleton3D.new()
@@ -53,9 +54,12 @@ func setup(ap: Dictionary, lod_level: int = 0) -> void:
 	mesh_instance.name = "Mesh"
 	skeleton.add_child(mesh_instance)
 	mesh_instance.skeleton = NodePath("..")
-	material = Assets.character_material(float(ap.get("infected", 0.0)))
-	material.set_shader_parameter("grime_amount", float(ap.get("grime", 0.2)))
-	mesh_instance.material_override = material
+	if HumanModels.is_model(ap):
+		HumanModels.apply(mesh_instance, ap)
+	else:
+		material = Assets.character_material(float(ap.get("infected", 0.0)))
+		material.set_shader_parameter("grime_amount", float(ap.get("grime", 0.2)))
+		mesh_instance.material_override = material
 	mesh_instance.custom_aabb = AABB(Vector3(-1.4, -0.3, -1.4), Vector3(2.8, 2.8, 2.8))
 	set_lod(lod_level)
 	animator = ProceduralAnimator.new(skeleton, ap)
@@ -77,6 +81,10 @@ func set_lod(level: int) -> void:
 		return
 	lod = level
 	var ap := appearance
+	if HumanModels.is_model(ap):
+		# malha única com LODs automáticos (o Godot troca pela distância)
+		_apply_shadow_setting()
+		return
 	var key := Appearance.mesh_key(ap, level)
 	mesh_instance.mesh = Assets.cached_mesh(key, func() -> Mesh:
 		var t0 := Time.get_ticks_usec()
@@ -88,7 +96,9 @@ func set_lod(level: int) -> void:
 
 
 func set_infection(v: float) -> void:
-	if material:
+	if HumanModels.is_model(appearance) and mesh_instance:
+		mesh_instance.set_instance_shader_parameter("infection", v)
+	elif material:
 		material.set_shader_parameter("infection", v)
 
 

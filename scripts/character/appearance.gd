@@ -30,12 +30,14 @@ static func base() -> Dictionary:
 static func caio() -> Dictionary:
 	var a := base()
 	a["id"] = "caio"
-	a["model"] = "caio_glb"   # modelo próprio (assets/models/caio_survivor.bin), não o gerado por código
+	# modelo fotorrealista (MakeHuman: tools/make_humans.py); sem ele, o GLB antigo
+	a["model"] = "mh:caio" if HumanModels.exists("caio") else "caio_glb"
 	a["height"] = 1.8
 	a["build"] = 1.03
 	a["skin"] = Color(0.66, 0.48, 0.36)
 	a["hair_style"] = "messy"
 	a["hair_color"] = Color(0.09, 0.07, 0.05)
+	a["hair_tint"] = Color(0.15, 0.11, 0.08, 0.75)
 	a["beard"] = 0.55
 	a["top"] = "jacket"
 	a["top_color"] = Color(0.4, 0.41, 0.28)

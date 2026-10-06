@@ -89,13 +89,22 @@ func _run() -> void:
 		"sobrevivente": Appearance.survivor(Color(0.55, 0.3, 0.2), 5, true),
 		"inf_errante": Appearance.infected("errante", 12),
 		"inf_bruto": Appearance.infected("colosso", 3),
+		"pesquisador": Appearance.researcher(2),
+		"pesquisadora": Appearance.researcher(3),
+		"paciente": Appearance.patient(),
+		"inf_hospedeiro": Appearance.infected("hospedeiro", 5),
+		"inf_febril": Appearance.infected("febril", 7),
+		"crianca": NPCDB.appearance_for("sofia"),
+		"tonho": NPCDB.appearance_for("tonho"),
+		"zilda": NPCDB.appearance_for("zilda"),
 	}
+	var quick := "--rapido" in OS.get_cmdline_user_args()
 	var only := ""
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--only="):
 			only = a.substr(7)
 	for name_ in cast.keys():
-		if only != "" and only != name_:
+		if only != "" and not name_ in only.split(","):
 			continue
 		if body:
 			body.queue_free()
@@ -117,6 +126,13 @@ func _run() -> void:
 		cam.position = Vector3(0.0, h * 0.55, -h * 2.55)
 		cam.look_at(Vector3(0, h * 0.5, 0), Vector3.UP)
 		await _grab("%s_corpo" % name_)
+		if quick:
+			cam.fov = 18.0
+			cam.position = Vector3(0.0, h * 0.9, -h * 0.95)
+			cam.look_at(Vector3(0, h * 0.885, 0), Vector3.UP)
+			await _grab("%s_rosto" % name_)
+			cam.fov = 30.0
+			continue
 		# costas
 		body.rotation.y = deg_to_rad(28.0 + 180.0)
 		await _grab("%s_costas" % name_)

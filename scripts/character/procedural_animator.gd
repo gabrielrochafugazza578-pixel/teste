@@ -137,7 +137,12 @@ func _init(skel: Skeleton3D, appearance: Dictionary = {}) -> void:
 		_arm_scale = (_rest_o[HumanoidMeshBuilder.HAND_L].length() + _rest_o[HumanoidMeshBuilder.FARM_L].length()) / 0.552
 		_ankle_rest[0] = _rest_o[0] + _rest_o[th_l] + _rest_o[HumanoidMeshBuilder.SHIN_L] + _rest_o[HumanoidMeshBuilder.FOOT_L]
 		_ankle_rest[1] = _rest_o[0] + _rest_o[th_r] + _rest_o[HumanoidMeshBuilder.SHIN_R] + _rest_o[HumanoidMeshBuilder.FOOT_R]
-	if str(appearance.get("model", "")) == "caio_glb":
+	if HumanModels.is_model(appearance):
+		var ft := HumanModels.foot(HumanModels.model_id(appearance))
+		_foot_toe = ft.x
+		_foot_heel = ft.y
+		_foot_ankle = ft.z
+	elif str(appearance.get("model", "")) == "caio_glb":
 		var ft := CaioModel.foot()
 		_foot_toe = ft.x
 		_foot_heel = ft.y

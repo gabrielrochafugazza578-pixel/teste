@@ -1,0 +1,730 @@
+{
+ "_skins": {
+  "female": [
+   "skin_young_caucasian_female",
+   "skin_young_african_female",
+   "skin_young_asian_female",
+   "skin_middleage_caucasian_female",
+   "skin_middleage_african_female",
+   "skin_middleage_asian_female",
+   "skin_old_caucasian_female"
+  ],
+  "male": [
+   "skin_young_caucasian_male",
+   "skin_young_african_male",
+   "skin_young_asian_male",
+   "skin_middleage_caucasian_male",
+   "skin_mindfront_skin_male_african_middleage",
+   "skin_middleage_asian_male",
+   "skin_old_caucasian_male",
+   "skin_old_african_male"
+  ]
+ },
+ "afro01": {
+  "albedo": "afro01_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "afro01_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "backpack": {
+  "alpha": false,
+  "kind": "gear",
+  "params": {
+   "color": [
+    0.36,
+    0.32,
+    0.23
+   ]
+  },
+  "size": 0.0
+ },
+ "bedroll": {
+  "alpha": false,
+  "kind": "gear",
+  "params": {
+   "color": [
+    0.22,
+    0.3,
+    0.24
+   ]
+  },
+  "size": 0.0
+ },
+ "braid01": {
+  "albedo": "braid01_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "braid01_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "cortu_cargo_pants": {
+  "albedo": "cortu_cargo_pants_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "cortu_cargo_pants_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 1.0
+  },
+  "size": 1024.0
+ },
+ "elvs_crude_t-shirt_male": {
+  "albedo": "elvs_crude_t-shirt_male_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "elvs_crude_t-shirt_male_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 0.0
+  },
+  "size": 1024.0
+ },
+ "elvs_male_shirt_tie_tucked1": {
+  "albedo": "elvs_male_shirt_tie_tucked1_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "elvs_male_shirt_tie_tucked1_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "elvs_male_shirt_untucked_bd1": {
+  "albedo": "elvs_male_shirt_untucked_bd1_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "elvs_male_shirt_untucked_bd1_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "eyebrow001": {
+  "albedo": "eyebrow001_a",
+  "alpha": true,
+  "kind": "brow",
+  "normal": "eyebrow001_n",
+  "params": {},
+  "size": 512.0
+ },
+ "eyebrow010": {
+  "albedo": "eyebrow010_a",
+  "alpha": true,
+  "kind": "brow",
+  "normal": "eyebrow010_n",
+  "params": {},
+  "size": 512.0
+ },
+ "eyelashes01": {
+  "albedo": "eyelashes01_a",
+  "alpha": true,
+  "kind": "brow",
+  "normal": "eyelashes01_n",
+  "params": {},
+  "size": 512.0
+ },
+ "eyelashes02": {
+  "albedo": "eyelashes02_a",
+  "alpha": true,
+  "kind": "brow",
+  "normal": "eyelashes02_n",
+  "params": {},
+  "size": 512.0
+ },
+ "eyes_blue": {
+  "albedo": "eyes_blue_a",
+  "alpha": true,
+  "kind": "eyes",
+  "params": {},
+  "size": 512.0
+ },
+ "eyes_brown": {
+  "albedo": "eyes_brown_a",
+  "alpha": true,
+  "kind": "eyes",
+  "params": {},
+  "size": 512.0
+ },
+ "eyes_green": {
+  "albedo": "eyes_green_a",
+  "alpha": true,
+  "kind": "eyes",
+  "params": {},
+  "size": 512.0
+ },
+ "eyes_grey": {
+  "albedo": "eyes_grey_a",
+  "alpha": true,
+  "kind": "eyes",
+  "params": {},
+  "size": 512.0
+ },
+ "female_elegantsuit01": {
+  "albedo": "female_elegantsuit01_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "female_elegantsuit01_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "frankyaye_glasses_library_male": {
+  "albedo": "frankyaye_glasses_library_male_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "frankyaye_glasses_library_male_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "fungus": {
+  "alpha": false,
+  "kind": "fungus",
+  "params": {},
+  "size": 0.0
+ },
+ "hospital_pants": {
+  "albedo": "toigo_wool_pants_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_wool_pants_n",
+  "params": {
+   "base_tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bright": 1.0,
+   "desat": 1.0,
+   "flat_color": [
+    0.42,
+    0.6,
+    0.64
+   ],
+   "flatten": 0.85,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "hospital_top": {
+  "albedo": "toigo_basic_tucked_t-shirt_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_basic_tucked_t-shirt_n",
+  "params": {
+   "base_tint": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bright": 1.0,
+   "desat": 1.0,
+   "flat_color": [
+    0.42,
+    0.6,
+    0.64
+   ],
+   "flatten": 0.85,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "human_detail": {
+  "albedo": "human_detail_a",
+  "alpha": true,
+  "kind": "detail",
+  "params": {},
+  "size": 1024.0
+ },
+ "janexx_old_female_sweater": {
+  "albedo": "janexx_old_female_sweater_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "janexx_old_female_sweater_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "joepal_crude_t-shirt_female": {
+  "albedo": "joepal_crude_t-shirt_female_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "joepal_crude_t-shirt_female_n",
+  "params": {
+   "tint_slot": 0.0
+  },
+  "size": 1024.0
+ },
+ "long01": {
+  "albedo": "long01_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "long01_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "male_casualsuit03": {
+  "albedo": "male_casualsuit03_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "male_casualsuit03_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "male_casualsuit05": {
+  "albedo": "male_casualsuit05_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "male_casualsuit05_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "desat": 0.3,
+   "tint_slot": 3.0
+  },
+  "size": 2048.0
+ },
+ "male_casualsuit06": {
+  "albedo": "male_casualsuit06_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "male_casualsuit06_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "male_elegantsuit01": {
+  "albedo": "male_elegantsuit01_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "male_elegantsuit01_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "male_worksuit01": {
+  "albedo": "male_worksuit01_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "male_worksuit01_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "mindfront_cardigan_long_open_front": {
+  "albedo": "mindfront_cardigan_long_open_front_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "mindfront_cardigan_long_open_front_n",
+  "params": {
+   "base_tint": [
+    0.96,
+    0.97,
+    0.98
+   ],
+   "bright": 1.0,
+   "desat": 1.0,
+   "flat_color": [
+    0.78,
+    0.79,
+    0.8
+   ],
+   "flatten": 0.92,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "mindfront_knitted_sweater_01": {
+  "albedo": "mindfront_knitted_sweater_01_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "mindfront_knitted_sweater_01_n",
+  "params": {
+   "tint_slot": 0.0
+  },
+  "size": 1024.0
+ },
+ "mindfront_knitted_sweater_02": {
+  "albedo": "mindfront_knitted_sweater_02_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "mindfront_knitted_sweater_02_n",
+  "params": {
+   "tint_slot": 0.0
+  },
+  "size": 1024.0
+ },
+ "namuhekam_male_polo_shirt": {
+  "albedo": "namuhekam_male_polo_shirt_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "namuhekam_male_polo_shirt_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 0.0
+  },
+  "size": 1024.0
+ },
+ "police_pants": {
+  "albedo": "cortu_cargo_pants_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "cortu_cargo_pants_n",
+  "params": {
+   "bright": 1.0,
+   "desat": 1.0,
+   "flat_color": [
+    0.08,
+    0.09,
+    0.12
+   ],
+   "flatten": 0.6,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "police_shirt": {
+  "albedo": "elvs_male_shirt_untucked_bd1_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "elvs_male_shirt_untucked_bd1_n",
+  "params": {
+   "bright": 1.0,
+   "desat": 1.0,
+   "flat_color": [
+    0.12,
+    0.16,
+    0.27
+   ],
+   "flatten": 0.6,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "ponytail01": {
+  "albedo": "ponytail01_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "ponytail01_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "shoes01": {
+  "albedo": "shoes01_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "shoes01_n",
+  "params": {
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "shoes02": {
+  "albedo": "shoes02_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "shoes02_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "shoes03": {
+  "albedo": "shoes03_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "shoes03_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "shoes04": {
+  "albedo": "shoes04_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "shoes04_n",
+  "params": {
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "shoes05": {
+  "albedo": "shoes05_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "shoes05_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 2.0
+  },
+  "size": 1024.0
+ },
+ "shoes06": {
+  "albedo": "shoes06_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "shoes06_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 2.0
+  },
+  "size": 1024.0
+ },
+ "short01": {
+  "albedo": "short01_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "short01_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "short02": {
+  "albedo": "short02_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "short02_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "short03": {
+  "albedo": "short03_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "short03_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "short04": {
+  "albedo": "short04_a",
+  "alpha": true,
+  "kind": "hair",
+  "normal": "short04_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_middleage_african_female": {
+  "albedo": "skin_middleage_african_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_middleage_asian_female": {
+  "albedo": "skin_middleage_asian_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_middleage_asian_male": {
+  "albedo": "skin_middleage_asian_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_middleage_caucasian_female": {
+  "albedo": "skin_middleage_caucasian_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_middleage_caucasian_male": {
+  "albedo": "skin_middleage_caucasian_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_mindfront_skin_male_african_middleage": {
+  "albedo": "skin_mindfront_skin_male_african_middleage_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_old_african_male": {
+  "albedo": "skin_old_african_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_old_caucasian_female": {
+  "albedo": "skin_old_caucasian_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_old_caucasian_male": {
+  "albedo": "skin_old_caucasian_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_shared": {
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 2048.0
+ },
+ "skin_toigo_light_skin_male_bronze_barba9": {
+  "albedo": "skin_toigo_light_skin_male_bronze_barba9_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {
+   "tone": [
+    0.98,
+    0.95,
+    0.93
+   ]
+  },
+  "size": 2048.0
+ },
+ "skin_young_african_female": {
+  "albedo": "skin_young_african_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_young_african_male": {
+  "albedo": "skin_young_african_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_young_asian_female": {
+  "albedo": "skin_young_asian_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_young_asian_male": {
+  "albedo": "skin_young_asian_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "skin_young_caucasian_female": {
+  "albedo": "skin_young_caucasian_female_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 2048.0
+ },
+ "skin_young_caucasian_male": {
+  "albedo": "skin_young_caucasian_male_a",
+  "alpha": false,
+  "kind": "skin",
+  "normal": "skin_shared_n",
+  "params": {},
+  "size": 1024.0
+ },
+ "strap": {
+  "alpha": false,
+  "kind": "gear",
+  "params": {
+   "color": [
+    0.12,
+    0.12,
+    0.11
+   ]
+  },
+  "size": 0.0
+ },
+ "toigo_ankle_boots_female": {
+  "albedo": "toigo_ankle_boots_female_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_ankle_boots_female_n",
+  "params": {
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "toigo_ankle_boots_male": {
+  "albedo": "toigo_ankle_boots_male_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_ankle_boots_male_n",
+  "params": {
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "toigo_basic_tucked_t-shirt": {
+  "albedo": "toigo_basic_tucked_t-shirt_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_basic_tucked_t-shirt_n",
+  "params": {
+   "tint_slot": 0.0
+  },
+  "size": 1024.0
+ },
+ "toigo_fisherman_sweater": {
+  "albedo": "toigo_fisherman_sweater_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_fisherman_sweater_n",
+  "params": {
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "toigo_wool_pants": {
+  "albedo": "toigo_wool_pants_a",
+  "alpha": false,
+  "kind": "cloth",
+  "normal": "toigo_wool_pants_n",
+  "params": {
+   "tint_slot": 1.0
+  },
+  "size": 1024.0
+ }
+}
