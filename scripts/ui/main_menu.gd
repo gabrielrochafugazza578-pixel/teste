@@ -1,8 +1,10 @@
 class_name MainMenu
 extends Control
 ## Menu principal: Novo Jogo, Continuar, Carregar, Configurações (Gráficos,
-## Áudio, Controles, Acessibilidade), Créditos e Sair. Fundo animado leve
-## (shader de neblina/brasas) — nada de vídeo pré-renderizado.
+## Áudio, Controles, Acessibilidade), Créditos e Sair. Fundo: cena 3D ao vivo
+## (MenuScene — a rua do jogo ao entardecer, cidade queimando, o Caio olhando),
+## com uma faixa escura à esquerda para o texto, vinheta e grão de filme.
+## O shader antigo (silhueta da cidade) fica de reserva se a cena 3D falhar.
 
 const BG_SHADER := """
 shader_type canvas_item;
@@ -44,7 +46,28 @@ void fragment(){
 }
 """
 
+# por cima da cena 3D: escurece a coluna do menu, vinheta, barras de cinema e grão
+const OVERLAY_SHADER := """
+shader_type canvas_item;
+uniform float t = 0.0;
+float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment(){
+	vec2 uv = UV;
+	float left = smoothstep(0.62, 0.0, uv.x);
+	float a = left * 0.78;
+	float vig = smoothstep(0.45, 1.25, length((uv - vec2(0.55, 0.5)) * vec2(1.25, 1.0)));
+	a = max(a, vig * 0.7);
+	float bars = step(uv.y, 0.045) + step(0.955, uv.y);
+	a = max(a, bars * 0.92);
+	vec3 col = mix(vec3(0.015, 0.012, 0.01), vec3(0.0), uv.x);
+	float grain = (h(uv * vec2(1920.0, 1080.0) + fract(t * 23.0) * 91.0) - 0.5) * 0.06;
+	COLOR = vec4(col + grain, clamp(a + abs(grain) * 0.4, 0.0, 1.0));
+}
+"""
+
 var _bg_mat: ShaderMaterial
+var _ov_mat: ShaderMaterial
+var _scene: MenuScene
 var _t: float = 0.0
 var _buttons: VBoxContainer
 var _sub: Control = null
@@ -64,20 +87,44 @@ func _ready() -> void:
 	_bg_mat.shader = sh
 	bg.material = _bg_mat
 	add_child(bg)
+	if not "--menu-2d" in OS.get_cmdline_user_args():
+		_scene = MenuScene.new()
+		add_child(_scene)
+		bg.visible = false
+	var ov := ColorRect.new()
+	UIKit.full_rect(ov)
+	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var osh := Shader.new()
+	osh.code = OVERLAY_SHADER
+	_ov_mat = ShaderMaterial.new()
+	_ov_mat.shader = osh
+	ov.material = _ov_mat
+	add_child(ov)
 	var root := MarginContainer.new()
 	UIKit.full_rect(root)
-	root.add_theme_constant_override("margin_left", 110)
-	root.add_theme_constant_override("margin_top", 120)
+	root.add_theme_constant_override("margin_left", 120)
+	root.add_theme_constant_override("margin_top", 110)
 	add_child(root)
-	var v := UIKit.vbox(6)
+	var v := UIKit.vbox(4)
 	v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	root.add_child(v)
-	var t1 := UIKit.label("O INÍCIO", 64, Color(0.92, 0.9, 0.86))
-	var t2 := UIKit.label("DO FIM", 64, UITheme.ACCENT)
+	var t1 := UIKit.label("O  I N Í C I O", 30, Color(0.86, 0.84, 0.8))
+	t1.add_theme_constant_override("outline_size", 0)
+	var t2 := UIKit.label("DO FIM", 96, Color(0.95, 0.93, 0.89))
+	t2.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.75))
+	t2.add_theme_constant_override("shadow_offset_x", 0)
+	t2.add_theme_constant_override("shadow_offset_y", 4)
+	t2.add_theme_constant_override("shadow_outline_size", 10)
 	v.add_child(t1)
 	v.add_child(t2)
-	v.add_child(UIKit.label("Santa Aurora, algumas semanas depois.", 18, UITheme.TEXT_DIM))
-	v.add_child(UIKit.spacer(40))
+	var rule := ColorRect.new()
+	rule.color = UITheme.ACCENT
+	rule.custom_minimum_size = Vector2(120, 3)
+	rule.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	v.add_child(rule)
+	v.add_child(UIKit.spacer(10))
+	v.add_child(UIKit.label("Santa Aurora, três semanas depois do surto.", 18, Color(0.78, 0.74, 0.68)))
+	v.add_child(UIKit.spacer(46))
 	_buttons = UIKit.vbox(8)
 	_buttons.custom_minimum_size.x = 380.0
 	_buttons.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -95,7 +142,8 @@ func _ready() -> void:
 	for b in _buttons.get_children():
 		if b is Button:
 			(b as Button).alignment = HORIZONTAL_ALIGNMENT_LEFT
-	var ver := UIKit.label("v%s · Godot %s · Compatibility (OpenGL 3.3)" % [ProjectSettings.get_setting("application/config/version", "0.9"), Engine.get_version_info()["string"]], 13, Color(0.45, 0.45, 0.43))
+	var rend := "Forward+ (Vulkan)" if Settings.is_forward_plus() else "Compatibility (OpenGL 3.3)"
+	var ver := UIKit.label("v%s · Godot %s · %s" % [ProjectSettings.get_setting("application/config/version", "0.9"), Engine.get_version_info()["string"], rend], 13, Color(0.55, 0.53, 0.5))
 	add_child(ver)
 	ver.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 18)
 	ver.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -110,6 +158,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_bg_mat.set_shader_parameter("t", _t)
+	_ov_mat.set_shader_parameter("t", _t)
 
 
 func _new_game() -> void:
