@@ -45,9 +45,9 @@ func _ready() -> void:
 	cam.far = 900.0
 	var ca := CameraAttributesPractical.new()
 	ca.dof_blur_far_enabled = true
-	ca.dof_blur_far_distance = 26.0
-	ca.dof_blur_far_transition = 30.0
-	ca.dof_blur_amount = 0.06
+	ca.dof_blur_far_distance = 45.0
+	ca.dof_blur_far_transition = 60.0
+	ca.dof_blur_amount = 0.035
 	cam.attributes = ca
 	vp.add_child(cam)
 	_update_cam()
@@ -69,7 +69,7 @@ func _environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.55
+	env.ambient_light_energy = 0.55 if not Settings.is_forward_plus() else 0.8
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX if Settings.is_forward_plus() else Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.0
@@ -85,27 +85,35 @@ func _environment() -> void:
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 0.9
 	env.adjustment_contrast = 1.08
+	var dbg := OS.get_cmdline_user_args()
 	if Settings.is_forward_plus():
-		env.ssao_enabled = true
+		env.ssao_enabled = not "--menu-sem-ssao" in dbg
 		env.ssao_radius = 1.2
 		env.ssao_intensity = 1.6
 		env.ssr_enabled = true
 		env.ssr_max_steps = 48
-		env.volumetric_fog_enabled = true
-		env.volumetric_fog_density = 0.012
-		env.volumetric_fog_albedo = Color(0.62, 0.5, 0.42)
-		env.volumetric_fog_anisotropy = 0.55
-		env.volumetric_fog_length = 120.0
+		env.volumetric_fog_enabled = not "--menu-sem-vol" in dbg
+		env.volumetric_fog_density = 0.0035
+		env.volumetric_fog_albedo = Color(0.7, 0.58, 0.5)
+		env.volumetric_fog_anisotropy = 0.6
+		env.volumetric_fog_length = 160.0
+		env.volumetric_fog_ambient_inject = 0.3
+		# a neblina volumétrica já faz o papel da de distância: esta fica leve
+		env.fog_density = 0.002
+		env.tonemap_exposure = 1.25
 	var we := WorldEnvironment.new()
 	we.environment = env
 	vp.add_child(we)
 	# sol baixo no fim da avenida (contraluz: o Caio vira silhueta com borda)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-7.0, 172.0, 0.0)
+	sun.rotation_degrees = Vector3(-12.0, 179.5, 0.0)
 	sun.light_color = Color(1.0, 0.56, 0.32)
 	sun.light_energy = 1.35
-	sun.shadow_enabled = true
+	sun.shadow_enabled = not "--menu-sem-sombra" in dbg
 	sun.directional_shadow_max_distance = 60.0
+	# sol rasante: sem viés o asfalto se sombreia sozinho (acne) no Vulkan
+	sun.shadow_bias = 0.08
+	sun.shadow_normal_bias = 3.5
 	sun.light_volumetric_fog_energy = 1.6
 	vp.add_child(sun)
 	# luz fria de preenchimento vinda do céu às costas da câmera
@@ -286,7 +294,72 @@ func _skyline() -> void:
 	vp.add_child(em)
 
 
+## Tambor com fogo ao lado do Caio: luz quente que tremula no rosto e no asfalto.
+func _fire_barrel(pos: Vector3) -> void:
+	var bm := PropLib.mesh("barrel")
+	if bm:
+		var mi := MeshInstance3D.new()
+		mi.mesh = bm
+		mi.position = pos
+		vp.add_child(mi)
+	var top := pos + Vector3(0, 0.95, 0)
+	var l := OmniLight3D.new()
+	l.position = top + Vector3(0, 0.5, 0)
+	l.light_color = Color(1.0, 0.52, 0.2)
+	l.omni_range = 9.0
+	l.light_energy = 2.6
+	l.shadow_enabled = true
+	vp.add_child(l)
+	_fires.append(l)
+	_fire_e.append(3.3)
+	var fl := GPUParticles3D.new()
+	fl.amount = 40
+	fl.lifetime = 0.9
+	fl.position = top
+	fl.visibility_aabb = AABB(Vector3(-1, -0.5, -1), Vector3(2, 3, 2))
+	var q := QuadMesh.new()
+	q.size = Vector2(0.32, 0.42)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	qm.vertex_color_use_as_albedo = true
+	var gt2 := GradientTexture2D.new()
+	gt2.fill = GradientTexture2D.FILL_RADIAL
+	gt2.fill_from = Vector2(0.5, 0.55)
+	gt2.fill_to = Vector2(1.0, 0.55)
+	var g2 := Gradient.new()
+	g2.set_color(0, Color(1, 1, 1, 1))
+	g2.set_color(1, Color(1, 1, 1, 0))
+	gt2.gradient = g2
+	qm.albedo_texture = gt2
+	q.material = qm
+	fl.draw_pass_1 = q
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.18
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 10.0
+	pm.initial_velocity_min = 0.6
+	pm.initial_velocity_max = 1.1
+	pm.gravity = Vector3(0, 0.6, 0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.2
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.85, 0.45, 0.9))
+	g.add_point(0.4, Color(1.0, 0.45, 0.12, 0.7))
+	g.set_color(g.get_point_count() - 1, Color(0.4, 0.1, 0.02, 0.0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = g
+	pm.color_ramp = gt
+	fl.process_material = pm
+	vp.add_child(fl)
+	vp.add_child(Chunk._smoke_emitter(top + Vector3(0, 0.6, 0), 12, 1.2, Color(0.12, 0.11, 0.1, 0.7), 0.7, 1.2))
+
+
 func _caio() -> void:
+	_fire_barrel(Vector3(3.6, 0.0, -2.6))
 	body = HumanoidBody.new()
 	vp.add_child(body)
 	body.setup(Appearance.caio(), 0)
@@ -302,7 +375,8 @@ func _process(delta: float) -> void:
 		body.tick(delta)
 	for i in _fires.size():
 		var ph := _fire_e[i] + _t
-		_fires[i].light_energy = 5.0 + sin(ph * 7.3) * 0.9 + sin(ph * 13.1 + 1.7) * 0.6 + sin(ph * 2.1) * 1.2
+		var base_e := 2.6 if _fires[i].omni_range < 20.0 else 5.0
+		_fires[i].light_energy = base_e * (1.0 + sin(ph * 7.3) * 0.18 + sin(ph * 13.1 + 1.7) * 0.12 + sin(ph * 2.1) * 0.24)
 	_update_cam()
 
 
