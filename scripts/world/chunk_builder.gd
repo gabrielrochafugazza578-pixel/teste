@@ -770,7 +770,17 @@ static func _grass(layout: WorldLayout, c: Vector2i, opts: Dictionary) -> Array:
 			if r.randf() > 0.3 + patch * 0.9:
 				continue
 			var s := r.randf_range(0.7, 1.25)
-			var xf := Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(s, 1.0, s)), Vector3(p.x, y, p.y))
+			var gb := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(s, 1.0, s))
+			if not in_urban:
+				# no morro a moita acompanha a encosta (inclina 70%): o shader ilumina pela
+				# normal da instância, senão a grama brilhava sobre a encosta na sombra
+				var hx := layout.ground_height(p.x + 0.8, p.y) - y
+				var hz := layout.ground_height(p.x, p.y + 0.8) - y
+				var gn := Vector3(-hx, 0.8, -hz).normalized().lerp(Vector3.UP, 0.3).normalized()
+				if gn.y < 0.995:
+					var ax := Vector3.UP.cross(gn).normalized()
+					gb = Basis(ax, Vector3.UP.angle_to(gn)) * gb
+			var xf := Transform3D(gb, Vector3(p.x, y, p.y))
 			out.append([xf, Color(r.randf_range(0.5, 1.0) + patch * 0.25, r.randf(), r.randf() * (0.6 if in_urban else 0.35), 0)])
 	return out
 
