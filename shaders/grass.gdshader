@@ -11,6 +11,8 @@ uniform vec3 color_dry = vec3(0.62, 0.55, 0.3);
 uniform float fade_distance = 30.0;
 uniform float alpha_cut = 0.42;
 uniform bool use_custom = true;
+// moita fotográfica (tools/make_foliage.py): cores reais, sem o ajuste de saturação
+uniform bool photo = false;
 
 global uniform vec4 wind;
 global uniform float veg_growth;
@@ -70,6 +72,9 @@ void fragment() {
 	// para a moita "sair" do chão em vez de parecer colada por cima
 	float tl = dot(tex.rgb, vec3(0.3, 0.59, 0.11));
 	vec3 c = mix(vec3(tl), tex.rgb, 0.72) * tint * (0.82 + v_tone * 0.36);
+	if (photo) {
+		c = tex.rgb * (0.88 + v_tone * 0.24) * vec3(0.95, 1.0, 0.9);
+	}
 	c += vec3(0.01, 0.006, 0.0) * v_tone;
 	float lum = dot(c, vec3(0.3, 0.59, 0.11));
 	c = mix(c, color_dry * lum * 2.2, v_dry * 0.8);

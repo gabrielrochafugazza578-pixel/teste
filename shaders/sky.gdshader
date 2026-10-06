@@ -56,9 +56,13 @@ void sky() {
 	if (up > -0.02) {
 		vec2 cuv = d.xz / (max(up, 0.0) + 0.12);
 		vec2 drift = vec2(wind.x, wind.y) * TIME * (0.004 + wind.z * 0.01);
-		float n1 = texture(noise_tex, cuv * 0.09 + drift).r;
-		float n2 = texture(noise_tex, cuv * 0.27 + drift * 1.7).g;
-		float n3 = texture(noise_tex, cuv * 0.8 + drift * 2.3).b;
+		// nível de mipmap explícito: com texture() as derivadas saltam na emenda dos
+		// 2 triângulos do céu (Vulkan) e apareciam linhas retas cortando as nuvens;
+		// perto do horizonte a projeção estica o ruído, então borra mais
+		float lod = mix(2.5, 0.0, smoothstep(0.0, 0.35, up));
+		float n1 = textureLod(noise_tex, cuv * 0.09 + drift, lod).r;
+		float n2 = textureLod(noise_tex, cuv * 0.27 + drift * 1.7, lod + 0.5).g;
+		float n3 = textureLod(noise_tex, cuv * 0.8 + drift * 2.3, lod + 1.0).b;
 		float dens = n1 * 0.65 + n2 * 0.28 + n3 * 0.07;
 		// o ruído fica entre ~0,25 e ~0,55 (mediana 0,35): normaliza para 0..1, senão
 		// só o céu totalmente encoberto tinha nuvem e o "parcialmente" era liso

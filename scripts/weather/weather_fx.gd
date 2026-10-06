@@ -91,7 +91,7 @@ func _make_splash() -> GPUParticles3D:
 	p.process_material = pm
 	var q := QuadMesh.new()
 	q.size = Vector2(0.07, 0.1)
-	q.material = Assets.particle_material(Assets.SPR_SPARK, Color(0.8, 0.84, 0.9, 0.8))
+	q.material = Assets.particle_material(Assets.SPR_SPARK, Color(0.55, 0.58, 0.62, 0.8))
 	p.draw_pass_1 = q
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	p.emitting = false
@@ -184,7 +184,7 @@ func _process(_delta: float) -> void:
 		splash.amount_ratio = clampf(wm.rain, 0.2, 1.0)
 		# sem iluminação no sprite: à noite os respingos ficam bem mais fracos
 		var sm := (splash.draw_pass_1 as QuadMesh).material as StandardMaterial3D
-		sm.albedo_color.a = 0.8 * lerpf(0.2, 1.0, TimeManager.daylight())
+		sm.albedo_color.a = 0.55 * lerpf(0.2, 1.0, TimeManager.daylight())
 	debris.global_position = cp + Vector3(0, 0.8, 0)
 	var dpm: ParticleProcessMaterial = debris.process_material
 	dpm.direction = Vector3(wm.wind_dir.x, 0.15, wm.wind_dir.y)

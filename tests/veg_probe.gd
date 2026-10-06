@@ -74,6 +74,15 @@ func _ready() -> void:
 			mi.mesh = mb.to_mesh(mat)
 			mi.position = Vector3(-6 + i * 2.4, 0, 2)
 			add_child(mi)
+	if "--moveis" in OS.get_cmdline_user_args():
+		PropLib.warm()
+		var ms := ["sofa", "armchair", "chair", "table", "table_small", "bookshelf", "shelf", "plant_pot",
+			"trash_bin", "hydrant", "concrete_barrier", "cardboard", "tire_single"]
+		for i in ms.size():
+			var mi := MeshInstance3D.new()
+			mi.mesh = PropLib.mesh(ms[i])
+			mi.position = Vector3(-7.5 + (i % 7) * 2.5, 0, 3.0 - (i / 7) * 3.0)
+			add_child(mi)
 	if "--props" in OS.get_cmdline_user_args():
 		var names := ["barrel", "trash_bags", "barrel", "traffic_cone", "trash_bags"]
 		for i in names.size():
@@ -128,6 +137,8 @@ func _ready() -> void:
 		env.env.ambient_light_source, env.sun.light_energy, env.sun.light_color, env.env.tonemap_exposure, TimeManager.sun_height(), TimeManager.daylight()])
 	var views := [["perto", Vector3(0, 1.6, 9), Vector3(0, 0.6, -6)], ["campo", Vector3(-6, 2.2, 22), Vector3(4, 1.0, -20)],
 		["arvores", Vector3(10, 1.7, 6), Vector3(-6, 3.0, -14)], ["ceu", Vector3(0, 1.7, 10), Vector3(0, 30, -60)]]
+	if "--moveis" in OS.get_cmdline_user_args():
+		views = [["moveis", Vector3(0, 2.6, 10.5), Vector3(0, 0.4, 0)]]
 	if "--passaros" in OS.get_cmdline_user_args():
 		views.append(["passaros", Vector3(0, 1.7, 10), Vector3(0, 22, -30)])
 		views.append(["passaros2", Vector3(0, 1.7, 10), Vector3(0, 22, -30)])

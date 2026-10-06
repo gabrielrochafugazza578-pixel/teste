@@ -173,7 +173,7 @@ func _build(b: Dictionary) -> Dictionary:
 	glass = MeshBuf.new()
 	panes = MeshBuf.new()
 	out = {"mesh": mesh, "glass": glass, "panes": panes, "doors": [], "containers": [], "lights": [], "markers": {},
-		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": [], "lamps": [], "swing": []}
+		"beds": [], "workbenches": [], "pickups": [], "screens": [], "labels": [], "spawns": [], "npc_spots": [], "elevator": {}, "windows": [], "lamps": [], "swing": [], "models": []}
 	fr = make_frame(b)
 	rng = Util.rng(int(b["seed"]) * 31 + 17)
 	context = str(b.get("interior", b["type"]))
@@ -1047,7 +1047,11 @@ func _place(pb: MeshBuf, pn: String, pos: Vector3, yaw: float, collide: bool) ->
 	if bc.y > 0.12 and _blocks_door(pos, bc):
 		return
 	var xf := Transform3D(Basis(Vector3.UP, yaw), pos)
-	mesh.append(pb, xf)
+	# móvel com modelo escaneado: instanciado à parte (world.gd); o resto é fundido
+	if PropLib.uses_model(pn):
+		out["models"].append([pn, xf])
+	else:
+		mesh.append(pb, xf)
 	if debug_counts != null:
 		debug_counts[pn] = int(debug_counts.get(pn, 0)) + pb.vertex_count()
 	_room_props.append([pn, xf])
@@ -1453,15 +1457,24 @@ func _place_chair(pos: Vector3, yaw: float) -> void:
 func _place_tipped(pn: String, pos: Vector3, yaw: float, tip: Basis, collide: bool) -> void:
 	var src := PropLib.buf(pn)
 	var lo := INF
-	for v in src.verts:
-		lo = minf(lo, (tip * v).y)
+	var model := PropLib.uses_model(pn)
+	if model:
+		var bb := PropLib.model_aabb(pn)
+		for i in 8:
+			lo = minf(lo, (tip * bb.get_endpoint(i)).y)
+	else:
+		for v in src.verts:
+			lo = minf(lo, (tip * v).y)
 	if lo == INF:
 		return
 	var bs := Basis(Vector3.UP, yaw) * tip
 	var xf := Transform3D(bs, pos + Vector3(0, -lo + 0.003, 0))
 	if _blocks_door(pos, PropLib.collision_size(pn)):
 		return
-	mesh.append(src, xf)
+	if model:
+		out["models"].append([pn, xf])
+	else:
+		mesh.append(src, xf)
 	if collide:
 		var cs := PropLib.collision_size(pn)
 		if cs != Vector3.ZERO:

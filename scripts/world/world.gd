@@ -648,6 +648,25 @@ func _populate_interior(root: Node3D, bi: int, data: Dictionary, b: Dictionary) 
 		var xf: Transform3D = lb["xf"]
 		l.transform = Transform3D(xf.basis * Basis(Vector3.UP, PI), xf.origin)
 		root.add_child(l)
+	# móveis com modelo escaneado (Poly Haven): uma MultiMesh por tipo
+	var by_model := {}
+	for e in data.get("models", []):
+		var pa: Array = e
+		if not by_model.has(pa[0]):
+			by_model[pa[0]] = []
+		(by_model[pa[0]] as Array).append(pa[1])
+	for pn in by_model.keys():
+		var lst: Array = by_model[pn]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = PropLib.mesh(pn)
+		mm.instance_count = lst.size()
+		for i in lst.size():
+			mm.set_instance_transform(i, lst[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "Modelo_" + str(pn)
+		mmi.multimesh = mm
+		root.add_child(mmi)
 	# luminárias pendentes balançando com a corrente de ar das janelas quebradas
 	for sxf: Transform3D in data.get("swing", []):
 		var piv := Node3D.new()

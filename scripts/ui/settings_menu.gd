@@ -93,7 +93,18 @@ func _build_graphics() -> void:
 	_add_gfx_option(v, "post_processing", "Pós-processamento", ["Desligado", "Leve", "Médio", "Completo"])
 	_add_gfx_option(v, "weather_quality", "Qualidade do clima", ["Baixa", "Média", "Alta", "Ultra"])
 	_add_gfx_option(v, "reflection_quality", "Reflexos", ["Desligados", "Baixos", "Médios", "Altos"])
-	_add_gfx_option(v, "antialiasing", "Antisserrilhado (MSAA)", ["Desligado", "2x", "4x", "8x"], "O renderer Compatibility suporta apenas MSAA.")
+	if Settings.is_forward_plus():
+		_add_gfx_option(v, "antialiasing", "Antisserrilhado", ["Desligado", "FXAA", "TAA", "FSR 2"], "TAA e FSR 2 são temporais (mais nítidos e estáveis); FSR 2 também amplia com qualidade quando a escala 3D é menor que 100%.")
+		_add_gfx_option(v, "gi_quality", "Iluminação global (SDFGI)", ["Desligada", "Ligada", "Alta"], "Luz rebatida em tempo real (sol entrando pelas janelas, cor das paredes no chão). Pesada: para placas fortes.")
+	else:
+		_add_gfx_option(v, "antialiasing", "Antisserrilhado (MSAA)", ["Desligado", "2x", "4x", "8x"], "O renderer Compatibility suporta apenas MSAA.")
+	var cur := "Máximo (Vulkan, Forward+)" if Settings.is_forward_plus() else "Compatível (OpenGL 3.3)"
+	v.add_child(UIKit.row("Renderizador", UIKit.options(["Máximo (Vulkan, Forward+)", "Compatível (OpenGL 3.3)"], int(Settings.graphics.get("renderer", 0)), func(i: int) -> void:
+		if _building:
+			return
+		var ok := Settings.set_renderer(i)
+		EventBus.toast("Renderizador trocado: reinicie o jogo para aplicar." if ok else "Não foi possível gravar override.cfg na pasta do jogo (pasta protegida).", "info" if ok else "warn")),
+		"Em uso agora: %s. O Máximo liga oclusão de ambiente, reflexos, iluminação global e neblina volumétrica; o Compatível roda em placas antigas. Vale ao reiniciar." % cur))
 	_add_gfx_slider(v, "npc_density", "Densidade de sobreviventes", 0.3, 1.3, 0.05, "%.0f%%", 100.0)
 	_add_gfx_slider(v, "infected_density", "Densidade de infectados", 0.3, 1.3, 0.05, "%.0f%%", 100.0)
 	var oc := UIKit.check(bool(g["occlusion_culling"]), func(on: bool) -> void: _gset("occlusion_culling", on))

@@ -59,6 +59,14 @@ não atravessar a gola. No carro a câmera volta para trás do veículo.
 
 ## Desempenho (hardware alvo)
 
+* **Forward+ (Vulkan)** é o renderizador padrão, com reserva automática para **Compatibility** (GL 3.3) quando
+  não há Vulkan (`rendering_device/fallback_to_opengl3`). A troca manual fica em Configurações → Gráficos →
+  Renderizador (grava `override.cfg` ao lado do executável). No Forward+ `EnvironmentController._apply_forward_plus`
+  liga por qualidade: SSAO (pós ≥ 1), neblina volumétrica (pós ≥ 2), SSIL (pós 3), SSR (reflexos ≥ 2), SDFGI
+  (`gi_quality`: ALTO = 1, ULTRA = 2), sombras 4–8K com PCSS, AgX e limitador de rugosidade de tela; o
+  antisserrilhado vira FXAA/TAA/FSR 2. O uniform global `ssao_active` alivia a oclusão "pintada" nas bases das
+  fachadas quando o SSAO de verdade está ligado. `--preset=0..4` e `--gfx=chave:valor,...` forçam qualidade
+  numa execução (testes).
 * **Compatibility renderer** (GL 3.3): sem Vulkan, roda na GTX 750 Ti e em iGPUs.
 * **Resolução interna** (escala 3D 50–100 %) com upscaling bilinear + VSync; alvo 30 FPS a 720p/900p no BAIXO.
 * **Predefinições**: MUITO BAIXO, BAIXO, MÉDIO, ALTO, ULTRA + ajuste individual (resolução, texturas, sombras,
@@ -157,13 +165,18 @@ Exceções (arquivos de fora, em `assets/`):
   texto em `assets/textures/grass_bush_LICENSE.txt`). Só a textura é usada: a grama continua espalhada
   proceduralmente por chunk (MultiMesh), em 3 planos cruzados com alpha scissor, vento e empurrão do jogador
   em `shaders/grass.gdshader`.
-* `assets/materials/NN_a.png` / `NN_b.png` — texturas fotográficas do [Poly Haven](https://polyhaven.com)
-  (CC0; lista em `assets/materials/LICENCA.txt`), empacotadas por `tools/fetch_textures.py` no formato das
-  camadas do jogo (A = cor + rugosidade, B = normal xy + AO + metal) com a escala real de cada foto em
-  `escala.json`. O bake usa a foto quando existe e cai no material procedural quando não (grama e tecido
-  continuam procedurais).
-* `assets/models/props/barrel`, `assets/models/props/trash_bag` — modelos glTF do Poly Haven (CC0), lidos por
-  `PropLib.MODELS` (base no chão, escala à altura alvo, várias cópias fundidas numa malha para o MultiMesh).
+* `assets/materials/NN_a.res` / `NN_b.res` — as 16 camadas em fotos 2K do [Poly Haven](https://polyhaven.com)
+  (CC0; lista em `assets/materials/LICENCA.txt`). `tools/fetch_textures.py` baixa e monta os PNG no formato das
+  camadas (A = cor + rugosidade, B = normal xy + AO + metal; originais em `assets/materials/src/`, fora do git) e
+  `tools/pack_layers.gd` comprime em BC7 com mipmaps; o jogo monta o `Texture2DArray` direto delas (qualidades
+  menores descartam os níveis de cima). Escala real de cada foto em `escala.json`. Sem as fotos, as camadas
+  voltam a ser geradas proceduralmente.
+* `assets/textures/foliage/` — folhagem fotográfica montada por `tools/make_foliage.py` com as folhas recortadas
+  dos atlas dos modelos de plantas do Poly Haven (copa, arbusto, trepadeira, pinheiro, fronde de palmeira e moita).
+* `assets/models/props/*` — modelos glTF escaneados do Poly Haven (CC0; `tools/fetch_models.py`), lidos por
+  `PropLib.MODELS` (base no chão, escala real ou alvo, filtro de variante, várias cópias fundidas) com LOD gerado
+  no carregamento (`ImporterMesh.generate_lods`). Na rua entram no MultiMesh dos props; nos interiores
+  `InteriorGen` os separa em `out["models"]` e `World` instancia um MultiMesh por tipo. A colisão usa a caixa real.
 
 ### Caio (modelo GLB)
 

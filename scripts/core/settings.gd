@@ -20,23 +20,23 @@ const PRESETS := {
 	0: {"render_scale": 0.67, "texture_quality": 0, "shadow_quality": 0, "view_distance": 260.0,
 		"vegetation_quality": 0, "particle_quality": 0, "post_processing": 0, "object_distance": 0.55,
 		"npc_density": 0.4, "infected_density": 0.5, "weather_quality": 0, "reflection_quality": 0,
-		"antialiasing": 0, "occlusion_culling": false},
+		"antialiasing": 0, "occlusion_culling": false, "gi_quality": 0},
 	1: {"render_scale": 0.85, "texture_quality": 1, "shadow_quality": 1, "view_distance": 420.0,
 		"vegetation_quality": 1, "particle_quality": 1, "post_processing": 1, "object_distance": 0.8,
 		"npc_density": 0.65, "infected_density": 0.75, "weather_quality": 1, "reflection_quality": 1,
-		"antialiasing": 1, "occlusion_culling": true},
+		"antialiasing": 1, "occlusion_culling": true, "gi_quality": 0},
 	2: {"render_scale": 1.0, "texture_quality": 2, "shadow_quality": 2, "view_distance": 620.0,
 		"vegetation_quality": 2, "particle_quality": 2, "post_processing": 2, "object_distance": 1.0,
 		"npc_density": 0.85, "infected_density": 0.9, "weather_quality": 2, "reflection_quality": 2,
-		"antialiasing": 2, "occlusion_culling": true},
+		"antialiasing": 2, "occlusion_culling": true, "gi_quality": 0},
 	3: {"render_scale": 1.0, "texture_quality": 2, "shadow_quality": 3, "view_distance": 900.0,
 		"vegetation_quality": 3, "particle_quality": 3, "post_processing": 3, "object_distance": 1.25,
 		"npc_density": 1.0, "infected_density": 1.0, "weather_quality": 3, "reflection_quality": 2,
-		"antialiasing": 2, "occlusion_culling": true},
+		"antialiasing": 2, "occlusion_culling": true, "gi_quality": 1},
 	4: {"render_scale": 1.0, "texture_quality": 3, "shadow_quality": 4, "view_distance": 1300.0,
 		"vegetation_quality": 4, "particle_quality": 4, "post_processing": 3, "object_distance": 1.5,
 		"npc_density": 1.25, "infected_density": 1.25, "weather_quality": 3, "reflection_quality": 3,
-		"antialiasing": 3, "occlusion_culling": true},
+		"antialiasing": 3, "occlusion_culling": true, "gi_quality": 2},
 }
 
 var graphics := {
@@ -58,8 +58,12 @@ var graphics := {
 	"infected_density": 0.75,
 	"weather_quality": 1,
 	"reflection_quality": 1,
-	"antialiasing": 1, # 0 off, 1 MSAA 2x, 2 MSAA 4x, 3 MSAA 8x
+	"antialiasing": 1, # Compatibility: 0 off, 1-3 MSAA 2x/4x/8x · Forward+: 0 off, 1 FXAA, 2 TAA, 3 FSR 2
 	"occlusion_culling": true,
+	# iluminação global em tempo real (só Forward+): 0 desligada, 1 SDFGI, 2 SDFGI alta
+	"gi_quality": 0,
+	# 0 = Máximo (Vulkan, Forward+), 1 = Compatível (OpenGL 3.3). Vale ao reiniciar.
+	"renderer": 0,
 	"show_fps": false,
 	"brightness": 1.0, # multiplica a exposição (fora dos presets)
 }
@@ -105,7 +109,7 @@ var gameplay := {
 }
 
 var first_run := true
-const SETTINGS_VERSION := 2
+const SETTINGS_VERSION := 3
 
 
 func _ready() -> void:
@@ -116,7 +120,23 @@ func _ready() -> void:
 		apply_preset(detect_preset(), false)
 		first_run = false
 		save_settings()
+	# --preset=0..4 força a qualidade nesta execução (testes / linha de comando)
+	_cmdline_overrides()
 	apply_all()
+
+
+## --preset=0..4 força a qualidade nesta execução; --gfx=chave:valor,... muda
+## ajustes soltos (testes A/B), sem gravar.
+func _cmdline_overrides() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--preset="):
+			apply_preset(int(a.substr(9)), false)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--gfx="):
+			for kv in a.substr(6).split(",", false):
+				var parts := kv.split(":")
+				if parts.size() == 2 and graphics.has(parts[0]):
+					graphics[parts[0]] = float(parts[1]) if parts[1].contains(".") else int(parts[1])
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +180,12 @@ func load_settings() -> void:
 			if cfg.has_section_key(section, key):
 				target[key] = cfg.get_value(section, key)
 	# versão 2: o dia volta a durar 48 minutos reais (24 h de jogo) para todos
-	if int(cfg.get_value("meta", "version", 1)) < SETTINGS_VERSION:
+	var ver := int(cfg.get_value("meta", "version", 1))
+	if ver < 2:
 		gameplay["day_length_minutes"] = 48.0
+	# versão 3: Forward+ — a iluminação global segue o preset escolhido
+	if ver < 3 and int(graphics["preset"]) >= 0:
+		graphics["gi_quality"] = PRESETS[int(graphics["preset"])]["gi_quality"]
 
 
 func save_settings() -> void:
@@ -249,18 +273,34 @@ func _apply_viewport() -> void:
 	var vp := get_tree().root
 	if vp == null:
 		return
-	# Compatibility suporta apenas escala bilinear; a resolução interna menor
-	# é o principal ganho de GPU no hardware alvo.
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-	vp.scaling_3d_scale = clampf(float(graphics["render_scale"]), 0.5, 1.0)
-	# O renderer Compatibility (GL3) só oferece MSAA; FXAA/TAA são exclusivos
-	# de Forward+/Mobile. 2x MSAA é o ponto ideal na GTX 750 Ti.
+	var scale := clampf(float(graphics["render_scale"]), 0.5, 1.0)
 	var aa := int(graphics["antialiasing"])
-	match aa:
-		1: vp.msaa_3d = Viewport.MSAA_2X
-		2: vp.msaa_3d = Viewport.MSAA_4X
-		3: vp.msaa_3d = Viewport.MSAA_8X
-		_: vp.msaa_3d = Viewport.MSAA_DISABLED
+	if is_forward_plus():
+		# Forward+: FXAA, TAA ou FSR 2 (temporal, também amplia com qualidade
+		# quando a escala 3D é menor que 100%); FSR 1 para ampliar sem TAA
+		vp.msaa_3d = Viewport.MSAA_DISABLED
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if aa == 1 else Viewport.SCREEN_SPACE_AA_DISABLED
+		vp.use_taa = aa == 2
+		if aa == 3:
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+		elif scale < 0.99:
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+		else:
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		vp.scaling_3d_scale = scale
+		# texturas nítidas no chão em ângulo rasante
+		vp.anisotropic_filtering_level = Viewport.ANISOTROPY_16X if int(graphics["texture_quality"]) >= 2 else Viewport.ANISOTROPY_4X
+	else:
+		# Compatibility suporta apenas escala bilinear; a resolução interna menor
+		# é o principal ganho de GPU no hardware alvo.
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		vp.scaling_3d_scale = scale
+		# O renderer Compatibility (GL3) só oferece MSAA; 2x é o ponto ideal na GTX 750 Ti.
+		match aa:
+			1: vp.msaa_3d = Viewport.MSAA_2X
+			2: vp.msaa_3d = Viewport.MSAA_4X
+			3: vp.msaa_3d = Viewport.MSAA_8X
+			_: vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.use_debanding = int(graphics["post_processing"]) >= 3
 	vp.use_occlusion_culling = bool(graphics["occlusion_culling"])
 	vp.mesh_lod_threshold = lerpf(4.0, 1.0, float(graphics["object_distance"]) / 1.5)
@@ -371,6 +411,35 @@ func get_ai_budget_usec() -> int:
 
 func get_stream_budget_usec() -> int:
 	return 3500 if int(graphics["preset"]) <= 1 else 5000
+
+
+## Renderer ativo é o Forward+ (Vulkan): efeitos de tela, GI e neblina volumétrica.
+func is_forward_plus() -> bool:
+	return RenderingServer.get_current_rendering_method() == "forward_plus"
+
+
+func get_gi_quality() -> int:
+	return clampi(int(graphics.get("gi_quality", 0)), 0, 2) if is_forward_plus() else 0
+
+
+## Troca o renderer (vale ao reiniciar): grava override.cfg ao lado do
+## executável. Retorna false se não deu para gravar (pasta protegida).
+func set_renderer(index: int) -> bool:
+	graphics["renderer"] = index
+	save_settings()
+	if OS.has_feature("editor"):
+		return true
+	var path := OS.get_executable_path().get_base_dir().path_join("override.cfg")
+	if index == 0:
+		if FileAccess.file_exists(path):
+			return DirAccess.remove_absolute(path) == OK
+		return true
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string("; gravado pelo jogo (Configurações → Gráficos → Renderizador)\n[rendering]\nrenderer/rendering_method=\"gl_compatibility\"\n")
+	f.close()
+	return true
 
 
 func get_fov() -> float:

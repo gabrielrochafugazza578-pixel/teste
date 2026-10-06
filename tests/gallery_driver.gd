@@ -42,7 +42,9 @@ func _shot(name: String) -> void:
 
 
 func _run() -> void:
-	Settings.apply_preset(preset)
+	Settings.apply_preset(preset, false)
+	Settings._cmdline_overrides()
+	Settings.apply_all()
 	await Assets.bake_all()
 	AudioManager.generate_async()
 	while AudioManager.generating:

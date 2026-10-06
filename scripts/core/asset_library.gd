@@ -117,14 +117,20 @@ func _bake_gpu(size: int) -> void:
 	var imgs_a: Array[Image] = []
 	var imgs_b: Array[Image] = []
 	_load_photo_scales()
+	# fotos 2K já comprimidas (BC7 + mipmaps): na qualidade menor só descarta os
+	# níveis de cima. Qualidade das camadas um degrau acima da das demais texturas
+	# (comprimidas, 2K custam o mesmo que 1K em RGBA).
+	var photo_size := clampi(size * 2, 512, 2048)
+	var all_photo := photo_scales.size() == LAYER_COUNT
 	for layer in LAYER_COUNT:
 		for ch in 2:
 			# foto CC0 (assets/materials) quando existe; senão a textura procedural
-			var img := _photo_layer(layer, ch, size)
+			var img := _photo_layer(layer, ch, photo_size if all_photo else size)
 			if img == null:
 				img = await _render(vp, mat, 0, layer, ch, size)
-			# sem "renormalizar": o canal azul de B é a oclusão (o shader refaz o z da normal)
-			img.generate_mipmaps(false)
+			if not img.is_compressed():
+				# sem "renormalizar": o canal azul de B é a oclusão (o shader refaz o z da normal)
+				img.generate_mipmaps(false)
 			if ch == 0:
 				imgs_a.append(img)
 			else:
@@ -239,6 +245,7 @@ func _make_fallback(s: int) -> void:
 # Texturas fotográficas (Poly Haven, CC0) — tools/fetch_textures.py
 # ---------------------------------------------------------------------------
 const PHOTO_DIR := "res://assets/materials/"
+const FOLIAGE_DIR := "res://assets/textures/foliage/"
 ## escala real (repetições por metro) das camadas que têm foto
 var photo_scales: Dictionary = {}
 
@@ -249,29 +256,40 @@ func _load_photo_scales() -> void:
 	var d = JSON.parse_string(txt) if txt != "" else null
 	if typeof(d) == TYPE_DICTIONARY and d.has("escala"):
 		for k in (d["escala"] as Dictionary).keys():
-			if ResourceLoader.exists("%s%02d_a.png" % [PHOTO_DIR, int(k)]):
+			if ResourceLoader.exists("%s%02d_a.res" % [PHOTO_DIR, int(k)]) and ResourceLoader.exists("%s%02d_b.res" % [PHOTO_DIR, int(k)]):
 				photo_scales[int(k)] = float(d["escala"][k])
 
 
+## Foto da camada (Image .res em BC7 com mipmaps, de tools/pack_layers.gd).
+## Se `size` for menor que a foto, começa num nível de mipmap mais baixo (sem
+## descomprimir). Se faltar alguma foto, as camadas voltam a RGBA no tamanho
+## das procedurais (o Texture2DArray exige o mesmo formato em todas).
 func _photo_layer(layer: int, ch: int, size: int) -> Image:
 	if not photo_scales.has(layer):
 		return null
-	var path := "%s%02d_%s.png" % [PHOTO_DIR, layer, "a" if ch == 0 else "b"]
-	if not ResourceLoader.exists(path):
+	var path := "%s%02d_%s.res" % [PHOTO_DIR, layer, "a" if ch == 0 else "b"]
+	var src := load(path) as Image
+	if src == null:
 		return null
-	var tex := load(path) as Texture2D
-	if tex == null:
-		return null
-	var img := tex.get_image()
-	if img == null:
-		return null
-	if img.is_compressed():
-		img.decompress()
-	if img.has_mipmaps():
-		img.clear_mipmaps()
-	img.convert(Image.FORMAT_RGBA8)
-	if img.get_width() != size or img.get_height() != size:
-		img.resize(size, size, Image.INTERPOLATE_LANCZOS)
+	var img := src
+	if photo_scales.size() < LAYER_COUNT:
+		img = src.duplicate() as Image
+		if img.is_compressed():
+			img.decompress()
+		if img.has_mipmaps():
+			img.clear_mipmaps()
+		img.convert(Image.FORMAT_RGBA8)
+		if img.get_width() != size:
+			img.resize(size, size, Image.INTERPOLATE_LANCZOS)
+		return img
+	if img.get_width() > size and img.has_mipmaps():
+		var w := img.get_width()
+		var lv := 0
+		while w > size:
+			w >>= 1
+			lv += 1
+		var data := img.get_data().slice(img.get_mipmap_offset(lv))
+		img = Image.create_from_data(w, w, true, img.get_format(), data)
 	return img
 
 
@@ -321,7 +339,7 @@ func _assign_textures(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("noise_tex", noise_tex)
 	m.set_shader_parameter("detail_a", char_a)
 	m.set_shader_parameter("detail_b", char_b)
-	m.set_shader_parameter("leaf_tex", leaf_tex)
+	m.set_shader_parameter("leaf_tex", m.get_meta("photo_tex") if m.has_meta("photo_tex") else leaf_tex)
 	m.set_shader_parameter("weapon_a", weapon_a)
 	m.set_shader_parameter("weapon_b", weapon_b)
 
@@ -380,6 +398,8 @@ func terrain_material() -> ShaderMaterial:
 ## Terreno: terra/rocha/cascalho com a escala real da foto (rocha um pouco
 ## maior: encosta inteira com a mesma pedra miúda fica repetitiva)
 func _terrain_scales(m: ShaderMaterial) -> void:
+	if photo_scales.has(L_GRASS):
+		m.set_shader_parameter("grass_scale", float(photo_scales[L_GRASS]))
 	if photo_scales.has(L_DIRT):
 		m.set_shader_parameter("dirt_scale", float(photo_scales[L_DIRT]))
 	if photo_scales.has(L_ROCK):
@@ -404,12 +424,25 @@ func foliage_material(kind: String = "tree") -> ShaderMaterial:
 		return _mats[key]
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/foliage.gdshader")
-	match kind:
-		"pine": m.set_shader_parameter("tint", Vector3(0.62, 0.82, 0.68))
-		"dry": m.set_shader_parameter("tint", Vector3(1.25, 1.0, 0.62))
-		"bush": m.set_shader_parameter("tint", Vector3(0.85, 1.0, 0.8))
-		"vine": m.set_shader_parameter("tint", Vector3(0.75, 0.95, 0.7))
-		_: m.set_shader_parameter("tint", Vector3(1.0, 1.0, 1.0))
+	# folhagem fotográfica (tools/make_foliage.py, folhas dos modelos do Poly Haven)
+	var photo := {"tree": "leaves_tree", "bush": "leaves_bush", "vine": "leaves_vine", "pine": "leaves_pine",
+		"dry": "frond_palm"}
+	var tex_path := FOLIAGE_DIR + str(photo.get(kind, "leaves_tree")) + ".png"
+	if ResourceLoader.exists(tex_path):
+		m.set_meta("photo_tex", load(tex_path))
+		m.set_shader_parameter("photo", true)
+		m.set_shader_parameter("alpha_cut", 0.5)
+		match kind:
+			"pine": m.set_shader_parameter("tint", Vector3(0.78, 0.9, 0.8))
+			"dry": m.set_shader_parameter("tint", Vector3(1.0, 1.0, 0.9))
+			_: m.set_shader_parameter("tint", Vector3(1.0, 1.0, 1.0))
+	else:
+		match kind:
+			"pine": m.set_shader_parameter("tint", Vector3(0.62, 0.82, 0.68))
+			"dry": m.set_shader_parameter("tint", Vector3(1.25, 1.0, 0.62))
+			"bush": m.set_shader_parameter("tint", Vector3(0.85, 1.0, 0.8))
+			"vine": m.set_shader_parameter("tint", Vector3(0.75, 0.95, 0.7))
+			_: m.set_shader_parameter("tint", Vector3(1.0, 1.0, 1.0))
 	var far := Settings.get_tree_distance()
 	m.set_shader_parameter("fade_start", far * 0.9)
 	m.set_shader_parameter("fade_end", far)
@@ -423,7 +456,12 @@ func grass_material() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = shader("res://shaders/grass.gdshader")
 	m.set_shader_parameter("fade_distance", maxf(Settings.get_grass_distance(), 10.0))
-	m.set_shader_parameter("grass_tex", load("res://assets/textures/grass_bush.png"))
+	var tuft := FOLIAGE_DIR + "grass_tuft.png"
+	if ResourceLoader.exists(tuft):
+		m.set_shader_parameter("grass_tex", load(tuft))
+		m.set_shader_parameter("photo", true)
+	else:
+		m.set_shader_parameter("grass_tex", load("res://assets/textures/grass_bush.png"))
 	_mats["grass"] = m
 	return m
 

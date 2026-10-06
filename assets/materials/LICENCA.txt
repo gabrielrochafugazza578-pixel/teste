@@ -3,21 +3,24 @@ Texturas fotográficas das superfícies do mundo
 
 Fonte: Poly Haven — https://polyhaven.com
 Licença: CC0 1.0 (domínio público) — https://polyhaven.com/license
-Baixadas e empacotadas por tools/fetch_textures.py (cor + rugosidade em *_a.png;
-normal OpenGL + oclusão + metal em *_b.png).
+Baixadas em 2K por tools/fetch_textures.py (cor + rugosidade em *_a; normal
+OpenGL + oclusão + metal em *_b) e comprimidas em BC7 com mipmaps por
+tools/pack_layers.gd (arquivos NN_a.res / NN_b.res).
 
 Camada  Material                 Asset do Poly Haven
- 00     asfalto                  asphalt_02
- 01     concreto                 concrete_pavement
- 02     tijolo                   brick_wall_02
- 03     reboco                   painted_plaster_wall
- 04     telha                    clay_roof_tiles
- 05     metal                    rusty_metal_sheet
- 06     madeira                  brown_planks_03
- 08     terra                    dirt
- 09     rocha                    rock_ground
- 10     piso                     grey_tiles
- 11     painel de fachada        floor_tiles_02
- 12     cascalho                 gravel_floor
- 13     casca de árvore          bark_brown_02
- 15     linóleo                  linoleum_brown
+ 00     asfalto                  asphalt_02  (https://polyhaven.com/a/asphalt_02)
+ 01     concreto                 concrete_pavement  (https://polyhaven.com/a/concrete_pavement)
+ 02     tijolo                   red_bricks_04  (https://polyhaven.com/a/red_bricks_04)
+ 03     reboco                   painted_plaster_wall  (https://polyhaven.com/a/painted_plaster_wall)
+ 04     telha                    clay_roof_tiles  (https://polyhaven.com/a/clay_roof_tiles)
+ 05     metal                    rusty_metal_sheet  (https://polyhaven.com/a/rusty_metal_sheet)
+ 06     madeira                  brown_planks_03  (https://polyhaven.com/a/brown_planks_03)
+ 07     grama                    leafy_grass  (https://polyhaven.com/a/leafy_grass)
+ 08     terra                    forest_ground_04  (https://polyhaven.com/a/forest_ground_04)
+ 09     rocha                    rock_face_03  (https://polyhaven.com/a/rock_face_03)
+ 10     piso                     grey_tiles  (https://polyhaven.com/a/grey_tiles)
+ 11     painel                   concrete_wall_008  (https://polyhaven.com/a/concrete_wall_008)
+ 12     cascalho                 gravel_floor_02  (https://polyhaven.com/a/gravel_floor_02)
+ 13     casca                    bark_willow_02  (https://polyhaven.com/a/bark_willow_02)
+ 14     tecido                   cotton_jersey  (https://polyhaven.com/a/cotton_jersey)
+ 15     linóleo                  linoleum_brown  (https://polyhaven.com/a/linoleum_brown)

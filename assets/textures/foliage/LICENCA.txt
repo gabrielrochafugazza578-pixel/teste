@@ -1,0 +1,3 @@
+Folhagem fotográfica montada por tools/make_foliage.py a partir dos atlas de folhas
+dos modelos do Poly Haven (CC0 1.0): island_tree_01, island_tree_02, shrub_01,
+searsia_lucida, fern_02 e grass_medium_01 — https://polyhaven.com/license

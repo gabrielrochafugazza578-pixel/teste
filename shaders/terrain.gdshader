@@ -10,6 +10,11 @@ uniform float grass_scale = 0.45;
 uniform float dirt_scale = 0.5;
 uniform float rock_scale = 0.22;
 uniform float gravel_scale = 0.8;
+// a foto de grama (Poly Haven) é o chão entre as folhas, amarronzado: mantém o
+// detalhe (luminância, relevo, rugosidade) e leva a cor para verde de gramado
+uniform vec3 grass_green : source_color = vec3(0.3, 0.38, 0.16);
+uniform float grass_tint = 0.8;
+uniform float grass_lum = 0.09;
 
 global uniform float wetness;
 global uniform float world_decay;
@@ -36,6 +41,8 @@ void fragment() {
 	float w_grass = clamp(1.0 - w_rock - w_dirt - w_grav, 0.0, 1.0);
 
 	vec4 ga = texture(tex_a, vec3(uv * grass_scale, 7.0));
+	float glum = dot(ga.rgb, vec3(0.299, 0.587, 0.114));
+	ga.rgb = mix(ga.rgb, grass_green * (glum / grass_lum), grass_tint);
 	vec4 gb = texture(tex_b, vec3(uv * grass_scale, 7.0));
 	vec4 da = texture(tex_a, vec3(uv * dirt_scale, 8.0));
 	vec4 db = texture(tex_b, vec3(uv * dirt_scale, 8.0));

@@ -10,6 +10,9 @@ uniform vec3 tint = vec3(1.0);
 uniform float sway = 1.0;
 uniform float fade_start = 400.0;
 uniform float fade_end = 460.0;
+// textura fotográfica (folhas reais recortadas): o cartão já vem com a silhueta
+// certa, sem a máscara redonda das folhas procedurais
+uniform bool photo = false;
 
 global uniform vec4 wind;
 global uniform float veg_growth;
@@ -56,6 +59,10 @@ void fragment() {
 	// mostra as arestas retas dos polígonos (aspecto de papel amassado)
 	float rr = length(UV - 0.5) * 2.0;
 	float edge = 1.0 - smoothstep(0.55, 0.95, rr + (c.g - 0.12) * 0.6);
+	if (photo) {
+		edge = 1.0;
+		rr = 0.0;
+	}
 	// cartão visto de lado vira um risco fino ("palito" saindo da copa): some
 	// aos poucos quando o plano do cartão fica alinhado com a visão
 	vec3 fn = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
@@ -66,6 +73,10 @@ void fragment() {
 		discard;
 	}
 	vec3 leaf = c.rgb * mix(vec3(0.9, 1.0, 0.85), vec3(1.15, 1.08, 0.8), v_hue);
+	if (photo) {
+		// foto já tem luz e sombra próprias: variação de tom mais contida
+		leaf = c.rgb * mix(vec3(0.94, 1.0, 0.92), vec3(1.07, 1.04, 0.9), v_hue);
+	}
 	vec3 alb = leaf * tint * (0.68 + v_shade * 0.62);
 	alb *= mix(1.0, 0.7, wetness);
 	ALBEDO = alb;

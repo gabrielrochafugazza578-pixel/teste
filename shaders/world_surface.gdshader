@@ -29,6 +29,8 @@ uniform float emission_boost = 1.0;
 uniform float interior_fill = 0.0;
 
 global uniform float wetness;
+// 1 quando o SSAO de verdade está ligado (Forward+): alivia a oclusão "pintada"
+global uniform float ssao_active;
 global uniform float world_decay;
 global uniform float city_power;
 global uniform vec3 blackout_origin;
@@ -102,6 +104,8 @@ void fragment() {
 	float sc = layer_scales[li];
 	// derivadas fora dos "if" (dentro de desvio não uniforme o GLSL não garante)
 	vec2 dUV = fwidth(UV);
+	// sentido em que UV.x cresce ao longo da parede (para o interior das janelas)
+	vec3 u_dir = dFdx(UV.x) * dFdx(w_pos) + dFdy(UV.x) * dFdy(w_pos);
 	vec3 uvw = vec3(UV * sc, v_layer);
 	vec4 a = texture(tex_a, uvw);
 	vec4 b = texture(tex_b, uvw);
@@ -118,6 +122,11 @@ void fragment() {
 		vec2 ruv = mat2(vec2(0.8, -0.6), vec2(0.6, 0.8)) * (UV * sc * 0.41) + vec2(0.37, 0.71);
 		vec3 a2 = texture(tex_a, vec3(ruv, v_layer)).rgb;
 		base_rgb = mix(base_rgb, a2, smoothstep(0.3, 0.7, nz.g) * 0.5);
+	}
+	// grama: foto amarronzada (chão entre as folhas) puxada para verde de gramado
+	if (li == 7) {
+		float glum = dot(base_rgb, vec3(0.299, 0.587, 0.114));
+		base_rgb = mix(base_rgb, vec3(0.115, 0.17, 0.035) * (glum / 0.09), 0.75);
 	}
 	// variação de tom em grande escala (manchas, sol, sujeira acumulada)
 	base_rgb *= 0.9 + nz.r * 0.2;
@@ -204,14 +213,51 @@ void fragment() {
 		float rnd = h21(cell + v_seed * 131.0);
 		float rnd2 = h21(cell.yx + v_seed * 71.0 + 3.0);
 		if (win + frame > 0.001) {
-			// vidro escuro com reflexo falso do céu (fresnel) + cortinas variadas
-			vec3 interior = mix(vec3(0.012, 0.014, 0.018), vec3(0.05, 0.045, 0.04), mix(rnd2, 0.5, far_fade)) * (0.6 + 0.4 * mix(f.y, 0.55, far_fade));
+			// cômodo atrás do vidro ("interior mapping"): o raio de visão entra numa caixa
+			// (piso, teto, paredes, fundo) e o cômodo ganha profundidade conforme o ângulo
+			vec3 Nw = normalize(w_nrm);
+			vec3 Tw = normalize(cross(vec3(0.0, 1.0, 0.0), Nw));
+			Tw *= dot(u_dir, Tw) < 0.0 ? -1.0 : 1.0;
+			vec3 rd = normalize(w_pos - CAMERA_POSITION_WORLD);
+			vec3 r = vec3(dot(rd, Tw), rd.y, max(-dot(rd, Nw), 0.02));
+			float ww = (wmax.x - wmin.x) * cell_size.x;
+			vec2 wc = vec2((f.x - (wmin.x + wmax.x) * 0.5) * cell_size.x, (f.y - wmin.y) * cell_size.y);
+			float room_w = cell_size.x * 0.96;
+			float floor_y = -wmin.y * cell_size.y * 0.95;
+			float ceil_y = cell_size.y * (1.0 - wmin.y) * 0.95;
+			float depth = 3.2 + rnd * 2.0;
+			float tx = ((r.x > 0.0 ? room_w * 0.5 : -room_w * 0.5) - wc.x) / (abs(r.x) < 1e-4 ? 1e-4 : r.x);
+			float ty = ((r.y > 0.0 ? ceil_y : floor_y) - wc.y) / (abs(r.y) < 1e-4 ? 1e-4 : r.y);
+			float tz = depth / r.z;
+			float th = min(min(tx, ty), tz);
+			vec3 hp = vec3(wc, 0.0) + r * th;
+			float zf = clamp(hp.z / depth, 0.0, 1.0);
+			vec3 wall_c = mix(vec3(0.42, 0.4, 0.36), vec3(0.34, 0.37, 0.36), rnd2);
+			vec3 room;
+			if (th == ty && r.y < 0.0) {
+				room = mix(vec3(0.24, 0.18, 0.13), vec3(0.3, 0.29, 0.27), step(0.5, rnd)) * 0.9;   // piso
+			} else if (th == ty) {
+				room = vec3(0.5, 0.49, 0.46);                                                     // teto
+			} else if (th == tz) {
+				room = wall_c * 0.85;                                                             // fundo
+				// porta / vão escuro na parede do fundo de alguns cômodos
+				room *= 1.0 - step(0.55, rnd2) * step(abs(hp.x - (rnd - 0.5) * room_w * 0.5), 0.45) * step(hp.y, 2.0 + floor_y) * 0.75;
+			} else {
+				room = wall_c;                                                                    // laterais
+			}
+			// luz do dia que entra pela janela: forte perto do vidro, cai no fundo;
+			// o piso perto da janela pega mais, o teto quase nada
+			float sky_in = (0.2 + daylight * 0.8) * (1.0 - world_decay * 0.25);
+			float falloff = mix(1.0, 0.12, pow(zf, 0.7));
+			room *= sky_in * falloff * (th == ty && r.y > 0.0 ? 0.45 : 1.0) * 0.32;
+			room *= mix(1.0, 0.5, rnd2 * rnd);
+			vec3 interior = mix(room, vec3(0.03, 0.03, 0.028) * (0.2 + daylight * 0.8), far_fade);
 			float curtain = step(0.62, rnd) * step(0.45 + rnd2 * 0.3, f.y) * step(0.5, fract(rnd * 7.0 + (f.x > 0.5 ? 0.5 : 0.0)));
 			curtain = mix(curtain, 0.08, far_fade);
 			interior = mix(interior, vec3(0.28, 0.25, 0.21) * (0.6 + rnd2 * 0.6), curtain * 0.8);
 			float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 			vec3 refl = mix(vec3(0.16, 0.18, 0.2), vec3(0.42, 0.47, 0.53), mix(f.y, 0.55, far_fade)) * (0.2 + daylight * 0.8);
-			vec3 glass_col = mix(interior, refl, 0.25 + fres * 0.55);
+			vec3 glass_col = mix(interior, refl, 0.12 + fres * 0.6);
 			float broken = step(1.0 - world_decay * 0.2, rnd2) * (exterior ? 1.0 : 0.0);
 			broken = mix(broken, world_decay * 0.2 * (exterior ? 1.0 : 0.0), far_fade);
 			vec3 g_alb = mix(glass_col, vec3(0.008), broken);
@@ -248,8 +294,9 @@ void fragment() {
 	// de chuva e a "oclusão" que o renderer Compatibility não calcula) ---------
 	if (exterior && v_wmode > 0.5 && v_wmode < 3.5 && an.y < 0.3) {
 		float hb = UV.y;
-		alb *= mix(0.62, 1.0, smoothstep(0.0, 1.1, hb)) * mix(0.9, 1.0, smoothstep(0.0, 3.5, hb));
-		ao *= mix(0.75, 1.0, smoothstep(0.0, 0.6, hb));
+		float fake_ao = 1.0 - ssao_active * 0.6;
+		alb *= mix(mix(1.0, 0.62, fake_ao), 1.0, smoothstep(0.0, 1.1, hb)) * mix(0.9, 1.0, smoothstep(0.0, 3.5, hb));
+		ao *= mix(mix(1.0, 0.75, fake_ao), 1.0, smoothstep(0.0, 0.6, hb));
 	}
 
 	// --- Umidade, poças e ondulações de chuva -------------------------------------

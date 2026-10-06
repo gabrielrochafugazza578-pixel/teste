@@ -36,6 +36,11 @@ void fragment() {
 	float wear = max(max(d, r), burn);
 	ALBEDO = alb;
 	METALLIC = mix(0.4, 0.0, wear);
-	ROUGHNESS = mix(0.28, 0.95, wear);
+	// tinta: base metalizada mais fosca + camada de verniz lisa por cima (o
+	// reflexo nítido do céu e o brilho duplo de carro de verdade); poeira e
+	// ferrugem matam o verniz
+	ROUGHNESS = mix(0.36, 0.95, wear);
 	SPECULAR = 0.5;
+	CLEARCOAT = (1.0 - wear) * 0.85;
+	CLEARCOAT_ROUGHNESS = mix(0.06, 0.6, d);
 }

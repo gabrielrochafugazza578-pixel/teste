@@ -23,10 +23,21 @@ COMO JOGAR NO LINUX (Linux Mint)
   juntos na mesma pasta.
 
 PRIMEIRA EXECUÇÃO
-  Na primeira vez o jogo gera as texturas e os sons (pode levar de 30 s a
+  Na primeira vez o jogo prepara as texturas e os sons (pode levar de 30 s a
   1 min numa tela de carregamento). Depois fica em cache e abre rápido.
   A qualidade é escolhida sozinha pela placa (GTX 750 Ti → BAIXO) e pode
   ser mudada em Configurações.
+
+GRÁFICOS NO MÁXIMO (renderizador Vulkan)
+  O jogo agora usa o renderizador mais avançado do Godot (Forward+, Vulkan):
+  oclusão de ambiente, reflexos na tela (poças, vidros, carros), luz
+  rebatida em tempo real (SDFGI), neblina volumétrica com feixes de luz,
+  antisserrilhado temporal (TAA/FSR 2) e sombras com penumbra. Para ver tudo
+  ligado use a predefinição ULTRA (placas tipo RTX 2080/3070 ou melhor).
+  Se a placa ou o driver não tiver Vulkan, o jogo abre sozinho no modo
+  compatível (OpenGL). Em placas antigas (como a GTX 750 Ti) dá para escolher
+  o modo compatível em Configurações → Gráficos → Renderizador (vale ao
+  reiniciar), que é mais leve.
 
 IMAGEM ESCURA?
   A cidade está sem energia: à noite e dentro dos prédios só há o luar, a
@@ -146,6 +157,20 @@ NOVIDADES DESTA VERSÃO
   - Detalhes vivos: fumaça escura saindo de alguns carros queimados, papéis
     rolando com o vento nas ruas, folhas soltando das árvores e caindo girando.
   - Copas das árvores sem os "palitos" (folhas vistas de lado) e mais cheias.
+  - Renderizador Vulkan (Forward+) com SSAO, SSIL, reflexos de tela, SDFGI,
+    neblina volumétrica, TAA/FSR 2, sombras 8K com penumbra e tonemap AgX.
+  - Todas as 16 superfícies do mundo trocadas por fotos 2K do Poly Haven no
+    mesmo padrão (asfalto, calçada, tijolo, reboco, telha, chapa, madeira,
+    grama, terra, rocha, piso, painel de concreto, cascalho, casca de árvore,
+    tecido e linóleo), comprimidas para a placa (BC7).
+  - Folhagem fotográfica: copas, arbustos, trepadeiras, pinheiros, palmeiras
+    e moitas de grama montadas com folhas reais escaneadas.
+  - Móveis e objetos escaneados de verdade: sofá, poltrona, cadeira, mesas,
+    estantes, vaso de planta, lixeira enferrujada, hidrante, barreira de
+    concreto, caixas de papelão e pneus.
+  - Janelas com cômodo de verdade atrás do vidro (piso, teto e paredes com
+    profundidade que muda com o ângulo, iluminados pela luz do dia).
+  - Carros com verniz (brilho duplo da pintura) e céu sem emendas.
   - Bandeiras do município tremulando ao vento (desbotadas e esfiapadas) nos
     mastros em frente à delegacia, hospital, escola, posto de saúde e
     terminal; com pouco vento elas caem, na tempestade batem forte.

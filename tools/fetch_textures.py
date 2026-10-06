@@ -8,7 +8,8 @@ empacota no formato das camadas do jogo:
 Também grava assets/materials/escala.json com a escala real de cada foto
 (repetições por metro), lida das dimensões informadas pelo Poly Haven.
 
-Uso: python3 tools/fetch_textures.py [tamanho=1024]
+Uso: python3 tools/fetch_textures.py [tamanho=2048]
+     godot --headless --path . -s tools/pack_layers.gd
 """
 import io
 import json
@@ -22,17 +23,19 @@ from PIL import Image
 LAYERS = {
     0: "asphalt_02",              # asfalto rachado
     1: "concrete_pavement",       # concreto em placas (calçada, meio-fio, bases)
-    2: "brick_wall_02",           # tijolo à vista
-    3: "painted_plaster_wall",    # reboco pintado
+    2: "red_bricks_04",           # tijolo à vista vermelho, gasto
+    3: "painted_plaster_wall",    # reboco pintado (neutro: recebe a cor do prédio)
     4: "clay_roof_tiles",         # telha de barro
     5: "rusty_metal_sheet",       # chapa metálica com ferrugem
     6: "brown_planks_03",         # tábuas
-    8: "dirt",                    # terra
-    9: "rock_ground",             # rocha
-    10: "grey_tiles",             # piso cinza
-    11: "floor_tiles_02",         # revestimento de pedra clara (fachadas)
-    12: "gravel_floor",           # cascalho
-    13: "bark_brown_02",          # casca de árvore
+    7: "leafy_grass",             # grama (gramados e campos)
+    8: "forest_ground_04",        # terra com pedriscos
+    9: "rock_face_03",            # rocha (encostas, paredões)
+    10: "grey_tiles",             # piso cerâmico
+    11: "concrete_wall_008",      # painel de concreto (fachadas de escritório/hospital)
+    12: "gravel_floor_02",        # cascalho
+    13: "bark_willow_02",         # casca de árvore
+    14: "cotton_jersey",          # tecido neutro (estofados, colchões, cortinas)
     15: "linoleum_brown",         # linóleo
 }
 
@@ -41,11 +44,12 @@ LAYERS = {
 ADJUST = {
     0: (0.6, 0.5),
     1: (1.02, 0.3),
-    12: (0.8, 0.2),
 }
 
 API = "https://api.polyhaven.com"
-OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "materials")
+# originais em PNG (a pasta tem .gdignore: o Godot não importa nem exporta);
+# tools/pack_layers.gd converte para .res comprimido (BC7 + mipmaps) em assets/materials
+OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "materials", "src")
 CACHE = os.environ.get("PH_CACHE", "/tmp/ph_cache")
 
 
@@ -70,7 +74,7 @@ def img(files: dict, key: str, res: str):
 
 
 def main() -> None:
-    size = int(sys.argv[1]) if len(sys.argv) > 1 else 1024
+    size = int(sys.argv[1]) if len(sys.argv) > 1 else 2048
     res = "2k" if size > 1024 else "1k"
     os.makedirs(OUT, exist_ok=True)
     scales = {}
@@ -104,7 +108,7 @@ def main() -> None:
         a.save(os.path.join(OUT, "%02d_a.png" % layer), optimize=True)
         b.save(os.path.join(OUT, "%02d_b.png" % layer), optimize=True)
         print("camada %2d  %-26s %s mm  escala %.3f/m" % (layer, pid, dims, scales[layer]))
-    with open(os.path.join(OUT, "escala.json"), "w") as f:
+    with open(os.path.join(OUT, "..", "escala.json"), "w") as f:
         json.dump({"fonte": "Poly Haven (CC0)", "ids": {str(k): v for k, v in LAYERS.items()},
             "escala": {str(k): v for k, v in scales.items()}}, f, indent=1)
 

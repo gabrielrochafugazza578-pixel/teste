@@ -5,7 +5,7 @@ extends RefCounted
 
 static var values: Dictionary = {
 	"wetness": 0.0, "world_decay": 1.0, "veg_growth": 1.0, "city_power": 0.0,
-	"blackout_origin": Vector3.ZERO, "blackout_radius": 0.0, "rain_intensity": 0.0, "daylight": 1.0,
+	"blackout_origin": Vector3.ZERO, "blackout_radius": 0.0, "rain_intensity": 0.0, "daylight": 1.0, "ssao_active": 0.0,
 }
 
 

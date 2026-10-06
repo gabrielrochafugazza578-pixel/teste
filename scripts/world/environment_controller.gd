@@ -1,6 +1,7 @@
 class_name EnvironmentController
 extends Node3D
-## Céu, sol/lua, neblina, luz ambiente e pós-processamento (GL Compatibility).
+## Céu, sol/lua, neblina, luz ambiente e pós-processamento. No Forward+ liga também
+## SSAO, SSIL, SSR, SDFGI e neblina volumétrica (ver _apply_forward_plus).
 ## Um único DirectionalLight3D faz sol de dia e lua de noite (1 mapa de
 ## sombras apenas). Tudo é derivado do TimeManager + WeatherManager.
 
@@ -81,11 +82,93 @@ func _apply_settings() -> void:
 		env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	else:
 		env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-		env.sky.radiance_size = [Sky.RADIANCE_SIZE_32, Sky.RADIANCE_SIZE_32, Sky.RADIANCE_SIZE_64, Sky.RADIANCE_SIZE_128][clampi(rq, 0, 3)]
-		env.sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL if rq < 3 else Sky.PROCESS_MODE_REALTIME
+		if Settings.is_forward_plus():
+			# o céu muda devagar: atualização incremental, com reflexo mais nítido
+			env.sky.radiance_size = [Sky.RADIANCE_SIZE_64, Sky.RADIANCE_SIZE_64, Sky.RADIANCE_SIZE_128, Sky.RADIANCE_SIZE_256][clampi(rq, 0, 3)]
+			env.sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
+		else:
+			env.sky.radiance_size = [Sky.RADIANCE_SIZE_32, Sky.RADIANCE_SIZE_32, Sky.RADIANCE_SIZE_64, Sky.RADIANCE_SIZE_128][clampi(rq, 0, 3)]
+			env.sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL if rq < 3 else Sky.PROCESS_MODE_REALTIME
 	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if cam:
 		cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0)
+	_apply_forward_plus()
+
+
+## Forward+ (Vulkan): o que o Godot tem de melhor, ligado pela qualidade.
+## No Compatibility estes campos são ignorados pelo renderer.
+func _apply_forward_plus() -> void:
+	var fp := Settings.is_forward_plus()
+	var pq := Settings.get_post_quality()
+	var rq := Settings.get_reflection_quality()
+	var gi := Settings.get_gi_quality()
+	var sq := int(Settings.graphics["shadow_quality"])
+	var rid := env.get_rid()
+	# oclusão de ambiente: cantos, frestas e contato dos objetos com o chão
+	env.ssao_enabled = fp and pq >= 1
+	ShaderGlobals.set_value("ssao_active", 1.0 if env.ssao_enabled else 0.0)
+	env.ssao_radius = 1.1
+	env.ssao_intensity = 2.2
+	env.ssao_power = 1.6
+	env.ssao_detail = 0.6
+	env.ssao_horizon = 0.06
+	env.ssao_sharpness = 0.98
+	env.ssao_light_affect = 0.0
+	env.ssao_ao_channel_affect = 0.6
+	if fp:
+		RenderingServer.environment_set_ssao_quality([RenderingServer.ENV_SSAO_QUALITY_LOW, RenderingServer.ENV_SSAO_QUALITY_LOW,
+			RenderingServer.ENV_SSAO_QUALITY_MEDIUM, RenderingServer.ENV_SSAO_QUALITY_HIGH][clampi(pq, 0, 3)], pq <= 2, 0.5, 2, 50.0, 300.0)
+	# luz rebatida de tela (cor das superfícies vizinhas)
+	env.ssil_enabled = fp and pq >= 3
+	env.ssil_radius = 5.0
+	env.ssil_intensity = 1.0
+	env.ssil_sharpness = 0.98
+	env.ssil_normal_rejection = 1.0
+	if fp:
+		RenderingServer.environment_set_ssil_quality(RenderingServer.ENV_SSIL_QUALITY_MEDIUM if pq < 3 or gi < 2 else RenderingServer.ENV_SSIL_QUALITY_HIGH, true, 0.5, 4, 50.0, 300.0)
+	# reflexos de tela: poças, vidros, carros, piso encerado
+	env.ssr_enabled = fp and rq >= 2
+	env.ssr_max_steps = 96 if rq >= 3 else 56
+	env.ssr_fade_in = 0.15
+	env.ssr_fade_out = 2.0
+	env.ssr_depth_tolerance = 0.25
+	# iluminação global em tempo real (SDFGI): sol entrando pelas janelas, rebatida
+	env.sdfgi_enabled = fp and gi >= 1
+	env.sdfgi_use_occlusion = true
+	env.sdfgi_read_sky_light = true
+	env.sdfgi_bounce_feedback = 0.45
+	env.sdfgi_cascades = 6 if gi >= 2 else 4
+	env.sdfgi_min_cell_size = 0.2 if gi >= 2 else 0.3
+	env.sdfgi_y_scale = Environment.SDFGI_Y_SCALE_75_PERCENT
+	env.sdfgi_energy = 1.0
+	env.sdfgi_normal_bias = 1.1
+	env.sdfgi_probe_bias = 1.1
+	if fp and gi >= 1:
+		RenderingServer.environment_set_sdfgi_ray_count(RenderingServer.ENV_SDFGI_RAY_COUNT_64 if gi >= 2 else RenderingServer.ENV_SDFGI_RAY_COUNT_32)
+		RenderingServer.environment_set_sdfgi_frames_to_converge(RenderingServer.ENV_SDFGI_CONVERGE_IN_15_FRAMES if gi >= 2 else RenderingServer.ENV_SDFGI_CONVERGE_IN_20_FRAMES)
+		RenderingServer.environment_set_sdfgi_frames_to_update_light(RenderingServer.ENV_SDFGI_UPDATE_LIGHT_IN_8_FRAMES)
+	# neblina volumétrica: feixes de sol e da lanterna no ar, bruma iluminada
+	env.volumetric_fog_enabled = fp and pq >= 2
+	env.volumetric_fog_albedo = Color(0.9, 0.9, 0.92)
+	env.volumetric_fog_anisotropy = 0.55
+	env.volumetric_fog_length = 96.0 if pq >= 3 else 64.0
+	env.volumetric_fog_detail_spread = 2.0
+	env.volumetric_fog_gi_inject = 0.6 if gi >= 1 else 0.0
+	env.volumetric_fog_ambient_inject = 0.3
+	env.volumetric_fog_sky_affect = 0.0
+	env.volumetric_fog_temporal_reprojection_enabled = true
+	if fp and pq >= 2:
+		RenderingServer.environment_set_volumetric_fog_volume_size(160 if pq >= 3 else 96, 96 if pq >= 3 else 64)
+		RenderingServer.environment_set_volumetric_fog_filter_active(true)
+	if fp:
+		# sombras com penumbra realista (PCSS) e resolução alta nas placas fortes
+		RenderingServer.directional_shadow_atlas_set_size([1024, 2048, 4096, 4096, 8192][sq], true)
+		sun.light_angular_distance = 0.5 if sq >= 2 else 0.0
+		# brilho especular sem serrilhado em superfícies ásperas
+		RenderingServer.screen_space_roughness_limiter_set_active(true, 0.25, 0.18)
+		# tonemapper filmico do Godot 4.4+: cores e altas luzes mais naturais
+		env.tonemap_mode = Environment.TONE_MAPPER_AGX
+		env.tonemap_white = 12.0
 
 
 func set_indoor(v: bool) -> void:
@@ -182,7 +265,9 @@ func _update(delta: float) -> void:
 	# luz do céu nas sombras: vem mais do zênite (azulado) que do horizonte alaranjado,
 	# e dessaturada (céu de cidade, poeira) para não "lavar" tudo de branco
 	var amb := zen.lerp(hor, 0.35)
-	amb = amb.lerp(Color(0.4, 0.42, 0.45), 0.3)
+	# a sombra sob céu limpo é quase neutra: o chão e as fachadas rebatem luz
+	# quente que compensa o azul do céu (sem isso o lado na sombra fica azulado)
+	amb = amb.lerp(Color(0.43, 0.44, 0.45), 0.5)
 	# noite: só o luar e o céu estrelado (sem luz de rua)
 	var night_amb := Color(0.085, 0.1, 0.155)
 	var amb_c := amb.lerp(night_amb, 1.0 - dl)
@@ -217,6 +302,9 @@ func _update(delta: float) -> void:
 	var fog_d := base_fog + wm.fog * 0.0085 + wm.rain * 0.0022
 	if override_fog >= 0.0:
 		fog_d = override_fog
+	# com neblina volumétrica (Forward+) a de distância fica mais leve: as duas somam
+	if env.volumetric_fog_enabled:
+		fog_d *= 0.6
 	env.fog_density = fog_d * lerpf(1.0, 0.35, indoor)
 	env.fog_light_color = hor.lerp(Color(0.5, 0.52, 0.55), 0.3)
 	env.fog_light_energy = 0.8 + dl * 0.35
@@ -226,6 +314,18 @@ func _update(delta: float) -> void:
 	var mist := smoothstep(3.5, 5.5, hr) * (1.0 - smoothstep(7.5, 9.5, hr))
 	env.fog_height = 2.5
 	env.fog_height_density = (mist * 0.06 + wm.rain * 0.025 + wm.fog * 0.04) * (1.0 - indoor)
+	# neblina volumétrica (Forward+): ar levemente denso lá fora (feixes de sol,
+	# faróis), bruma na chuva/neblina e poeira em suspensão dentro dos prédios
+	if env.sdfgi_enabled:
+		# de noite a GI rebate pouca luz (lua, lanterna); de dia, plena
+		env.sdfgi_energy = lerpf(0.45, 1.0, dl)
+	if env.volumetric_fog_enabled:
+		env.volumetric_fog_ambient_inject = lerpf(0.05, 0.25, dl)
+		# pôr/nascer do sol: o espalhamento para frente vira uma névoa laranja densa
+		var vf := (0.003 + wm.fog * 0.02 + wm.rain * 0.004 + mist * 0.015) * (1.0 - dusk * 0.6)
+		env.volumetric_fog_density = lerpf(vf, 0.012, indoor)
+		env.volumetric_fog_albedo = Color(0.92, 0.92, 0.94).lerp(Color(0.8, 0.82, 0.86), clouds)
+		env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 	# --- cor / tonemap ---------------------------------------------------------
 	env.adjustment_saturation = mood_saturation * lerpf(0.95, 0.8, clouds * 0.5)
 	env.adjustment_contrast = lerpf(1.0, 1.1, dl)
@@ -237,9 +337,15 @@ func _update(delta: float) -> void:
 	if torch_on:
 		adapt *= lerpf(1.0, 0.72, indoor * (1.0 - dl))
 	# o "olho" da noite só vale fora ou no escuro; sob luz acesa a exposição é a do dia
-	env.tonemap_exposure = exposure * bright * lerpf(1.05, 2.2, (1.0 - dl) * (1.0 - lit)) * adapt
+	# Forward+: a iluminação global já traz a luz do céu/lua rebatida; o "olho da
+	# noite" precisa de bem menos ganho (senão a noite vira dia nublado)
+	var night_gain := 1.35 if env.sdfgi_enabled else (1.7 if Settings.is_forward_plus() else 2.2)
+	env.tonemap_exposure = exposure * bright * lerpf(1.05, night_gain, (1.0 - dl) * (1.0 - lit)) * adapt
 	# com o sol baixo o olho também se acostuma (fora de casa): chão e encostas não afundam no preto
 	env.tonemap_exposure *= 1.0 + low_sun * 0.28 * (1.0 - indoor)
+	# AgX (Forward+) comprime mais os meios-tons que o ACES: compensa a exposição
+	if env.tonemap_mode == Environment.TONE_MAPPER_AGX:
+		env.tonemap_exposure *= 1.18
 	if underground:
 		sun.visible = false
 		env.background_mode = Environment.BG_COLOR

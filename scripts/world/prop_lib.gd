@@ -33,7 +33,26 @@ static func warm() -> void:
 		return
 	for n in NAMES:
 		buf(n)
+	# modelos escaneados: carregados aqui (thread principal); os geradores em
+	# thread só consultam a caixa (model_aabb)
+	for n in MODELS.keys():
+		var m := mesh(n)
+		if m != null and MODELS.has(n):
+			_model_aabb[n] = m.get_aabb()
 	_warm = true
+
+
+static var _model_aabb: Dictionary = {}
+
+
+## Caixa do modelo escaneado já carregado (AABB vazia se não houver).
+static func model_aabb(name: String) -> AABB:
+	return _model_aabb.get(name, AABB())
+
+
+## O prop usa modelo escaneado e ele carregou (pode ser chamado de thread depois de warm()).
+static func uses_model(name: String) -> bool:
+	return _model_aabb.has(name)
 
 
 static func buf(name: String) -> MeshBuf:
@@ -79,27 +98,49 @@ static func _tape_mesh() -> ArrayMesh:
 	return m
 
 
-## Props de rua com modelo 3D de verdade (Poly Haven, CC0): caminho, altura
-## alvo (m) e quantas cópias agrupar (sacos de lixo vêm em monte).
-## nome -> [arquivo, altura alvo (m), cópias, clareamento do albedo, rugosidade
-## fixa (opcional)]. O saco
-## de lixo do Poly Haven tem albedo quase 0 (plástico preto de estúdio): sem
-## reflexos de ambiente no GL3 ele virava uma pedra preta, então clareia um pouco;
-## e o mapa de rugosidade dele (~0,18) cintilava em pontinhos brancos à noite.
+## Props com modelo 3D escaneado (Poly Haven, CC0; tools/fetch_models.py).
+## Campos: path; h = altura alvo em m (0 = escala real do escaneamento);
+## copies = cópias agrupadas (monte); bright = clareia o albedo; rough = rugosidade
+## fixa; only = só os nós cujo nome contém o texto (arquivos com 2 variantes);
+## yaw = giro em graus para a frente ficar em -Z; lay = deita (pneu no chão);
+## fit = tamanho exato (escala por eixo).
+## O saco de lixo tem albedo de estúdio quase 0 (sem reflexo de ambiente no GL3
+## virava pedra preta) e rugosidade ~0,18 que cintilava em pontos à noite.
+const M := "res://assets/models/props/"
 const MODELS := {
-	"barrel": ["res://assets/models/props/barrel/barrel.gltf", 0.92, 1, 1.0],
-	"trash_bags": ["res://assets/models/props/trash_bag/trash_bag.gltf", 0.52, 3, 2.3, 0.42],
+	"barrel": {"path": M + "barrel/barrel.gltf", "h": 0.92},
+	"trash_bags": {"path": M + "trash_bag/trash_bag.gltf", "h": 0.52, "copies": 3, "bright": 2.3, "rough": 0.42},
+	"sofa": {"path": M + "sofa/sofa.gltf", "yaw": 180.0},
+	"armchair": {"path": M + "armchair/armchair.gltf", "yaw": 180.0},
+	"chair": {"path": M + "chair/chair.gltf"},
+	"table": {"path": M + "table/table.gltf", "h": 0.78},
+	"table_small": {"path": M + "side_table/side_table.gltf", "h": 0.76},
+	"bookshelf": {"path": M + "bookshelf/bookshelf.gltf", "h": 1.95},
+	"shelf": {"path": M + "steel_shelves/steel_shelves.gltf", "yaw": 180.0, "h": 1.95},
+	"plant_pot": {"path": M + "potted_plant/potted_plant.gltf"},
+	"trash_bin": {"path": M + "trash_can/trash_can.gltf", "only": "rust"},
+	"hydrant": {"path": M + "hydrant/hydrant.gltf", "only": "aged"},
+	# barreiras ficam em fileira a cada 2 m: estica no comprimento para não deixar vão
+	"concrete_barrier": {"path": M + "concrete_barrier/concrete_barrier.gltf", "fit": Vector3(2.0, 0.95, 0.6)},
+	"cardboard": {"path": M + "cardboard_box/cardboard_box.gltf", "h": 0.42, "copies": 3},
+	"tire_single": {"path": M + "tyre/tyre.gltf", "lay": true},
 }
 
 
+static func has_model(name: String) -> bool:
+	return MODELS.has(name)
+
+
 static func _model_mesh(name: String) -> ArrayMesh:
-	var spec: Array = MODELS[name]
-	if not ResourceLoader.exists(spec[0]):
+	var spec: Dictionary = MODELS[name]
+	var path := str(spec["path"])
+	if not ResourceLoader.exists(path):
 		return null
-	var ps := load(spec[0]) as PackedScene
+	var ps := load(path) as PackedScene
 	if ps == null:
 		return null
 	var root := ps.instantiate()
+	var only := str(spec.get("only", ""))
 	var parts: Array = []
 	var stack: Array = [[root, Transform3D.IDENTITY]]
 	while not stack.is_empty():
@@ -108,51 +149,71 @@ static func _model_mesh(name: String) -> ArrayMesh:
 		var xf: Transform3D = e[1]
 		if n is Node3D:
 			xf = xf * (n as Node3D).transform
-		if n is MeshInstance3D and (n as MeshInstance3D).mesh:
+		if n is MeshInstance3D and (n as MeshInstance3D).mesh and (only == "" or n.name.contains(only)):
 			parts.append([n, xf])
 		for c in n.get_children():
 			stack.append([c, xf])
 	if parts.is_empty():
 		root.free()
 		return null
-	# caixa do modelo para pôr a base no chão, centrar e escalar à altura alvo
+	# orientação: deitar (pneu) e girar para a frente ficar em -Z
+	var pre := Basis(Vector3.UP, deg_to_rad(float(spec.get("yaw", 0.0))))
+	if bool(spec.get("lay", false)):
+		pre = pre * Basis(Vector3.RIGHT, PI * 0.5)
+	# caixa do modelo para pôr a base no chão, centrar e (se pedido) escalar à altura alvo
 	var box := AABB()
 	var first := true
 	for pr in parts:
-		var a: AABB = (pr[1] as Transform3D) * ((pr[0] as MeshInstance3D).mesh.get_aabb())
+		var a: AABB = Transform3D(pre, Vector3.ZERO) * (pr[1] as Transform3D) * ((pr[0] as MeshInstance3D).mesh.get_aabb())
 		box = a if first else box.merge(a)
 		first = false
-	var k := float(spec[1]) / maxf(box.size.y, 0.001)
+	var k := float(spec.get("h", 0.0)) / maxf(box.size.y, 0.001) if float(spec.get("h", 0.0)) > 0.0 else 1.0
+	var kv := Vector3.ONE * k
+	if spec.has("fit"):
+		var f: Vector3 = spec["fit"]
+		kv = Vector3(f.x / maxf(box.size.x, 0.001), f.y / maxf(box.size.y, 0.001), f.z / maxf(box.size.z, 0.001))
 	var center := box.get_center()
-	var norm := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-center.x * k, -box.position.y * k, -center.z * k))
+	var norm := Transform3D(Basis.IDENTITY.scaled(kv), Vector3(-center.x * kv.x, -box.position.y * kv.y, -center.z * kv.z)) * Transform3D(pre, Vector3.ZERO)
 	var copies: Array = [Transform3D.IDENTITY]
-	if int(spec[2]) > 1:
+	if int(spec.get("copies", 1)) > 1:
 		copies = [Transform3D(Basis(Vector3.UP, 0.4), Vector3(-0.32, 0, 0.05)), Transform3D(Basis(Vector3.UP, 2.1).scaled(Vector3.ONE * 0.9), Vector3(0.3, 0, -0.12)),
 			Transform3D(Basis(Vector3.UP, 4.0).scaled(Vector3.ONE * 0.8), Vector3(0.05, 0, 0.38))]
-	var out := ArrayMesh.new()
+	# malha com níveis de detalhe (LOD) gerados aqui: o escaneamento tem dezenas de
+	# milhares de triângulos e de longe uma fração basta
+	var im := ImporterMesh.new()
 	for pr in parts:
 		var mi: MeshInstance3D = pr[0]
 		for si in mi.mesh.get_surface_count():
 			var st := SurfaceTool.new()
 			for cxf in copies:
 				st.append_from(mi.mesh, si, (cxf as Transform3D) * norm * (pr[1] as Transform3D))
-			st.commit(out)
 			var mat: Material = mi.get_active_material(si)
-			if mat is BaseMaterial3D and (float(spec[3]) != 1.0 or spec.size() > 4):
+			if mat is BaseMaterial3D and (spec.has("bright") or spec.has("rough")):
 				var bm := mat.duplicate() as BaseMaterial3D
-				bm.albedo_color = Color(float(spec[3]), float(spec[3]), float(spec[3]))
-				if spec.size() > 4:
+				var br := float(spec.get("bright", 1.0))
+				bm.albedo_color = Color(br, br, br)
+				if spec.has("rough"):
 					bm.roughness_texture = null
-					bm.roughness = float(spec[4])
+					bm.roughness = float(spec["rough"])
 					bm.normal_scale = 0.7
 				mat = bm
-			out.surface_set_material(out.get_surface_count() - 1, mat)
+			im.add_surface(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays(), [], {}, mat)
 	root.free()
-	return out
+	im.generate_lods(25.0, 60.0, [])
+	return im.get_mesh()
 
 
 ## Tamanho aproximado (para colisão). Vector3.ZERO = sem colisão.
 static func collision_size(name: String) -> Vector3:
+	var proc := _collision_size_proc(name)
+	# modelo escaneado: a caixa real (sem parede invisível sobrando ao lado)
+	if proc != Vector3.ZERO and _model_aabb.has(name):
+		var bb: AABB = _model_aabb[name]
+		return bb.size
+	return proc
+
+
+static func _collision_size_proc(name: String) -> Vector3:
 	match name:
 		"bed": return Vector3(1.5, 0.6, 2.05)
 		"bed_single", "hospital_bed": return Vector3(0.95, 0.6, 2.05)
