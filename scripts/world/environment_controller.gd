@@ -136,7 +136,7 @@ func _apply_forward_plus() -> void:
 	env.sdfgi_enabled = fp and gi >= 1
 	env.sdfgi_use_occlusion = true
 	env.sdfgi_read_sky_light = true
-	env.sdfgi_bounce_feedback = 0.45
+	env.sdfgi_bounce_feedback = 0.6
 	env.sdfgi_cascades = 6 if gi >= 2 else 4
 	env.sdfgi_min_cell_size = 0.2 if gi >= 2 else 0.3
 	env.sdfgi_y_scale = Environment.SDFGI_Y_SCALE_75_PERCENT
@@ -317,8 +317,10 @@ func _update(delta: float) -> void:
 	# neblina volumétrica (Forward+): ar levemente denso lá fora (feixes de sol,
 	# faróis), bruma na chuva/neblina e poeira em suspensão dentro dos prédios
 	if env.sdfgi_enabled:
-		# de noite a GI rebate pouca luz (lua, lanterna); de dia, plena
-		env.sdfgi_energy = lerpf(0.45, 1.0, dl) * float(Settings.graphics.get("gi_energy", 1.0))
+		# o SDFGI substitui a luz ambiente: com a energia padrão a sombra das ruas e
+		# da mata ficava quase preta (medido com a GI convergida). De dia 2,4; de
+		# noite pouca luz rebatida (lua, lanterna)
+		env.sdfgi_energy = lerpf(0.5, 2.4, dl) * float(Settings.graphics.get("gi_energy", 1.0))
 	if env.volumetric_fog_enabled:
 		env.volumetric_fog_ambient_inject = lerpf(0.05, 0.25, dl)
 		# pôr/nascer do sol: o espalhamento para frente vira uma névoa laranja densa

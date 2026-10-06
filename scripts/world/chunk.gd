@@ -196,10 +196,14 @@ func _step_trees(d: Dictionary) -> void:
 			var near := _multimesh(Vegetation.mesh(kind, 0), list, [], false)
 			near.visibility_range_end = near_end
 			near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			# fora da GI (SDFGI): os cartões de folha viram blocos sólidos no campo de
+			# distância e a copa "fecha" a mata, bloqueando a luz do céu
+			near.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 		var far := _multimesh(Vegetation.mesh(kind, 1), list, [], false)
 		far.visibility_range_begin = near_end if lod <= 1 else 0.0
 		far.visibility_range_end = far_end
 		far.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		far.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	if lod <= 1 and Settings.get_particle_multiplier() > 0.0:
 		_falling_leaves(trees)
 
@@ -394,6 +398,7 @@ func _step_grass(d: Dictionary) -> void:
 	var mmi := _multimesh(Vegetation.grass_mesh(), xfs, cols, true)
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.visibility_range_end = Settings.get_grass_distance() + 6.0
+	mmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	mmi.name = "Grass"
 
 
