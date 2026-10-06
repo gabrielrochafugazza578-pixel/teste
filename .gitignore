@@ -23,3 +23,4 @@ Thumbs.db
 
 # saída intermediária de tools/make_humans.py (reproduzível)
 /assets/characters/src/
+__pycache__/
