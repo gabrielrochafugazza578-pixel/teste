@@ -439,7 +439,8 @@ func water_material() -> ShaderMaterial:
 	if _mats.has("water"):
 		return _mats["water"]
 	var m := ShaderMaterial.new()
-	m.shader = shader("res://shaders/water.gdshader")
+	# Forward+: água opaca (recebe SSR) com margem pela profundidade
+	m.shader = shader("res://shaders/water_fp.gdshader" if Settings.is_forward_plus() else "res://shaders/water.gdshader")
 	m.render_priority = -1
 	_mats["water"] = _track(m)
 	return m
