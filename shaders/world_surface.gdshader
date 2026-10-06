@@ -213,6 +213,15 @@ void fragment() {
 		float frame = mix(max(frx * fry - inx * iny, 0.0), fcov, far_fade);
 		float rnd = h21(cell + v_seed * 131.0);
 		float rnd2 = h21(cell.yx + v_seed * 71.0 + 3.0);
+		// escorrido sob o peitoril: a água que desce da janela suja a parede abaixo
+		// em filetes (mais forte junto ao peitoril, some antes da laje)
+		if (exterior && !shop && an.y < 0.3) {
+			float xin = smoothstep(wmin.x - 0.03, wmin.x + 0.06, f.x) * smoothstep(wmax.x + 0.03, wmax.x - 0.06, f.x);
+			float under = step(f.y, wmin.y - 0.01) * smoothstep(0.0, wmin.y, f.y);
+			float colm = texture(noise_tex, vec2(UV.x * 1.7 + v_seed * 7.0, UV.y * 0.05)).g;
+			float st = xin * under * smoothstep(0.32, 0.72, colm) * (1.0 - far_fade);
+			alb = mix(alb, alb * vec3(0.52, 0.5, 0.46), st * clamp(world_decay * grime, 0.0, 1.0) * 0.75);
+		}
 		if (win + frame > 0.001) {
 			// cômodo atrás do vidro ("interior mapping"): o raio de visão entra numa caixa
 			// (piso, teto, paredes, fundo) e o cômodo ganha profundidade conforme o ângulo

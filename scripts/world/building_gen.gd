@@ -149,6 +149,8 @@ static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open
 			_roof_clutter(b, detail, top, seedf, relief >= 2)
 		if relief > 0:
 			_relief(b, detail, shell, top, seedf, relief >= 2)
+		if relief >= 2:
+			_facade_kit(b, detail, shell, top, seedf)
 	# colisão
 	if lod == 0:
 		if open_door:
@@ -601,6 +603,198 @@ static func _relief(b: Dictionary, d: MeshBuf, col_out: MeshBuf, top: float, see
 			for k in range(1, ncell):
 				var m := a + dir * (rem * 0.5 + k * cw)
 				d.box(Vector3(m.x, y0 + hh * 0.5, m.y) + n * 0.26, _along(n, 0.2, hh, 0.52), plain, seedf, light)
+
+
+## Kit de fachada com geometria de verdade (antes era só o desenho do shader):
+## caixilho de alumínio com montante em cada janela, grades de ferro no térreo
+## das casas e prédios baixos, janelas fechadas com tábuas (abandono), portas de
+## aço de enrolar nas lojas (abertas, a meio ou fechadas), calhas e condutores
+## de água nos cantos, escada de incêndio nos prédios de tijolo e antenas
+## parabólicas. Só no LOD 0; contagem limitada por prédio.
+static func _facade_kit(b: Dictionary, d: MeshBuf, col_out: MeshBuf, top: float, seedf: float) -> void:
+	var t: String = b["type"]
+	var r: Rect2 = b["rect"]
+	var base: float = b["base"]
+	var floors := int(b["floors"])
+	var wm := int(b["wmode"])
+	var layer := int(b["layer"])
+	var facing := int(b["facing"])
+	var rng := Util.rng(int(b["seed"]) * 29 + 3)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var CON := Assets.uv2_code(Assets.L_CONCRETE)
+	var fh := floor_h(b)
+	var ch := cell_h(wm, fh)
+	var di := door_info(b)
+	var door_c: Vector3 = di[0]
+	var door_w: float = di[2]
+	var house := t in ["house", "farmhouse", "cabin"]
+	var sides := [
+		[Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.position.y), Vector3.FORWARD, 0],
+		[Vector2(r.end.x, r.end.y), Vector2(r.end.x, r.position.y), Vector3.RIGHT, 1],
+		[Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.end.y), Vector3.BACK, 2],
+		[Vector2(r.position.x, r.position.y), Vector2(r.position.x, r.end.y), Vector3.LEFT, 3],
+	]
+	# cor do caixilho do prédio: alumínio natural, branco, preto ou madeira
+	var frame_cols := [Color(0.62, 0.63, 0.64), Color(0.82, 0.82, 0.8), Color(0.13, 0.13, 0.14), Color(0.36, 0.25, 0.17)]
+	var fcol: Color = frame_cols[rng.randi() % frame_cols.size()]
+	var fcode := WOOD if fcol.r < 0.4 and fcol.g < 0.3 else MET
+	var bars_col := Color(0.16, 0.16, 0.17) if rng.randf() < 0.6 else Color(0.85, 0.85, 0.83)
+	var budget := 150
+	if wm == Assets.WM_RES or wm == Assets.WM_OFFICE or wm == Assets.WM_SHOP:
+		var cw := 3.1 if wm == Assets.WM_RES else (2.4 if wm == Assets.WM_OFFICE else 3.6)
+		var wx := Vector2(0.28, 0.72) if wm == Assets.WM_RES else Vector2(0.1, 0.9)
+		var wy := Vector2(0.3, 0.84) if wm == Assets.WM_RES else Vector2(0.24, 0.86)
+		var max_f := mini(floors, 7)
+		for sd in sides:
+			var a: Vector2 = sd[0]
+			var e: Vector2 = sd[1]
+			var n: Vector3 = sd[2]
+			var si: int = sd[3]
+			# fachada da frente e dos fundos completas; laterais só nos baixos
+			if si != facing and si != (facing + 2) % 4 and floors > 3:
+				continue
+			var len := a.distance_to(e)
+			var dir := (e - a) / maxf(len, 0.001)
+			var rem := fposmod(len, cw)
+			var back_face := _back_face(n)
+			for k in int(len / cw):
+				var u := rem * 0.5 + (k + 0.5) * cw
+				var m := a + dir * u
+				var on_door := si == facing and absf(u - a.distance_to(Vector2(door_c.x, door_c.z))) < door_w * 0.5 + cw * 0.5
+				for f in max_f:
+					if budget <= 0:
+						break
+					var shop_floor := wm == Assets.WM_SHOP and f == 0
+					if on_door and f == 0:
+						continue
+					var x0 := (wx.x if not shop_floor else 0.06) * cw
+					var x1 := (wx.y if not shop_floor else 0.94) * cw
+					var y0 := base + f * ch + (wy.x if not shop_floor else 0.08) * ch
+					var y1 := base + f * ch + (wy.y if not shop_floor else 0.78) * ch
+					var ww := x1 - x0
+					var wh := y1 - y0
+					var c0 := Vector3(m.x, (y0 + y1) * 0.5, m.y)
+					budget -= 1
+					if shop_floor:
+						# porta de aço de enrolar: caixa no alto + lâmina abaixada até h
+						var state := rng.randf()
+						d.box(c0 + Vector3(0, wh * 0.5 + 0.14, 0) + n * 0.14, _along(n, ww + 0.1, 0.28, 0.26), MET, seedf, Color(0.42, 0.43, 0.42), back_face)
+						if state < 0.7:
+							var drop := wh if state < 0.35 else wh * rng.randf_range(0.25, 0.7)
+							var sc := Color.from_hsv([0.0, 0.33, 0.58, 0.08][rng.randi() % 4], rng.randf_range(0.05, 0.3), rng.randf_range(0.35, 0.6))
+							d.box(c0 + Vector3(0, wh * 0.5 - drop * 0.5, 0) + n * 0.07, _along(n, ww, drop, 0.04), MET, seedf, sc, back_face)
+							# guias laterais
+							for sx: float in [-1.0, 1.0]:
+								d.box(c0 + Vector3(dir.x, 0, dir.y) * (ww * 0.5 + 0.03) * sx + n * 0.06, _along(n, 0.06, wh, 0.1), MET, seedf, Color(0.35, 0.36, 0.36), back_face)
+						continue
+					# caixilho: dois batentes, verga, montante central
+					for sx: float in [-1.0, 1.0]:
+						d.box(c0 + Vector3(dir.x, 0, dir.y) * ((ww * 0.5 + 0.03) * sx) + n * 0.035, _along(n, 0.06, wh + 0.06, 0.07), fcode, seedf, fcol, back_face)
+					d.box(c0 + Vector3(0, wh * 0.5 + 0.03, 0) + n * 0.035, _along(n, ww + 0.12, 0.06, 0.07), fcode, seedf, fcol, back_face)
+					d.box(c0 + n * 0.02, _along(n, 0.045, wh, 0.04), fcode, seedf, fcol, back_face)
+					if wm == Assets.WM_RES:
+						d.box(c0 + Vector3(0, wh * 0.18, 0) + n * 0.02, _along(n, ww, 0.04, 0.035), fcode, seedf, fcol, back_face)
+					# abandono: tábuas pregadas por cima de algumas janelas
+					var boarded := rng.randf() < (0.16 if f <= 1 else 0.05)
+					if boarded:
+						var nb := rng.randi_range(3, 5)
+						for bi in nb:
+							var by := c0.y - wh * 0.42 + (wh * 0.84) * float(bi) / float(nb - 1)
+							var tilt := rng.randf_range(-0.12, 0.12)
+							var bxf := Transform3D(Basis(n, tilt) * _wall_basis(n), Vector3(m.x, by, m.y) + n * 0.09)
+							d.box_xf(bxf, Vector3(ww + 0.3, 0.17, 0.025), WOOD, seedf, Color(0.5, 0.4, 0.3).darkened(rng.randf() * 0.3))
+					# grades de ferro no térreo (casas e prédios baixos)
+					elif f == 0 and (house or floors <= 4) and rng.randf() < 0.75:
+						var nbar := int(ww / 0.13)
+						for bi in nbar + 1:
+							var bu := -ww * 0.5 + ww * float(bi) / float(nbar)
+							d.box(c0 + Vector3(dir.x, 0, dir.y) * bu + n * 0.1, _along(n, 0.022, wh + 0.1, 0.022), MET, seedf, bars_col, 63)
+						for hy: float in [-0.46, 0.0, 0.46]:
+							d.box(c0 + Vector3(0, wh * hy, 0) + n * 0.1, _along(n, ww + 0.04, 0.03, 0.03), MET, seedf, bars_col, 63)
+						# chumbadores até a parede
+						for sx: float in [-1.0, 1.0]:
+							d.box(c0 + Vector3(dir.x, 0, dir.y) * ((ww * 0.5) * sx) + n * 0.055, _along(n, 0.03, wh, 0.11), MET, seedf, bars_col, back_face)
+	# calhas e condutores de água nos cantos dos fundos
+	if house or t in ["apartment", "commercial", "school", "clinic", "police", "market"]:
+		var back := (facing + 2) % 4
+		var bsd: Array = sides[back]
+		var ba: Vector2 = bsd[0]
+		var be: Vector2 = bsd[1]
+		var bn: Vector3 = bsd[2]
+		var pc := Color(0.75, 0.75, 0.73) if rng.randf() < 0.5 else Color(0.3, 0.3, 0.3)
+		for corner: Vector2 in [ba, be]:
+			var inward := ((be if corner == ba else ba) - corner).normalized()
+			var p := Vector3(corner.x + inward.x * 0.25, 0, corner.y + inward.y * 0.25) + bn * 0.09
+			d.tube(Vector3(p.x, base + 0.05, p.z), Vector3(p.x, top - 0.1, p.z), 0.05, 0.05, 6, MET, seedf, pc, false)
+			d.tube(Vector3(p.x, base + 0.05, p.z), Vector3(p.x, base + 0.05, p.z) + bn * 0.25, 0.05, 0.05, 6, MET, seedf, pc, true)
+		if str(b["roof"]) == "gable":
+			var m := (ba + be) * 0.5
+			d.box(Vector3(m.x, top - 0.02, m.y) + bn * 0.55, _along(bn, ba.distance_to(be) + 0.9, 0.12, 0.14), MET, seedf, pc)
+	# escada de incêndio (prédios de tijolo de 3+ andares)
+	if layer == Assets.L_BRICK and floors >= 3 and t in ["apartment", "commercial", "tower"] and rng.randf() < 0.7:
+		var si := (facing + 1 + (rng.randi() % 2) * 2) % 4
+		var sd: Array = sides[si]
+		var a: Vector2 = sd[0]
+		var e: Vector2 = sd[1]
+		var n: Vector3 = sd[2]
+		var len := a.distance_to(e)
+		if len > 8.0:
+			var dir := (e - a) / len
+			var u := len * rng.randf_range(0.3, 0.7)
+			var m := a + dir * u
+			var dk := Color(0.12, 0.12, 0.12)
+			var wl := 3.4
+			for f in range(1, mini(floors, 8)):
+				var y := base + f * ch - 0.05
+				var c0 := Vector3(m.x, y, m.y) + n * 0.6
+				# patamar de grade, guarda-corpo, escada até o de baixo
+				d.box(c0, _along(n, wl, 0.05, 1.2), MET, seedf, dk)
+				d.box(c0 + n * 0.58 + Vector3(0, 0.5, 0), _along(n, wl, 0.04, 0.04), MET, seedf, dk)
+				d.box(c0 + n * 0.58 + Vector3(0, 0.25, 0), _along(n, wl, 0.03, 0.03), MET, seedf, dk)
+				for sx: float in [-1.0, 1.0]:
+					d.box(c0 + Vector3(dir.x, 0, dir.y) * (wl * 0.5 * sx) + Vector3(0, 0.25, 0) + n * 0.3, _along(n, 0.04, 0.5, 1.2), MET, seedf, dk)
+				var flip := 1.0 if f % 2 == 0 else -1.0
+				var s0 := c0 + Vector3(dir.x, 0, dir.y) * (wl * 0.25 * flip) + n * 0.15
+				var s1 := s0 + Vector3(dir.x, 0, dir.y) * (wl * 0.45 * -flip) + Vector3(0, -ch + 0.05, 0)
+				if f > 1:
+					d.tube(s0, s1, 0.03, 0.03, 4, MET, seedf, dk, false)
+					d.tube(s0 + n * 0.55, s1 + n * 0.55, 0.03, 0.03, 4, MET, seedf, dk, false)
+					var steps := 9
+					for st in steps:
+						var q := s0.lerp(s1, (st + 0.5) / steps) + n * 0.27
+						d.box(q, _along(n, 0.26, 0.03, 0.55), MET, seedf, dk)
+				else:
+					# escada de marinheiro recolhida
+					d.box(c0 + Vector3(0, -1.0, 0) + n * 0.4, _along(n, 0.5, 1.8, 0.04), MET, seedf, dk)
+	# antenas parabólicas (casas e prédios residenciais)
+	if (house or t == "apartment") and rng.randf() < 0.55:
+		var sd: Array = sides[rng.randi() % 4]
+		var a: Vector2 = sd[0]
+		var e: Vector2 = sd[1]
+		var n: Vector3 = sd[2]
+		var p := a.lerp(e, rng.randf_range(0.2, 0.8))
+		var y := top - 0.6 if house else base + rng.randi_range(1, maxi(1, floors - 1)) * ch + 1.9
+		var c0 := Vector3(p.x, y, p.y) + n * 0.35
+		d.tube(c0 - n * 0.3, c0, 0.02, 0.02, 4, MET, seedf, Color(0.5, 0.5, 0.5), false)
+		var dish := Transform3D(Basis.looking_at(-(n + Vector3(0, 0.45, 0)).normalized(), Vector3.UP) * Basis(Vector3.RIGHT, PI * 0.5), c0)
+		d.cylinder(dish, 0.04, 0.12, 12, MET, seedf, Color(0.85, 0.85, 0.84), true, 0.32)
+
+
+static func _back_face(n: Vector3) -> int:
+	if n.z < -0.5:
+		return 63 & ~16
+	if n.z > 0.5:
+		return 63 & ~32
+	if n.x > 0.5:
+		return 63 & ~2
+	return 63 & ~1
+
+
+## Base com X ao longo da parede, Z para fora (normal n).
+static func _wall_basis(n: Vector3) -> Basis:
+	var x := Vector3(-n.z, 0, n.x)
+	return Basis(x, Vector3.UP, n)
 
 
 ## Tamanho de caixa encostada numa fachada de normal `n`: largura ao longo da
