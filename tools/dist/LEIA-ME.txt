@@ -171,6 +171,11 @@ NOVIDADES DESTA VERSÃO
   - Janelas com cômodo de verdade atrás do vidro (piso, teto e paredes com
     profundidade que muda com o ângulo, iluminados pela luz do dia).
   - Carros com verniz (brilho duplo da pintura) e céu sem emendas.
+  - Roupas dos personagens com tecidos fotográficos (malha mescla, brim e
+    couro escaneados), na escala real de cada tecido.
+  - Mata, serra e beira de rio com pedras, pedras com musgo, tocos, troncos
+    caídos e samambaias escaneados (com colisão); na cidade, engradados
+    plásticos largados e galões de combustível perto de carros abandonados.
   - Bandeiras do município tremulando ao vento (desbotadas e esfiapadas) nos
     mastros em frente à delegacia, hospital, escola, posto de saúde e
     terminal; com pouco vento elas caem, na tempestade batem forte.

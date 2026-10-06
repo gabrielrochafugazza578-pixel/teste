@@ -33,6 +33,13 @@ MODELS = {
     "old_tyre": "tyre",
     "SchoolChair_01": "school_chair",
     "WetFloorSign_01": "wet_floor_sign",
+    "rock_09": "rock",
+    "rock_moss_set_01": "rock_moss",
+    "tree_stump_01": "stump",
+    "dead_tree_trunk": "fallen_log",
+    "fern_02": "fern",
+    "plastic_crate_02": "plastic_crate",
+    "metal_jerrycan": "jerrycan",
 }
 
 

@@ -45,6 +45,8 @@ static func build(layout: WorldLayout, c: Vector2i, lod: int, opts: Dictionary) 
 		_street_props(layout, c, props, trees, lamps, labels, prop_colliders, opts)
 		_flags(layout, c, flags, prop_colliders)
 	_nature(layout, c, trees, lod, opts)
+	if lod == 0:
+		_nature_props(layout, c, props, prop_colliders)
 	d["props"] = props
 	d["trees"] = trees
 	d["lamps"] = lamps
@@ -671,6 +673,56 @@ static func _nature(layout: WorldLayout, c: Vector2i, trees: Dictionary, lod: in
 			_add_tree(trees, kind, Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(p.x, h - 0.1, p.y)))
 
 
+## Chão da mata e da serra: pedras, pedras com musgo, tocos, troncos caídos e
+## samambaias escaneados (Poly Haven), só no anel de perto (LOD 0).
+const NATURE_MIX := {
+	"floresta": [["fern", 14], ["rock_moss_a", 2], ["rock_moss_b", 2], ["stump", 2], ["fallen_log", 1], ["rock", 1]],
+	"serra": [["rock", 4], ["rock_moss_a", 2], ["rock_moss_b", 1], ["fern", 4], ["stump", 1]],
+	"rio": [["rock_moss_a", 2], ["rock", 2], ["fern", 5]],
+	"rural": [["rock", 1], ["stump", 1], ["fern", 2]],
+	"periferia": [["rock", 1], ["fern", 1]],
+}
+
+
+static func _nature_props(layout: WorldLayout, c: Vector2i, props: Dictionary, colliders: Array) -> void:
+	var x0 := c.x * WorldLayout.CHUNK
+	var z0 := c.y * WorldLayout.CHUNK
+	if WorldLayout.URBAN.grow(-40.0).encloses(Rect2(x0, z0, 64, 64)):
+		return
+	var dist := layout.district_at(x0 + 32.0, z0 + 32.0)
+	if not NATURE_MIX.has(dist):
+		return
+	var r := Util.rng(Util.hash2(c.x, c.y, 4441))
+	var roads: Array = layout.chunk_flatten.get(c, [])
+	for e in NATURE_MIX[dist]:
+		var pn: String = e[0]
+		if not PropLib.uses_model(pn):
+			continue
+		for i in int(e[1]):
+			var p := Vector2(x0 + r.randf() * 64.0, z0 + r.randf() * 64.0)
+			if WorldLayout.URBAN.has_point(p) or layout.is_water(p.x, p.y):
+				continue
+			var bad := false
+			for si in roads:
+				var seg: Dictionary = layout.roads[si]
+				if Util.dist_point_segment_2d(p, seg["a"], seg["b"]) < float(seg["hw"]) + 3.0:
+					bad = true
+					break
+			if bad or layout.building_at(Vector3(p.x, 0, p.y), 4.0) >= 0:
+				continue
+			var sc := r.randf_range(0.7, 1.3) if pn != "fern" else r.randf_range(0.8, 1.4)
+			# pedras e tocos afundam um pouco no chão (sem ficar "pousados")
+			var sink := 0.12 * sc if pn.begins_with("rock") or pn == "stump" else 0.03
+			var h := layout.ground_height(p.x, p.y) - sink
+			var rot := Basis(Vector3.UP, r.randf() * TAU)
+			var xf := Transform3D(rot.scaled(Vector3.ONE * sc), Vector3(p.x, h, p.y))
+			_add_prop(props, pn, xf)
+			# colisão à mão: caixa já escalada (a física não aceita forma escalada)
+			var cs := PropLib.collision_size(pn) * sc
+			if pn != "fern" and cs != Vector3.ZERO:
+				colliders.append([Transform3D(rot, xf.origin + Vector3(0, cs.y * 0.5, 0)), cs])
+
+
 static func _grass(layout: WorldLayout, c: Vector2i, opts: Dictionary) -> Array:
 	var out: Array = []
 	var dens := float(opts.get("grass_density", 1.0))
@@ -792,6 +844,15 @@ static func _street_clutter(layout: WorldLayout, c: Vector2i, rect: Rect2, phase
 					_add_prop(props, "tire_single", Transform3D(Basis(Vector3.UP, r.randf() * TAU), Vector3(p.x, y, p.y)))
 				elif v < (0.485 if post else 0.5):
 					_add_prop(props, "blood_smear", Transform3D(Basis(Vector3.UP, yaw_road + r.randf_range(-0.6, 0.6)).scaled(Vector3.ONE * r.randf_range(0.8, 1.3)), Vector3(p.x, y, p.y)))
+				elif v < 0.53 and urban:
+					# engradado plástico largado (às vezes de lado)
+					var cb := Basis(Vector3.UP, r.randf() * TAU)
+					var cy := y
+					if r.randf() < 0.4:
+						# de lado: girar em X põe metade da profundidade abaixo do chão
+						cb = cb * Basis(Vector3.RIGHT, PI * 0.5)
+						cy += PropLib.model_aabb("plastic_crate").size.z * 0.5
+					_add_prop(props, "plastic_crate", Transform3D(cb, Vector3(p.x, cy, p.y)))
 			t += r.randf_range(10.0, 18.0)
 	if not pre:
 		# em volta de carros abandonados/queimados: cacos, sangue ou um corpo coberto
@@ -804,7 +865,7 @@ static func _street_clutter(layout: WorldLayout, c: Vector2i, rect: Rect2, phase
 			var left := Vector3(cos(yaw), 0, -sin(yaw))
 			var dp := cp + left * (1.6 if r.randf() < 0.5 else -1.6) + Vector3(-sin(yaw), 0, -cos(yaw)) * r.randf_range(-0.6, 0.4)
 			var pick := r.randf()
-			var pn := "litter" if pick < 0.45 else ("blood_pool_2" if pick < 0.7 else ("covered_body" if pick < 0.82 and phase == GameState.Phase.SILENCE else ("remains" if pick < 0.9 else "traffic_cone")))
+			var pn := "litter" if pick < 0.45 else ("blood_pool_2" if pick < 0.7 else ("covered_body" if pick < 0.82 and phase == GameState.Phase.SILENCE else ("remains" if pick < 0.9 else ("jerrycan" if pick < 0.96 else "traffic_cone"))))
 			_add_prop(props, pn, Transform3D(Basis(Vector3.UP, yaw + r.randf_range(-0.5, 0.5)), dp))
 	# --- calçadas --------------------------------------------------------------------
 	for bid in layout.chunk_blocks.get(c, []):

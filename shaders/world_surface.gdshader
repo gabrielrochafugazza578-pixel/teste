@@ -126,7 +126,8 @@ void fragment() {
 	// grama: foto amarronzada (chão entre as folhas) puxada para verde de gramado
 	if (li == 7) {
 		float glum = dot(base_rgb, vec3(0.299, 0.587, 0.114));
-		base_rgb = mix(base_rgb, vec3(0.115, 0.17, 0.035) * (glum / 0.09), 0.75);
+		float gavg = dot(textureLod(tex_a, vec3(0.5, 0.5, v_layer), 11.0).rgb, vec3(0.299, 0.587, 0.114));
+		base_rgb = mix(base_rgb, vec3(0.1, 0.15, 0.033) * (glum / max(gavg, 0.01)), 0.78);
 	}
 	// variação de tom em grande escala (manchas, sol, sujeira acumulada)
 	base_rgb *= 0.9 + nz.r * 0.2;

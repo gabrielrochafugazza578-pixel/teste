@@ -124,6 +124,15 @@ const MODELS := {
 	"concrete_barrier": {"path": M + "concrete_barrier/concrete_barrier.gltf", "fit": Vector3(2.0, 0.95, 0.6)},
 	"cardboard": {"path": M + "cardboard_box/cardboard_box.gltf", "h": 0.42, "copies": 3},
 	"tire_single": {"path": M + "tyre/tyre.gltf", "lay": true},
+	# natureza (mata, serra, beira de rio) e lixo de rua
+	"rock": {"path": M + "rock/rock.gltf"},
+	"rock_moss_a": {"path": M + "rock_moss/rock_moss.gltf", "only": "rock01"},
+	"rock_moss_b": {"path": M + "rock_moss/rock_moss.gltf", "only": "rock04"},
+	"stump": {"path": M + "stump/stump.gltf"},
+	"fallen_log": {"path": M + "fallen_log/fallen_log.gltf"},
+	"fern": {"path": M + "fern/fern.gltf", "only": "fern_02_a"},
+	"plastic_crate": {"path": M + "plastic_crate/plastic_crate.gltf"},
+	"jerrycan": {"path": M + "jerrycan/jerrycan.gltf"},
 }
 
 
@@ -215,6 +224,8 @@ static func collision_size(name: String) -> Vector3:
 
 static func _collision_size_proc(name: String) -> Vector3:
 	match name:
+		# natureza: o tamanho real vem do modelo (collision_size); aqui só "tem colisão"
+		"rock", "rock_moss_a", "rock_moss_b", "stump", "fallen_log": return Vector3(1, 1, 1)
 		"bed": return Vector3(1.5, 0.6, 2.05)
 		"bed_single", "hospital_bed": return Vector3(0.95, 0.6, 2.05)
 		"bunk": return Vector3(0.95, 1.7, 2.05)

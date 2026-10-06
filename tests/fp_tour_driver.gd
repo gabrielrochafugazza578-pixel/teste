@@ -5,6 +5,18 @@ extends "res://tests/gallery_driver.gd"
 ##      --no-audio --out=/tmp/tour [--preset=4] [--gfx=gi_quality:0] [--so=rua,interior]
 
 
+## Antes de cada foto espera quadros de verdade (o SDFGI converge em ~15-20
+## quadros; no Vulkan por software são vários segundos).
+func _shot(name: String) -> void:
+	var nf := 40
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--quadros="):
+			nf = int(a.substr(10))
+	for i in nf:
+		await get_tree().process_frame
+	await super._shot(name)
+
+
 func _quer(nome: String) -> bool:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--so="):

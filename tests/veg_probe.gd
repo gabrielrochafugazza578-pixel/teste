@@ -76,7 +76,7 @@ func _ready() -> void:
 			add_child(mi)
 	if "--moveis" in OS.get_cmdline_user_args():
 		PropLib.warm()
-		var ms := ["sofa", "armchair", "chair", "table", "table_small", "bookshelf", "shelf", "plant_pot",
+		var ms := ["sofa", "armchair", "chair", "table", "table_small", "bookshelf", "shelf", "plant_pot", "rock", "rock_moss_a", "rock_moss_b", "stump", "fallen_log", "fern", "plastic_crate", "jerrycan",
 			"trash_bin", "hydrant", "concrete_barrier", "cardboard", "tire_single"]
 		for i in ms.size():
 			var mi := MeshInstance3D.new()

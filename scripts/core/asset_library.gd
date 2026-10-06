@@ -143,9 +143,9 @@ func _bake_gpu(size: int) -> void:
 	surface_b.create_from_images(imgs_b)
 
 	var ca := await _render(vp, mat, 1, 0, 0, size)
-	char_a = _atlas_to_array(ca, false)
+	char_a = _atlas_to_array(ca, false, "a")
 	var cb := await _render(vp, mat, 1, 0, 1, size)
-	char_b = _atlas_to_array(cb, true)
+	char_b = _atlas_to_array(cb, true, "b")
 	var wa := await _render(vp, mat, 5, 0, 0, size)
 	weapon_a = _atlas_to_array(wa, false)
 	var wb := await _render(vp, mat, 5, 0, 1, size)
@@ -250,10 +250,19 @@ const FOLIAGE_DIR := "res://assets/textures/foliage/"
 var photo_scales: Dictionary = {}
 
 
+## repetições por metro de cada camada do detalhe de personagem (pele, malha, brim, couro)
+var char_rep := Vector4(2.2, 2.2, 2.2, 2.2)
+
+
 func _load_photo_scales() -> void:
 	photo_scales.clear()
 	var txt := FileAccess.get_file_as_string(PHOTO_DIR + "escala.json")
 	var d = JSON.parse_string(txt) if txt != "" else null
+	if typeof(d) == TYPE_DICTIONARY and d.has("escala_roupas"):
+		var er: Dictionary = d["escala_roupas"]
+		for q in [1, 2, 3]:
+			if er.has(str(q)) and ResourceLoader.exists("%schar_%d_a.res" % [PHOTO_DIR, q]):
+				char_rep[q] = float(er[str(q)])
 	if typeof(d) == TYPE_DICTIONARY and d.has("escala"):
 		for k in (d["escala"] as Dictionary).keys():
 			if ResourceLoader.exists("%s%02d_a.res" % [PHOTO_DIR, int(k)]) and ResourceLoader.exists("%s%02d_b.res" % [PHOTO_DIR, int(k)]):
@@ -272,7 +281,10 @@ func _photo_layer(layer: int, ch: int, size: int) -> Image:
 	if src == null:
 		return null
 	var img := src
-	if photo_scales.size() < LAYER_COUNT:
+	# --texturas-rgba: descomprime (testes em Vulkan por software, onde BC7 é
+	# decodificado na CPU a cada amostra e a imagem leva minutos por quadro)
+	if photo_scales.size() < LAYER_COUNT or "--texturas-rgba" in OS.get_cmdline_user_args():
+		size = mini(size, 1024)
 		img = src.duplicate() as Image
 		if img.is_compressed():
 			img.decompress()
@@ -303,13 +315,27 @@ func layer_scales() -> PackedFloat32Array:
 
 ## Atlas 2×2 de personagens (pele, malha, brim, couro) => Texture2DArray de 4
 ## camadas: sem "vazamento" do quadrante vizinho nas bordas de repetição.
-func _atlas_to_array(img: Image, normal: bool) -> Texture2DArray:
+func _atlas_to_array(img: Image, normal: bool, ch: String = "") -> Texture2DArray:
 	if img.has_mipmaps():
 		img.clear_mipmaps()
 	var half := img.get_width() / 2
 	var layers: Array[Image] = []
 	for q in 4:
 		var part := img.get_region(Rect2i((q % 2) * half, (q / 2) * half, half, half))
+		# tecidos fotográficos (malha, brim, couro) no lugar dos procedurais; a pele (0) fica
+		var photo := "%schar_%d_%s.res" % [PHOTO_DIR, q, ch]
+		if q > 0 and ch != "" and ResourceLoader.exists(photo):
+			var src := load(photo) as Image
+			if src:
+				var p := src.duplicate() as Image
+				if p.is_compressed():
+					p.decompress()
+				if p.has_mipmaps():
+					p.clear_mipmaps()
+				p.convert(Image.FORMAT_RGBA8)
+				if p.get_width() != half:
+					p.resize(half, half, Image.INTERPOLATE_LANCZOS)
+				part = p
 		part.generate_mipmaps(normal)
 		layers.append(part)
 	var arr := Texture2DArray.new()
@@ -339,6 +365,7 @@ func _assign_textures(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("noise_tex", noise_tex)
 	m.set_shader_parameter("detail_a", char_a)
 	m.set_shader_parameter("detail_b", char_b)
+	m.set_shader_parameter("detail_rep", char_rep)
 	m.set_shader_parameter("leaf_tex", m.get_meta("photo_tex") if m.has_meta("photo_tex") else leaf_tex)
 	m.set_shader_parameter("weapon_a", weapon_a)
 	m.set_shader_parameter("weapon_b", weapon_b)

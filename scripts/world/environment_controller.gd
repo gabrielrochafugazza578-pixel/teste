@@ -318,7 +318,7 @@ func _update(delta: float) -> void:
 	# faróis), bruma na chuva/neblina e poeira em suspensão dentro dos prédios
 	if env.sdfgi_enabled:
 		# de noite a GI rebate pouca luz (lua, lanterna); de dia, plena
-		env.sdfgi_energy = lerpf(0.45, 1.0, dl)
+		env.sdfgi_energy = lerpf(0.45, 1.0, dl) * float(Settings.graphics.get("gi_energy", 1.0))
 	if env.volumetric_fog_enabled:
 		env.volumetric_fog_ambient_inject = lerpf(0.05, 0.25, dl)
 		# pôr/nascer do sol: o espalhamento para frente vira uma névoa laranja densa

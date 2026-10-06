@@ -24,3 +24,9 @@ Camada  Material                 Asset do Poly Haven
  13     casca                    bark_willow_02  (https://polyhaven.com/a/bark_willow_02)
  14     tecido                   cotton_jersey  (https://polyhaven.com/a/cotton_jersey)
  15     linóleo                  linoleum_brown  (https://polyhaven.com/a/linoleum_brown)
+
+Tecidos das roupas dos personagens (char_N_a.res / char_N_b.res, 1024 px, em tons
+de cinza: a cor vem da roupa):
+ 1     malha                    jogging_melange  (https://polyhaven.com/a/jogging_melange)
+ 2     brim                     denim_fabric_04  (https://polyhaven.com/a/denim_fabric_04)
+ 3     couro                    brown_leather    (https://polyhaven.com/a/brown_leather)

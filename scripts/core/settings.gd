@@ -62,6 +62,8 @@ var graphics := {
 	"occlusion_culling": true,
 	# iluminação global em tempo real (só Forward+): 0 desligada, 1 SDFGI, 2 SDFGI alta
 	"gi_quality": 0,
+	# multiplicador da luz rebatida/ambiente no Forward+ (ajuste fino; fora da tela de opções)
+	"gi_energy": 1.0,
 	# 0 = Máximo (Vulkan, Forward+), 1 = Compatível (OpenGL 3.3). Vale ao reiniciar.
 	"renderer": 0,
 	"show_fps": false,

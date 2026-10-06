@@ -39,6 +39,14 @@ LAYERS = {
     15: "linoleum_brown",         # linóleo
 }
 
+# tecidos das roupas dos personagens (camadas 1..3 do atlas de detalhe; a 0 é a
+# pele, procedural). Saem em tons de cinza: a cor vem da roupa (cor por vértice).
+CHAR = {
+    1: "jogging_melange",         # malha (camisetas, moletons)
+    2: "denim_fabric_04",         # brim (calças)
+    3: "brown_leather",           # couro (jaquetas, botas, cintos)
+}
+
 # ajuste de cor por camada: (brilho, saturação). As fotos vêm com a exposição
 # do estúdio; o asfalto precisa ser escuro (faixas contrastam) e a calçada cinza.
 ADJUST = {
@@ -74,7 +82,7 @@ def img(files: dict, key: str, res: str):
 
 
 def main() -> None:
-    size = int(sys.argv[1]) if len(sys.argv) > 1 else 2048
+    size = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 2048
     res = "2k" if size > 1024 else "1k"
     os.makedirs(OUT, exist_ok=True)
     scales = {}
@@ -108,9 +116,40 @@ def main() -> None:
         a.save(os.path.join(OUT, "%02d_a.png" % layer), optimize=True)
         b.save(os.path.join(OUT, "%02d_b.png" % layer), optimize=True)
         print("camada %2d  %-26s %s mm  escala %.3f/m" % (layer, pid, dims, scales[layer]))
+    char_scales = {}
+    for q, pid in CHAR.items():
+        info = json.loads(get(f"{API}/info/{pid}"))
+        files = json.loads(get(f"{API}/files/{pid}"))
+        dims = info.get("dimensions", [500, 500])
+        char_scales[q] = round(1000.0 / max(float(dims[0]), 1.0), 4)
+        cs = 1024
+        diff = img(files, "Diffuse", "1k").convert("RGB").resize((cs, cs), Image.LANCZOS)
+        nor = img(files, "nor_gl", "1k").convert("RGB").resize((cs, cs), Image.LANCZOS)
+        arm = img(files, "arm", "1k")
+        rough = img(files, "Rough", "1k")
+        if rough is None:
+            rough = arm.convert("RGB").getchannel("G")
+        rough = rough.convert("L").resize((cs, cs), Image.LANCZOS)
+        ao = img(files, "AO", "1k")
+        if ao is None:
+            ao = arm.convert("RGB").getchannel("R") if arm is not None else Image.new("L", (cs, cs), 255)
+        ao = ao.convert("L").resize((cs, cs), Image.LANCZOS)
+        # detalhe neutro: luminância normalizada para média ~0,85 (o shader multiplica
+        # pela cor da roupa)
+        lum = diff.convert("L")
+        mean = max(1.0, sum(i * c for i, c in enumerate(lum.histogram())) / (cs * cs))
+        g = lum.point(lambda v: max(0, min(255, int(v / mean * 0.85 * 255))))
+        a = Image.merge("RGBA", (g, g, g, rough))
+        nr, ng, _nb = nor.split()
+        b = Image.merge("RGBA", (nr, ng, ao, Image.new("L", (cs, cs), 0)))
+        a.save(os.path.join(OUT, "char_%d_a.png" % q), optimize=True)
+        b.save(os.path.join(OUT, "char_%d_b.png" % q), optimize=True)
+        print("roupa %d  %-24s %s mm  escala %.3f/m" % (q, pid, dims, char_scales[q]))
     with open(os.path.join(OUT, "..", "escala.json"), "w") as f:
         json.dump({"fonte": "Poly Haven (CC0)", "ids": {str(k): v for k, v in LAYERS.items()},
-            "escala": {str(k): v for k, v in scales.items()}}, f, indent=1)
+            "escala": {str(k): v for k, v in scales.items()},
+            "roupas": {str(k): v for k, v in CHAR.items()},
+            "escala_roupas": {str(k): v for k, v in char_scales.items()}}, f, indent=1)
 
 
 if __name__ == "__main__":

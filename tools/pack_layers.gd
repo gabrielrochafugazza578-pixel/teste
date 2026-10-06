@@ -31,5 +31,19 @@ func _init() -> void:
 			ResourceSaver.save(img, out, ResourceSaver.FLAG_COMPRESS)
 			n += 1
 			print("%s  %s  %d ms" % [out, Image.FORMAT_BPTC_RGBA == img.get_format(), Time.get_ticks_msec() - t0])
+	# tecidos das roupas (1024 px)
+	for q in [1, 2, 3]:
+		for ch in ["a", "b"]:
+			var path := "%s/char_%d_%s.png" % [src, q, ch]
+			if not FileAccess.file_exists(path):
+				continue
+			var img := Image.load_from_file(path)
+			img.convert(Image.FORMAT_RGBA8)
+			img.generate_mipmaps(false)
+			if img.compress(Image.COMPRESS_BPTC, Image.COMPRESS_SOURCE_GENERIC) != OK:
+				printerr("compressão falhou em ", path)
+				continue
+			ResourceSaver.save(img, "res://assets/materials/char_%d_%s.res" % [q, ch], ResourceSaver.FLAG_COMPRESS)
+			n += 1
 	print("camadas empacotadas: ", n)
 	quit(0)

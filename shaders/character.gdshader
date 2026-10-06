@@ -6,6 +6,9 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 
 uniform sampler2DArray detail_a : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2DArray detail_b : filter_linear_mipmap, repeat_enable;
+// repetições por metro de cada camada (pele, malha, brim, couro): as fotos de
+// tecido usam a escala real do escaneamento
+uniform vec4 detail_rep = vec4(2.2);
 uniform float infection : hint_range(0.0, 1.0) = 0.0;
 uniform float grime_amount : hint_range(0.0, 1.0) = 0.25;
 uniform float wet_self : hint_range(0.0, 1.0) = 0.0;
@@ -38,7 +41,8 @@ void vertex() {
 
 void fragment() {
 	float q = floor(mat_id * 3.0 + 0.5); // 0 pele, 1 malha, 2 brim, 3 couro
-	vec3 luv = vec3(UV * 2.2, q);
+	float rep = q < 0.5 ? detail_rep.x : (q < 1.5 ? detail_rep.y : (q < 2.5 ? detail_rep.z : detail_rep.w));
+	vec3 luv = vec3(UV * rep, q);
 	vec4 da = texture(detail_a, luv);
 	vec4 db = texture(detail_b, luv);
 
