@@ -178,7 +178,24 @@ Exceções (arquivos de fora, em `assets/`):
   no carregamento (`ImporterMesh.generate_lods`). Na rua entram no MultiMesh dos props; nos interiores
   `InteriorGen` os separa em `out["models"]` e `World` instancia um MultiMesh por tipo. A colisão usa a caixa real.
 
-### Caio (modelo GLB)
+* `assets/characters/` — personagens fotorrealistas do [MakeHuman](https://www.makehumancommunity.org)
+  (malha base, alvos, esqueleto, pesos e assets de sistema CC0; roupas, cabelos e peles da comunidade CC0 e
+  algumas CC-BY, com autor e licença de cada uma em `assets/characters/CREDITOS.txt`).
+  `tools/make_humans.py` veste cada receita (corpo pelos alvos macro, roupas pelo `.mhclo`, pele escondida
+  apagada), converte os 163 ossos do MakeHuman nos 18 do jogo, baixa os braços da pose em A para a de descanso,
+  grava as máscaras de sangue/sujeira/rasgo/olheira na cor do vértice, pinta a barba por fazer na pele e
+  gera mochila e fungo; `tools/pack_humans.gd` cria as `ArrayMesh` com LODs e as texturas BC7.
+  `HumanModels` escolhe o modelo/pele de qualquer aparência antiga (gênero, idade, papel, tom de pele, cor
+  da roupa e do cabelo) e aplica materiais compartilhados por peça (`shaders/human_*`) com o que varia por
+  pessoa em parâmetros de instância (`infection`, `grime`, `blood`, `wear`, `tint_*`, `hair_tint`).
+* `assets/models/trees/` — jacarandá e acácia escaneados do Poly Haven (CC0). `tools/make_trees.py` tira os
+  galhinhos finos, agrupa as folhas reais em tufos (cartões com as folhas da espécie, k-means) e grava;
+  `tools/pack_trees.gd` simplifica tronco e galhos com o meshoptimizer até a meta de cada nível. `Vegetation`
+  usa essas malhas para `broadleaf_big` (jacarandá) e `broadleaf` (acácia).
+
+### Caio (modelo GLB, reserva)
+
+Desde a troca para o modelo MakeHuman o GLB abaixo só é usado se `assets/characters/caio.res` faltar.
 
 * `CaioModel` lê o GLB em tempo de execução (sem importador), converte Z-up → Y-up, agrupa cada peça
   (calça, botas, jaqueta, mochila, luvas, boné...) no osso certo do esqueleto de 18 ossos e monta **uma malha

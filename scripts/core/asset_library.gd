@@ -454,7 +454,7 @@ func foliage_material(kind: String = "tree") -> ShaderMaterial:
 	m.shader = shader("res://shaders/foliage.gdshader")
 	# folhagem fotográfica (tools/make_foliage.py, folhas dos modelos do Poly Haven)
 	var photo := {"tree": "leaves_tree", "bush": "leaves_bush", "vine": "leaves_vine", "pine": "leaves_pine",
-		"dry": "frond_palm"}
+		"dry": "frond_palm", "jacaranda": "leaves_jacaranda", "acacia": "leaves_acacia"}
 	var tex_path := FOLIAGE_DIR + str(photo.get(kind, "leaves_tree")) + ".png"
 	if ResourceLoader.exists(tex_path):
 		m.set_meta("photo_tex", load(tex_path))
@@ -463,6 +463,8 @@ func foliage_material(kind: String = "tree") -> ShaderMaterial:
 		match kind:
 			"pine": m.set_shader_parameter("tint", Vector3(0.78, 0.9, 0.8))
 			"dry": m.set_shader_parameter("tint", Vector3(1.0, 1.0, 0.9))
+			"jacaranda": m.set_shader_parameter("tint", Vector3(0.72, 0.86, 0.66))
+			"acacia": m.set_shader_parameter("tint", Vector3(0.95, 1.0, 0.92))
 			_: m.set_shader_parameter("tint", Vector3(1.0, 1.0, 1.0))
 	else:
 		match kind:

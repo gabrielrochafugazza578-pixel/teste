@@ -1,0 +1,4 @@
+Árvores escaneadas do Poly Haven (CC0 1.0) — https://polyhaven.com/license
+Processadas por tools/make_trees.py:
+  jacaranda  jacaranda_tree  (https://polyhaven.com/a/jacaranda_tree)
+  acacia     tree_small_02  (https://polyhaven.com/a/tree_small_02)

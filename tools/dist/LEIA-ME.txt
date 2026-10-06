@@ -193,6 +193,21 @@ NOVIDADES DESTA VERSÃO
   - Fitas zebradas de isolamento tremulando com o vento entre os cavaletes.
   - Chuva com respingos: gotinhas espirrando do chão em volta do Caio.
   - Fogueiras dos acampamentos abandonados ainda soltando um fio de fumaça.
+  - Personagens fotorrealistas (MakeHuman): Caio novo com pele em foto, barba
+    por fazer, jaqueta, jeans, botas e mochila; Helena e pesquisadores de
+    jaleco, paciente, policial, civis, sobreviventes e crianças com peles,
+    roupas e cabelos de verdade.
+  - Infectados no estilo The Last of Us / DayZ: pele cinza-pálida com veias e
+    hematomas, olheiras fundas, olhos leitosos, sangue escorrido do queixo,
+    roupa rasgada e encardida; o hospedeiro tem a cabeça tomada por fungo e o
+    colosso uma couraça de placas.
+  - Prédios com caixilhos de verdade nas janelas, grades no térreo, janelas
+    tapadas com tábuas, portas de aço de enrolar nas lojas, calhas, escadas de
+    incêndio, parabólicas e escorridos de chuva sob os peitoris.
+  - Árvores escaneadas de verdade (jacarandá e acácia) com tronco e galhos
+    reais e copa feita com as folhas da própria espécie.
+  - Menu principal novo: a rua ao entardecer com a cidade queimando ao fundo e
+    o Caio olhando, ao vivo (fumaça, brasas e luz de incêndio).
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

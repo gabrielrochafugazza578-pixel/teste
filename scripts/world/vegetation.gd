@@ -6,14 +6,24 @@ extends RefCounted
 ## Cada tipo tem versão perto (LOD0) e longe (LOD1) para MultiMesh.
 
 const TYPES := ["broadleaf", "broadleaf_big", "pine", "palm", "bush", "dead", "vine"]
+## Árvores escaneadas (Poly Haven, CC0; tools/make_trees.py + tools/pack_trees.gd):
+## tronco e galhos reais simplificados e copa em tufos com as folhas da espécie.
+const SCANNED := {"broadleaf_big": "jacaranda", "broadleaf": "acacia"}
+const TREE_DIR := "res://assets/models/trees/"
 
 static var _meshes: Dictionary = {}
+static var _bark: Dictionary = {}
 
 
 static func mesh(kind: String, lod: int) -> ArrayMesh:
 	var key := "%s_%d" % [kind, lod]
 	if _meshes.has(key):
 		return _meshes[key]
+	if SCANNED.has(kind) and ResourceLoader.exists(TREE_DIR + "%s_%d.res" % [SCANNED[kind], lod]):
+		var sm := _scanned(str(SCANNED[kind]), lod)
+		if sm != null:
+			_meshes[key] = sm
+			return sm
 	var trunk := MeshBuf.new()
 	var leaves := MeshBuf.new()
 	var r := Util.rng(hash(kind) & 0xffff)
@@ -72,6 +82,48 @@ static func mesh(kind: String, lod: int) -> ArrayMesh:
 		m.surface_set_material(m.get_surface_count() - 1, Assets.foliage_material(fk))
 	_meshes[key] = m
 	return m
+
+
+static func _scanned(id: String, lod: int) -> ArrayMesh:
+	var src := load(TREE_DIR + "%s_%d.res" % [id, lod]) as ArrayMesh
+	if src == null:
+		return null
+	var m := src.duplicate() as ArrayMesh
+	var tex: Dictionary = src.get_meta("tex", {})
+	for i in m.get_surface_count():
+		var sname := m.surface_get_name(i)
+		if sname == "leaves":
+			m.surface_set_material(i, Assets.foliage_material(id))
+		else:
+			m.surface_set_material(i, _bark_material(id, sname, tex.get(sname, {})))
+	return m
+
+
+## Casca em foto do próprio escaneamento (cor, normal, AO/rugosidade).
+static func _bark_material(id: String, part: String, t: Dictionary) -> StandardMaterial3D:
+	var key := id + "/" + part
+	if _bark.has(key):
+		return _bark[key]
+	var mat := StandardMaterial3D.new()
+	var dir := TREE_DIR + id + "/"
+	if t.has("albedo"):
+		mat.albedo_texture = load(dir + str(t["albedo"]))
+	if t.has("normal"):
+		mat.normal_enabled = true
+		mat.normal_texture = load(dir + str(t["normal"]))
+	if t.has("arm"):
+		var arm: Texture2D = load(dir + str(t["arm"]))
+		mat.roughness_texture = arm
+		mat.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
+		mat.roughness = 1.0
+		mat.ao_enabled = true
+		mat.ao_texture = arm
+		mat.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+		mat.ao_light_affect = 0.4
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	_bark[key] = mat
+	return mat
 
 
 static func _trunk(b: MeshBuf, h: float, r0: float, lod: int, r: RandomNumberGenerator, r1: float = -1.0) -> void:
