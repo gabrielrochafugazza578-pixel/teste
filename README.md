@@ -328,7 +328,10 @@ xvfb-run godot --path . --rendering-driver opengl3 res://tests/arms.tscn -- --ou
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/weapons_test.tscn -- --out=/tmp/armas                         # vitrine dos modelos de arma
 xvfb-run godot --path . --rendering-driver opengl3 res://tests/tex_dump.tscn -- --out=/tmp/texturas                          # todas as texturas geradas
 PORTAS_N=7 xvfb-run godot --path . --rendering-driver opengl3 res://tests/doors.tscn -- --no-audio --out=/tmp/portas   # abre portas e entra (PORTAS_TIPOS=house,shop · PORTAS_MOVEIS=1 · PORTAS_ITENS=1)
-xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --folhas --bandeira --passaros --fita --respingos --clima=4]  # vegetação, props, folhas, bandeira e urubus
+xvfb-run godot --path . --rendering-driver opengl3 res://tests/veg_probe.tscn -- --out=/tmp/veg [--hour=10 --props --moveis --folhas --bandeira --passaros --fita --respingos --fumaca --clima=4]  # vegetação, modelos escaneados, efeitos
+xvfb-run godot --path . --rendering-method forward_plus res://tests/fp_tour.tscn -- --no-audio --out=/tmp/tour --preset=4 [--so=rua,por,interior,noite,chuva,lago,mata --quadros=40 --gfx=chave:valor]  # Forward+: tour visual
+# Em Vulkan/OpenGL por software (lavapipe/llvmpipe) acrescente --texturas-rgba: lá o BC7 é decodificado na CPU
+# e cada quadro leva minutos. Em placa de vídeo de verdade não precisa.
 ```
 
 ## Build

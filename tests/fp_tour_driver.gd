@@ -1,6 +1,6 @@
 extends "res://tests/gallery_driver.gd"
 ## Tour curto para avaliar o visual (Forward+ é lento no Vulkan por software):
-## rua de manhã, pôr do sol, interior de casa, noite com lanterna, chuva e mata.
+## rua de manhã, pôr do sol, interior de casa, noite com lanterna, chuva, lago e mata.
 ## Uso: xvfb-run godot --path . --rendering-method forward_plus res://tests/fp_tour.tscn --
 ##      --no-audio --out=/tmp/tour [--preset=4] [--gfx=gi_quality:0] [--so=rua,interior]
 
@@ -74,6 +74,10 @@ func _gallery() -> void:
 		await _go(av + Vector3(-3, 0, -150), av + Vector3(-3, 0, -220), 14.0, W.RAIN)
 		await _wait(2.0)
 		await _shot("chuva")
+	if _quer("lago"):
+		var lk := L.poi_pos("cabanas_lago")
+		await _go(lk + Vector3(10, 0, 10), Vector3(WorldLayout.LAKE_CENTER.x, 0, WorldLayout.LAKE_CENTER.y), 16.8, W.CLEAR)
+		await _shot("lago")
 	if _quer("mata"):
 		var ms := L.poi_pos("acampamento_floresta")
 		await _go(ms + Vector3(12, 0, 8), ms, 12.5, W.CLEAR)
