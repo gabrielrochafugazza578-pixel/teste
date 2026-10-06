@@ -1118,10 +1118,13 @@ def build(cid, r):
     s = make_surface("body", skin_key, Gp, Nb, W, VTb, tv, tt)
     surfaces.append(s)
 
-    # proxies
+    # proxies (roupas de baixo empurradas para dentro das de cima onde se cobrem)
+    for clo in items:
+        clo["G"] = to_game(clo["Pp"], scale, ground)
+    resolve_layers([c for c in items if is_garment(c["name"], r)])
     for clo in items:
         nm = clo["name"]
-        P = to_game(clo["Pp"], scale, ground)
+        P = clo["G"]
         tv, tt = triangulate(clo["faces"])
         N = smooth_normals(P, tv)
         if nm == r.get("hair") or "beard" in nm.lower():
@@ -1162,7 +1165,7 @@ def build(cid, r):
                 prm = dict(r.get("params", {}).get(nm, {}))
                 if kind == "cloth":
                     prm.setdefault("tint_slot", TINT.get(nm, 3))
-                    if alpha:
+                    if "glasses" in nm.lower():
                         prm.setdefault("alpha_cut", 0.5)
                 save_tex(key, kind, diff, normal=nrm, ao=ao, rough=rough, size=sz,
                          alpha=alpha or kind in ("hair", "brow", "beard"), params=prm,
@@ -1225,6 +1228,38 @@ def build(cid, r):
     foot = [toe, heel, float(ank[1])]
 
     write(cid, r, J, foot, merge_surfaces(surfaces))
+
+
+def is_garment(nm, r):
+    low = nm.lower()
+    return not (nm in ("high-poly", "low-poly") or nm == r.get("hair") or any(
+        k in low for k in ("eyebrow", "eyelash", "teeth", "glasses", "beard", "moustache")))
+
+
+def resolve_layers(garments, gap=0.007, reach=0.04):
+    """Na ordem da receita, cada peça cobre as anteriores: os vértices das de baixo
+    que ficam fora (ou rente) da de cima vão para `gap` m por dentro dela — sem a
+    camiseta ou a calça atravessando o jaleco e a jaqueta."""
+    from scipy.spatial import cKDTree
+    for j in range(1, len(garments)):
+        outer = garments[j]
+        Po = outer["G"]
+        tv, _ = triangulate(outer["faces"])
+        No = smooth_normals(Po, tv)
+        tree = cKDTree(Po)
+        for i in range(j):
+            inner = garments[i]
+            P = inner["G"]
+            d, k = tree.query(P, distance_upper_bound=reach)
+            ok = np.isfinite(d)
+            if not ok.any():
+                continue
+            q = Po[k[ok]]
+            n = No[k[ok]]
+            sd = np.sum((P[ok] - q) * n, axis=1)
+            push = np.clip(sd + gap, 0.0, None) * np.clip(1.0 - d[ok] / reach, 0.0, 1.0) ** 0.5
+            P[ok] -= n * push[:, None]
+            inner["G"] = P
 
 
 def merge_surfaces(surfaces):

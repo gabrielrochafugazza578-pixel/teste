@@ -66,7 +66,6 @@
   "kind": "cloth",
   "normal": "cortu_cargo_pants_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 1.0
   },
   "size": 1024.0
@@ -77,7 +76,6 @@
   "kind": "cloth",
   "normal": "elvs_crude_t-shirt_male_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 0.0
   },
   "size": 1024.0
@@ -88,7 +86,6 @@
   "kind": "cloth",
   "normal": "elvs_male_shirt_tie_tucked1_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -99,7 +96,6 @@
   "kind": "cloth",
   "normal": "elvs_male_shirt_untucked_bd1_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -170,7 +166,6 @@
   "kind": "cloth",
   "normal": "female_elegantsuit01_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -251,7 +246,6 @@
   "kind": "cloth",
   "normal": "janexx_old_female_sweater_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -280,7 +274,6 @@
   "kind": "cloth",
   "normal": "male_casualsuit03_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -291,7 +284,6 @@
   "kind": "cloth",
   "normal": "male_casualsuit05_n",
   "params": {
-   "alpha_cut": 0.5,
    "desat": 0.3,
    "tint_slot": 3.0
   },
@@ -303,7 +295,6 @@
   "kind": "cloth",
   "normal": "male_casualsuit06_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -314,7 +305,6 @@
   "kind": "cloth",
   "normal": "male_elegantsuit01_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -325,7 +315,6 @@
   "kind": "cloth",
   "normal": "male_worksuit01_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -379,7 +368,6 @@
   "kind": "cloth",
   "normal": "namuhekam_male_polo_shirt_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 0.0
   },
   "size": 1024.0
@@ -444,7 +432,6 @@
   "kind": "cloth",
   "normal": "shoes02_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -455,7 +442,6 @@
   "kind": "cloth",
   "normal": "shoes03_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 3.0
   },
   "size": 1024.0
@@ -476,7 +462,6 @@
   "kind": "cloth",
   "normal": "shoes05_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 2.0
   },
   "size": 1024.0
@@ -487,7 +472,6 @@
   "kind": "cloth",
   "normal": "shoes06_n",
   "params": {
-   "alpha_cut": 0.5,
    "tint_slot": 2.0
   },
   "size": 1024.0
