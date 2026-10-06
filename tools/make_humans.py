@@ -869,7 +869,9 @@ def backpack(J, outer):
     chest = J[BI["chest"]]
     spine = J[BI["spine"]]
     neck = J[BI["neck"]]
-    back_z = chest[2] + 0.115
+    # costas de verdade: a roupa mais para trás na altura da mochila
+    band = outer[(np.abs(outer[:, 0]) < 0.14) & (outer[:, 1] > spine[1] - 0.05) & (outer[:, 1] < chest[1] + 0.12)]
+    back_z = (band[:, 2].max() - 0.075) if len(band) else chest[2] + 0.115
     parts = []
 
     def box(c, half, rnd, segs=6):
@@ -917,7 +919,15 @@ def backpack(J, outer):
         for k in range(nu):
             a = i * (nu + 1) + k
             b = a + nu + 1
-            T += [[a, a + 1, b], [a + 1, b + 1, b]]
+            T += [[a, b, a + 1], [a + 1, b, b + 1]]
+    # tampas nas pontas do rolo
+    for i, sgn in ((0, -1.0), (nl, 1.0)):
+        c = len(P)
+        P.append([roll_c[0] + (-0.2 if i == 0 else 0.2), roll_c[1], roll_c[2]])
+        UV.append([0.5, 0.5])
+        for k in range(nu):
+            a = i * (nu + 1) + k
+            T.append([c, a + 1, a] if sgn > 0 else [c, a, a + 1])
     roll = (np.array(P), np.array(T), np.array(UV))
     # alças: acompanham a superfície da roupa por cima do ombro (raio máximo das
     # peças por ângulo num plano vertical), do topo da mochila até o peito
