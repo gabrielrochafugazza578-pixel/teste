@@ -31,7 +31,10 @@ import struct
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFile, ImageFilter
+
+# alguns PNG dos pacotes da comunidade têm o perfil de cor (iCCP) com CRC errado
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 OUT = os.path.join(ROOT, "assets", "characters", "src")
@@ -88,7 +91,7 @@ def R(cid, g, age, height, skin, hair, clothes, **kw):
     return r
 
 
-R("caio", 1.0, 31, 1.79, "toigo_light_skin_male_bronze", "short02",
+R("caio", 1.0, 31, 1.79, "toigo_light_skin_male_bronze", "culturalibre_hair_02",
   ["male_casualsuit05", "toigo_ankle_boots_male"], muscle=0.64, weight=0.47,
   race={"caucasian": 0.55, "african": 0.3, "asian": 0.15}, skin_tone=(0.98, 0.95, 0.93), stubble=0.7,
   tex_size={"skin": 2048, "male_casualsuit05": 2048}, params={"male_casualsuit05": {"desat": 0.3}},
@@ -103,27 +106,27 @@ R("caio", 1.0, 31, 1.79, "toigo_light_skin_male_bronze", "short02",
         "mouth/mouth-upperlip-volume-decr": 0.25, "neck/neck-scale-horiz-incr": 0.2},
   expr={"eyebrows-left-down": 0.2, "eyebrows-right-down": 0.2, "mouth-compression": 0.12,
         "eye-left-slit": 0.1, "eye-right-slit": 0.1})
-R("helena", 0.0, 38, 1.66, "young_caucasian_female", "ponytail01",
+R("helena", 0.0, 38, 1.66, "young_caucasian_female", "rehmanpolanski_hair_bun_brown",
   ["toigo_basic_tucked_t-shirt", "toigo_wool_pants", "shoes06", "mindfront_cardigan_long_open_front",
    "frankyaye_glasses_library_male"], muscle=0.42, weight=0.42, eyes="green",
   race={"caucasian": 0.9, "asian": 0.1}, tex_size={"skin": 2048},
   params={"mindfront_cardigan_long_open_front": LABCOAT})
 # civis
-R("civ_m1", 1.0, 28, 1.78, "young_caucasian_male", "short01", ["male_casualsuit06", "shoes05"], muscle=0.55)
+R("civ_m1", 1.0, 28, 1.78, "young_caucasian_male", "culturalibre_hair_05", ["male_casualsuit06", "shoes05"], muscle=0.55)
 R("civ_m2", 1.0, 36, 1.75, "young_african_male", "short03", ["male_casualsuit03", "shoes02"], weight=0.55,
   race={"african": 0.7, "caucasian": 0.3})
 R("civ_m3", 1.0, 57, 1.72, "old_caucasian_male", "short04", ["namuhekam_male_polo_shirt", "toigo_wool_pants", "shoes01"],
   weight=0.7, muscle=0.4, eyes="grey")
 R("civ_m4", 1.0, 24, 1.82, "young_african_male", "afro01", ["mindfront_knitted_sweater_01", "cortu_cargo_pants", "shoes03"],
   race={"african": 0.85, "caucasian": 0.15}, muscle=0.6, weight=0.4)
-R("civ_m5", 1.0, 44, 1.76, "middleage_caucasian_male", "short02", ["male_worksuit01", "toigo_ankle_boots_male"],
+R("civ_m5", 1.0, 44, 1.76, "middleage_caucasian_male", "cortu_short_messy_hair", ["male_worksuit01", "toigo_ankle_boots_male"],
   muscle=0.7, weight=0.62)
 R("civ_m6", 1.0, 47, 1.8, "middleage_caucasian_male", "short01", ["male_elegantsuit01", "shoes04"], weight=0.58)
 R("civ_m7", 1.0, 31, 1.74, "young_asian_male", "short03", ["elvs_crude_t-shirt_male", "cortu_cargo_pants", "shoes06"],
   race={"asian": 0.8, "caucasian": 0.2}, weight=0.45)
-R("civ_f1", 0.0, 26, 1.65, "young_caucasian_female", "long01", ["joepal_crude_t-shirt_female", "toigo_wool_pants", "shoes06"],
+R("civ_f1", 0.0, 26, 1.65, "young_caucasian_female", "elvs_daisy_hair", ["joepal_crude_t-shirt_female", "toigo_wool_pants", "shoes06"],
   weight=0.45)
-R("civ_f2", 0.0, 41, 1.68, "middleage_caucasian_female", "long01", ["female_elegantsuit01", "toigo_ankle_boots_female"],
+R("civ_f2", 0.0, 41, 1.68, "middleage_caucasian_female", "elvs_katherine_hair", ["female_elegantsuit01", "toigo_ankle_boots_female"],
   weight=0.5, eyes="blue")
 R("civ_f3", 0.0, 33, 1.63, "young_african_female", "ponytail01", ["toigo_fisherman_sweater", "toigo_wool_pants", "toigo_ankle_boots_female"],
   race={"african": 0.75, "caucasian": 0.25}, weight=0.55)
@@ -132,7 +135,7 @@ R("civ_f4", 0.0, 22, 1.6, "young_asian_female", "braid01", ["mindfront_knitted_s
 R("civ_f5", 0.0, 68, 1.58, "old_caucasian_female", "ponytail01", ["janexx_old_female_sweater", "toigo_wool_pants", "shoes01"],
   weight=0.62, muscle=0.35, eyes="grey")
 # pesquisadores, paciente, polícia, sobreviventes
-R("researcher_m", 1.0, 45, 1.77, "middleage_caucasian_male", "short04",
+R("researcher_m", 1.0, 45, 1.77, "middleage_caucasian_male", "culturalibre_hair_05",
   ["elvs_male_shirt_tie_tucked1", "toigo_wool_pants", "shoes04", "mindfront_cardigan_long_open_front",
    "frankyaye_glasses_library_male"], weight=0.55, params={"mindfront_cardigan_long_open_front": LABCOAT})
 R("researcher_f", 0.0, 34, 1.64, "young_asian_female", "ponytail01",
@@ -141,14 +144,14 @@ R("researcher_f", 0.0, 34, 1.64, "young_asian_female", "ponytail01",
 R("patient", 1.0, 30, 1.76, "young_caucasian_male", "short04", ["toigo_basic_tucked_t-shirt", "toigo_wool_pants"],
   weight=0.4, muscle=0.45, mat_alias={"toigo_basic_tucked_t-shirt": "hospital_top", "toigo_wool_pants": "hospital_pants"},
   params={"hospital_top": HOSPITAL, "hospital_pants": HOSPITAL})
-R("police", 1.0, 38, 1.81, "middleage_caucasian_male", "short01", ["elvs_male_shirt_untucked_bd1", "cortu_cargo_pants", "shoes03"],
+R("police", 1.0, 38, 1.81, "middleage_caucasian_male", "culturalibre_hair_02", ["elvs_male_shirt_untucked_bd1", "cortu_cargo_pants", "shoes03"],
   muscle=0.68, weight=0.55, mat_alias={"elvs_male_shirt_untucked_bd1": "police_shirt", "cortu_cargo_pants": "police_pants"},
   params={"police_shirt": {"desat": 1.0, "bright": 1.0, "flatten": 0.6, "flat_color": [0.12, 0.16, 0.27]},
           "police_pants": {"desat": 1.0, "bright": 1.0, "flatten": 0.6, "flat_color": [0.08, 0.09, 0.12]}})
-R("survivor_m", 1.0, 34, 1.78, "middleage_caucasian_male", "short02",
+R("survivor_m", 1.0, 34, 1.78, "middleage_caucasian_male", "cortu_short_messy_hair",
   ["mindfront_knitted_sweater_01", "cortu_cargo_pants", "toigo_ankle_boots_male"], muscle=0.62, weight=0.45,
   backpack=True)
-R("survivor_f", 0.0, 29, 1.66, "young_caucasian_female", "ponytail01",
+R("survivor_f", 0.0, 29, 1.66, "young_caucasian_female", "elvs_unkempt_french_braid",
   ["toigo_fisherman_sweater", "cortu_cargo_pants", "toigo_ankle_boots_female"], muscle=0.55, weight=0.4,
   backpack=True)
 R("child_f", 0.0, 9, 1.32, "young_caucasian_female", "ponytail01",
@@ -826,8 +829,13 @@ def save_tex(mat, kind, diffuse, normal=None, ao=None, rough=None, size=1024, al
         rec["albedo"] = mat + "_a"
     if normal is not None or ao is not None or rough is not None:
         size = nsize or size
-        n = _img(normal).convert("RGB").resize((size, size), Image.LANCZOS) if normal else \
-            Image.new("RGB", (size, size), (128, 128, 255))
+        try:
+            n = _img(normal).convert("RGB").resize((size, size), Image.LANCZOS) if normal else None
+        except Exception:
+            # (alguns pacotes da comunidade têm o mapa normal corrompido)
+            n = None
+        if n is None:
+            n = Image.new("RGB", (size, size), (128, 128, 255))
         r, g, _ = n.split()
         b = _img(ao).convert("L").resize((size, size), Image.LANCZOS) if ao else Image.new("L", (size, size), 255)
         if isinstance(rough, (int, float)):

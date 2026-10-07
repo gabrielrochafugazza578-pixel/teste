@@ -202,6 +202,17 @@ Exceções (arquivos de fora, em `assets/`):
   `tools/pack_trees.gd` simplifica tronco e galhos com o meshoptimizer até a meta de cada nível. `Vegetation`
   usa essas malhas para `broadleaf_big` (jacarandá) e `broadleaf` (acácia).
 
+* `assets/anim/mocap/` — movimento capturado de pessoas reais (CMU Graphics Lab Motion Capture Database,
+  uso livre; BVH de [cmubvh](https://github.com/Shriinivas/cmubvh)). `tools/mocap_retarget.py` converte por
+  direções das juntas para o esqueleto de 18 ossos, escolhe um ciclo de passada estável (pisada do pé
+  esquerdo) e calibra o chão; o `ProceduralAnimator` mistura andar devagar/normal/apressado, trote e corrida
+  pela velocidade (fase pelo comprimento real da passada, sem deslizar), toca o parado em vai-e-volta e, nos
+  infectados e feridos, usa só pernas e quadril capturados. Ações (ataques, usar itens…) continuam por poses-chave.
+* Rostos: `tools/make_humans.py` aplica os alvos de rosto do MakeHuman (CC0; cabeça, queixo, maçãs, nariz,
+  lábios, olhos, sobrancelha, orelhas, assimetria e expressões) por personagem, estáveis pela semente do id
+  (`face`/`expr` na receita sobrepõem). Sobrancelhas e cílios em `shaders/human_brow.gdshader` (transparência
+  na cor do cabelo); poros/microrrugas em `assets/textures/skin/skin_pores_n.png`.
+
 ### Caio (modelo GLB, reserva)
 
 Desde a troca para o modelo MakeHuman o GLB abaixo só é usado se `assets/characters/caio.res` faltar.

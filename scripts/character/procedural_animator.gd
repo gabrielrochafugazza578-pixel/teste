@@ -444,11 +444,12 @@ const MOCAP_SETS := {
 	"injured": ["walk_slow"],
 	"shamble": ["zombie_b", "zombie"],
 	"brute": ["zombie"],
+	"feral": ["jog", "run"],
 }
 ## estilos em que só as pernas e o quadril vêm da captura: os braços e a cabeça
 ## ficam no procedural (infectados de braços caídos, não o zumbi de filme antigo
 ## de braços esticados da marcha capturada)
-const MOCAP_LEGS_ONLY := ["shamble", "brute", "injured"]
+const MOCAP_LEGS_ONLY := ["shamble", "brute", "injured", "feral"]
 static var _clips: Dictionary = {}
 static var mocap_on: bool = true
 var _mc_u: float = 0.0          # fase do ciclo de passada (0..1, começa na pisada esquerda)

@@ -220,6 +220,18 @@ NOVIDADES DESTA VERSÃO
     empoeirados com marcas de água seca nos carros abandonados.
   - Papel de parede (listrado ou com padrão miúdo) amarelado e descolando
     nas paredes de dentro dos prédios.
+  - Menu novo: apartamento abandonado ao entardecer, sol entrando em feixes
+    pelas frestas da janela pregada, poeira no ar, cortina rasgada ao vento e
+    o Caio sentado no chão olhando a cidade queimar.
+  - Animações com movimento capturado de pessoas reais: andar, andar
+    apressado, trote, corrida e parado (pés sem deslizar); infectados com as
+    pernas capturadas e os braços caídos.
+  - Cada personagem com um rosto próprio (queixo, maçãs, nariz, lábios,
+    olhos, orelhas e assimetria); infectados de rosto encovado. Sobrancelhas
+    finas na cor do cabelo, cabelo mais cheio, poros na pele de perto.
+  - Relevo mais fundo e com sombra própria do sol em tijolos, telhas, pedras
+    e no chão de terra; profundidade de campo leve no modo Vulkan.
+  - Cinemática: as pessoas desviam de móveis, carros e umas das outras.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)
