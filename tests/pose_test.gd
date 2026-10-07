@@ -1,7 +1,7 @@
 extends Node3D
 ## Fotos de uma ação/pose do AnimLibrary em vários ângulos (ajustar poses).
 ## Uso: xvfb-run godot --path . --rendering-driver opengl3 res://tests/pose_test.tscn --
-##      --no-audio --texturas-rgba --acao=sit_floor --out=/tmp/pose [--t=1.5] [--quem=caio]
+##      --no-audio --texturas-rgba --acao=sit_floor --out=/tmp/pose [--t=1.5] [--quem=caio] [--caixa]
 
 var out := "/tmp/pose"
 
@@ -63,6 +63,13 @@ func _ready() -> void:
 	body.rotation.y = deg_to_rad(90.0)
 	body.anim_interval = 0.0
 	body.animator.play(acao)
+	if "--caixa" in OS.get_cmdline_user_args():
+		# mesma caixa que os saqueadores da abertura carregam
+		var bx := MeshInstance3D.new()
+		var cx := BoxMesh.new()
+		cx.size = Vector3(0.44, 0.3, 0.32)
+		bx.mesh = cx
+		body.attach("chest", bx, Transform3D(Basis(), Vector3(0, -0.1, -0.36)))
 	var el := 0.0
 	while el < tt:
 		body.tick(1.0 / 30.0)

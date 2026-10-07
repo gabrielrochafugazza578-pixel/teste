@@ -170,12 +170,33 @@ func crowd_at(frame: Transform3D, anim: String, n: int) -> Array:
 		a.walk_path([frame * Vector3(lane * 0.5, 0, 0.0), frame * Vector3(lane, 0, 1.6), dest], _rng.randf_range(2.2, 3.4))
 		if anim == "carry":
 			a.play("carry_box")
+			# a caixa de verdade entre as mãos (antes a pose ficava segurando o ar)
+			a.body.attach("chest", _loot_box(i), Transform3D(Basis(Vector3.UP, _rng.randf_range(-0.2, 0.2)), Vector3(0, -0.1, -0.36)))
 		out.append(a)
 	# a porta da loja abre (para fora, longe de quem sai): antes passavam pela folha
 	for d in get_tree().get_nodes_in_group("interactable"):
 		if d is Door and (d as Door).global_position.distance_to(frame.origin) < 2.5 and not out.is_empty():
 			(d as Door).set_open(true, out[0])
 	return out
+
+
+static var _box_mats: Array = []
+
+
+## Caixa de papelão (ou fardo/engradado) do saque.
+func _loot_box(i: int) -> MeshInstance3D:
+	if _box_mats.is_empty():
+		for c: Color in [Color(0.55, 0.42, 0.27), Color(0.62, 0.5, 0.33), Color(0.3, 0.42, 0.55)]:
+			var m := StandardMaterial3D.new()
+			m.albedo_color = c
+			m.roughness = 0.9
+			_box_mats.append(m)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.44, 0.3, 0.32) if i % 3 != 2 else Vector3(0.4, 0.26, 0.28)
+	mi.mesh = bm
+	mi.material_override = _box_mats[i % _box_mats.size()]
+	return mi
 
 
 func anim_crowd(anim: String) -> void:

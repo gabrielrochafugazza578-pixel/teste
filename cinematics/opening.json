@@ -80,7 +80,7 @@
 		 "setup": [["traffic", "panic", "poi:avenida_central"], ["crowd", "panic", "poi:avenida_central"], ["ambience", "panic"], ["barricade", "poi:avenida_central", [0, 0, 32]]],
 		 "shots": [
 			{"id": "6a_panico", "anchor": "poi:avenida_central", "dur": 7.0, "ground": true,
-			 "cam": [[0.0, [-7.7, 1.45, -40], [-1, 1.6, -8], 66], [7.0, [-7.5, 1.35, -46], [0, 1.6, -18], 70]],
+			 "cam": [[0.0, [-7.7, 2.5, -40], [-1, 1.2, -8], 66], [7.0, [-7.5, 2.3, -46], [0, 1.2, -18], 70]],
 			 "events": [[0.5, "sound", "distant_scream", -4.0], [2.5, "shake", 0.15], [4.0, "sound", "distant_shot", -6.0]]},
 			{"id": "6b_mercado", "anchor": "door:mercado", "dur": 6.0, "ground": true,
 			 "cam": [[0.0, [-7, 1.7, 10], [0, 1.1, 3], 55], [6.0, [-5.5, 1.6, 8.5], [1, 1.1, 2], 52]],
@@ -90,7 +90,7 @@
 			 "events": [[0.0, "tv", "poi:avenida_central", [9.7, 0, 22], -90], [0.3, "sound", "news_jingle", -6.0],
 				[1.0, "subtitle", "...a Prefeitura de Santa Aurora decretou quarentena total. Evitem hospitais. Permaneçam em casa...", "Jornal", 5.5]]},
 			{"id": "6d_helicoptero", "anchor": "poi:avenida_central", "dur": 7.0, "ground": false,
-			 "cam": [[0.0, [30, 25, 60], [0, 30, -20], 60], [7.0, [24, 22, 40], [0, 20, -80], 60]],
+			 "cam": [[0.0, [5, 25, 60], [-2, 30, -20], 60], [7.0, [3, 22, 40], [0, 20, -80], 60]],
 			 "events": [[0.0, "helicopter", "poi:avenida_central", [60, 45, 120], [-40, 35, -140], 8.0], [0.5, "sound", "helicopter", -2.0]]},
 			{"id": "6e_apagao", "anchor": "poi:avenida_central", "dur": 9.0, "ground": false,
 			 "cam": [[0.0, [-150, 120, 240], [0, 0, -80], 55], [9.0, [-135, 110, 215], [0, 0, -80], 55]],
@@ -115,7 +115,7 @@
 			 "cam": [[0.0, [11.5, 1.6, 40], [0, 2.0, 10], 58], [9.0, [11.0, 1.7, 14], [-2, 2.2, -14], 58]],
 			 "events": [[2.0, "sound", "infected_groan", -8.0]]},
 			{"id": "8b_cidade", "anchor": "poi:avenida_central", "dur": 9.0, "ground": false,
-			 "cam": [[0.0, [50, 40, 100], [0, 8, -60], 55], [9.0, [95, 75, 160], [0, 5, -40], 55]],
+			 "cam": [[0.0, [45, 66, 100], [0, 8, -60], 55], [9.0, [95, 84, 160], [0, 5, -40], 55]],
 			 "events": [[1.0, "sound", "distant_scream", -10.0]]}
 		 ]},
 		{"id": "9_caio", "phase": "POST", "hour": 16.6, "weather": "CLOUDY", "music": "mus_opening_calm", "fade_in": 1.0, "fog_scale": 3.0,

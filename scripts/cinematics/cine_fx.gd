@@ -124,7 +124,14 @@ static func tv(parent: Node, pos: Vector3, yaw: float) -> Node3D:
 	q.size = Vector2(1.2, 0.68)
 	var s := MeshInstance3D.new()
 	s.mesh = q
-	var mat := Assets.screen_material(4, 3.0)
+	var vp := _news_screen(root)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = vp.get_texture()
+	mat.emission_enabled = true
+	mat.emission_texture = vp.get_texture()
+	mat.emission_energy_multiplier = 1.4
+	mat.roughness = 0.25
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	s.material_override = mat
 	# QuadMesh olha para +Z; a TV olha para -Z (frente do prop)
 	s.transform = Transform3D(Basis(Vector3.UP, PI), Vector3(0, 1.45, -0.01))
@@ -136,6 +143,80 @@ static func tv(parent: Node, pos: Vector3, yaw: float) -> Node3D:
 	l.position = Vector3(0, 1.45, -0.6)
 	root.add_child(l)
 	return root
+
+
+## Tela do plantão (2D numa SubViewport): faixa URGENTE, canal ao vivo, manchete,
+## alerta e letreiro rolando — texto de verdade, não barras no lugar das letras.
+static func _news_screen(root: Node3D) -> SubViewport:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(960, 544)
+	vp.disable_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(vp)
+	var bg := TextureRect.new()
+	var gt := GradientTexture2D.new()
+	var gr := Gradient.new()
+	gr.set_color(0, Color(0.05, 0.09, 0.2))
+	gr.set_color(1, Color(0.01, 0.02, 0.05))
+	gt.gradient = gr
+	gt.fill_from = Vector2(0.2, 0.0)
+	gt.fill_to = Vector2(0.8, 1.0)
+	bg.texture = gt
+	bg.size = Vector2(960, 544)
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	vp.add_child(bg)
+	var white := Color(0.97, 0.97, 0.95)
+	var red := Color(0.82, 0.08, 0.07)
+	# canal e "ao vivo"
+	_news_label(vp, "TV AURORA", Vector2(36, 26), 30, white)
+	var live := ColorRect.new()
+	live.color = red
+	live.position = Vector2(740, 28)
+	live.size = Vector2(186, 40)
+	vp.add_child(live)
+	_news_label(vp, "● AO VIVO", Vector2(756, 30), 26, white)
+	# alerta
+	var tri := Polygon2D.new()
+	tri.polygon = PackedVector2Array([Vector2(150, 150), Vector2(240, 306), Vector2(60, 306)])
+	tri.color = Color(0.98, 0.78, 0.1)
+	vp.add_child(tri)
+	_news_label(vp, "!", Vector2(136, 200), 84, Color(0.08, 0.06, 0.02))
+	# manchete
+	var tag := ColorRect.new()
+	tag.color = red
+	tag.position = Vector2(290, 150)
+	tag.size = Vector2(196, 44)
+	vp.add_child(tag)
+	_news_label(vp, "URGENTE", Vector2(306, 152), 30, white)
+	_news_label(vp, "QUARENTENA TOTAL", Vector2(288, 206), 62, white)
+	_news_label(vp, "Prefeitura de Santa Aurora decreta isolamento", Vector2(290, 290), 26, Color(0.8, 0.85, 0.95))
+	_news_label(vp, "Evitem hospitais  •  Permaneçam em casa", Vector2(290, 326), 26, Color(0.8, 0.85, 0.95))
+	# letreiro rolando
+	var band := ColorRect.new()
+	band.color = Color(0.55, 0.04, 0.04)
+	band.position = Vector2(0, 446)
+	band.size = Vector2(960, 58)
+	vp.add_child(band)
+	var clock := ColorRect.new()
+	clock.color = Color(0.06, 0.06, 0.08)
+	clock.position = Vector2(0, 446)
+	clock.size = Vector2(130, 58)
+	var tick := _news_label(vp, "PLANTÃO  •  Hospitais lotados no centro  •  Toque de recolher a partir das 20h  •  Exército bloqueia saídas da cidade  •  Não se aproxime de pessoas com febre ou tosse  •  ", Vector2(960, 456), 28, white)
+	vp.add_child(clock)
+	_news_label(vp, "19:24", Vector2(24, 456), 28, white)
+	var tw := root.create_tween().set_loops()
+	tw.tween_property(tick, "position:x", -1900.0, 22.0).from(960.0)
+	return vp
+
+
+static func _news_label(vp: SubViewport, text: String, pos: Vector2, size: int, col: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.position = pos
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	vp.add_child(l)
+	return l
 
 
 ## Helicóptero simples (fuselagem, cauda, rotor girando, holofote).

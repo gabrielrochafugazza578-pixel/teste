@@ -342,38 +342,56 @@ func _audit(g: Game, shot: String, t: float, acc: Dictionary) -> void:
 			continue
 		list.append(n3)
 	var pl := g.player
+	# a câmera da cena dentro de prédio/parede/carro (com a tela escura da
+	# transição entre cenas ninguém vê: ignora)
+	var faded := g.cinematic.overlay != null and g.cinematic.overlay.fade.color.a > 0.85
+	if cam and not faded:
+		var qs := PhysicsShapeQueryParameters3D.new()
+		var sp := SphereShape3D.new()
+		sp.radius = 0.25
+		qs.shape = sp
+		qs.collision_mask = 1 | (1 << 4)
+		qs.transform = Transform3D(Basis(), cam.global_position)
+		var ci := space.get_rest_info(qs)
+		if not ci.is_empty():
+			_audit_add(acc, shot, "CÂMERA", _audit_what(ci, pl) + " chão=%.2f âncora=%s" % [g.world.ground_y(cam.global_position.x, cam.global_position.z), str(g.cinematic.anchor.global_position.snapped(Vector3.ONE * 0.1))], t, cam.global_position)
 	for a: Node3D in list:
 		var an := _audit_name(a)
 		var p := a.global_position
 		q.transform = Transform3D(Basis(), p + Vector3(0, 0.3 + 0.625, 0))
 		var info := space.get_rest_info(q)
 		if not info.is_empty():
-			var col := instance_from_id(int(info["collider_id"]))
-			var what := "?"
-			if col is CollisionObject3D:
-				var co := col as CollisionObject3D
-				var owner_node := co.shape_owner_get_owner(co.shape_find_owner(int(info["shape"])))
-				what = _audit_name(co) + ":" + (String(owner_node.name) if owner_node else "?")
-				if owner_node is CollisionShape3D and (owner_node as CollisionShape3D).shape:
-					what += "(" + (owner_node as CollisionShape3D).shape.get_class() + ")"
-				if co == pl:
-					what = "CAIO"
-			elif col != null:
-				what = col.get_class()
-			else:
-				# corpo criado direto no servidor de física (prédios, ruas, mobília)
-				var rid: RID = info["rid"]
-				var sh := PhysicsServer3D.body_get_shape(rid, int(info["shape"]))
-				var xf := PhysicsServer3D.body_get_shape_transform(rid, int(info["shape"]))
-				var bx := PhysicsServer3D.body_get_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM) as Transform3D
-				what = "mundo:%s %s" % [str(PhysicsServer3D.shape_get_type(sh)), str(PhysicsServer3D.shape_get_data(sh))] + " em " + str((bx * xf).origin.snapped(Vector3.ONE * 0.1))
-			_audit_add(acc, shot, an, what, t, info["point"])
+			_audit_add(acc, shot, an, _audit_what(info, pl), t, info["point"])
 		for b: Node3D in list:
 			if b == a or _audit_name(b) < an:
 				continue
 			var d := b.global_position - p
 			if absf(d.y) < 1.0 and Vector2(d.x, d.z).length() < 0.42:
 				_audit_add(acc, shot, an, "ator " + _audit_name(b), t, p)
+
+
+## O que foi tocado (nó com nome, ou forma criada direto no servidor de física).
+func _audit_what(info: Dictionary, pl: Node) -> String:
+	var col := instance_from_id(int(info["collider_id"]))
+	var what := "?"
+	if col is CollisionObject3D:
+		var co := col as CollisionObject3D
+		var owner_node := co.shape_owner_get_owner(co.shape_find_owner(int(info["shape"])))
+		what = _audit_name(co) + ":" + (String(owner_node.name) if owner_node else "?")
+		if owner_node is CollisionShape3D and (owner_node as CollisionShape3D).shape:
+			what += "(" + (owner_node as CollisionShape3D).shape.get_class() + ")"
+		if co == pl:
+			what = "CAIO"
+	elif col != null:
+		what = col.get_class()
+	else:
+		# corpo criado direto no servidor de física (prédios, ruas, mobília)
+		var rid: RID = info["rid"]
+		var sh := PhysicsServer3D.body_get_shape(rid, int(info["shape"]))
+		var xf := PhysicsServer3D.body_get_shape_transform(rid, int(info["shape"]))
+		var bx := PhysicsServer3D.body_get_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM) as Transform3D
+		what = "mundo:%s %s" % [str(PhysicsServer3D.shape_get_type(sh)), str(PhysicsServer3D.shape_get_data(sh))] + " em " + str((bx * xf).origin.snapped(Vector3.ONE * 0.1))
+	return what
 
 
 ## Nome legível: o primeiro "cine_id" subindo pela árvore, senão o caminho curto.
