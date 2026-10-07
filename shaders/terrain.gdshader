@@ -178,6 +178,8 @@ void fragment() {
 	vec4 cb = gb;
 	if (w_grav > 0.01) {
 		ab_tex(12.0, uv * gravel_scale, gx * gravel_scale, gy * gravel_scale, oab, fv, ca, cb);
+		// a foto do cascalho é clara (pedra lavada): na margem ao sol parecia neve
+		ca.rgb *= vec3(0.66, 0.62, 0.55);
 	}
 	// mistura por altura: na transição as pedras e torrões mais altos aparecem por
 	// cima e a terra/grama preenche os vãos (em vez de uma foto "transparente"
