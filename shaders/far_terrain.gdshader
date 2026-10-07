@@ -8,6 +8,9 @@ uniform sampler2D chunk_mask : filter_nearest, repeat_disable;
 uniform vec2 mask_origin = vec2(-1536.0);
 uniform float mask_scale = 0.00032552;
 global uniform float veg_growth;
+// a mesma foto aérea do terreno de perto (manchas de campo de verdade)
+uniform sampler2D macro_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform bool has_macro = false;
 
 varying vec3 w_pos;
 
@@ -33,6 +36,12 @@ void fragment() {
 	// copas: manchas escuras e claras
 	base *= mix(0.9 + n * 0.2, 0.62 + n * 0.55, forest);
 	base = mix(base, base * vec3(0.9, 1.08, 0.85), forest * (veg_growth - 1.0) * 0.3);
+	if (has_macro) {
+		vec2 uv = w_pos.xz;
+		vec3 m1 = texture(macro_tex, uv / 34.0).rgb * 2.0;
+		vec3 m2 = texture(macro_tex, mat2(vec2(0.6, 0.8), vec2(-0.8, 0.6)) * uv / 97.0 + 0.37).rgb * 2.0;
+		base *= mix(vec3(1.0), sqrt(m1 * m2), 0.7 * (1.0 - forest));
+	}
 	ALBEDO = base;
 	ROUGHNESS = 0.92;
 	SPECULAR = 0.3;

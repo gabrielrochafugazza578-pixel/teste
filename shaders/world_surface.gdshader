@@ -204,7 +204,8 @@ void fragment() {
 	// --- Abandono: reboco caído (aparece o tijolo) e buracos no asfalto ----------
 	float wdec = world_decay * grime;
 	float pothole = 0.0;
-	if (exterior && hgt && wdec > 0.01) {
+	if (hgt && wdec > 0.01) {
+		// (dentro das casas também: parede úmida perde o reboco)
 		if (li == 3 && an.y < 0.5) {
 			// manchas onde o reboco soltou: mais perto do chão (umidade que sobe)
 			// e onde o próprio reboco é mais fino (relevo baixo)
@@ -229,7 +230,7 @@ void fragment() {
 			nmap = normalize(mix(nmap, bn, hole));
 			h = mix(h, bb.a * 0.6, hole);
 			crev = max(crev * (1.0 - hole), smoothstep(0.42, 0.05, h) * hole);
-		} else if (li == 0 && an.y > 0.9) {
+		} else if (li == 0 && an.y > 0.9 && exterior) {
 			// buracos: o asfalto some e fica a base de cascalho, mais funda (junta água)
 			float pn2 = texture(noise_tex, w_pos.xz * 0.17 + vec2(0.31, 0.67)).b * 0.7 + texture(noise_tex, w_pos.xz * 0.6).g * 0.3;
 			// (~3% da rua no abandono total)

@@ -35,6 +35,7 @@ func setup(w: World) -> void:
 	mask_tex = ImageTexture.create_from_image(mask_img)
 	_terrain_mat = ShaderMaterial.new()
 	_terrain_mat.shader = load("res://shaders/far_terrain.gdshader")
+	Assets.set_terrain_macro(_terrain_mat)
 	_sky_mat = ShaderMaterial.new()
 	_sky_mat.shader = load("res://shaders/far_skyline.gdshader")
 	for m: ShaderMaterial in [_terrain_mat, _sky_mat]:

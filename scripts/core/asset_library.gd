@@ -433,6 +433,7 @@ func terrain_material() -> ShaderMaterial:
 ## Terreno: terra/rocha/cascalho com a escala real da foto (rocha um pouco
 ## maior: encosta inteira com a mesma pedra miúda fica repetitiva)
 func _terrain_scales(m: ShaderMaterial) -> void:
+	set_terrain_macro(m)
 	if photo_scales.has(L_GRASS):
 		m.set_shader_parameter("grass_scale", float(photo_scales[L_GRASS]))
 	if photo_scales.has(L_DIRT):
@@ -441,6 +442,19 @@ func _terrain_scales(m: ShaderMaterial) -> void:
 		m.set_shader_parameter("rock_scale", float(photo_scales[L_ROCK]) * 0.5)
 	if photo_scales.has(L_GRAVEL):
 		m.set_shader_parameter("gravel_scale", float(photo_scales[L_GRAVEL]))
+
+
+const MACRO_TEX := "res://assets/textures/terrain/aerial_macro.jpg"
+var _macro: Texture2D
+
+
+## Foto aérea de campo (Poly Haven, CC0) para a variação de dezenas de metros
+## do terreno de perto e do distante.
+func set_terrain_macro(m: ShaderMaterial) -> void:
+	if _macro == null and ResourceLoader.exists(MACRO_TEX):
+		_macro = load(MACRO_TEX)
+	m.set_shader_parameter("macro_tex", _macro)
+	m.set_shader_parameter("has_macro", _macro != null)
 
 
 func water_material() -> ShaderMaterial:

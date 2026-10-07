@@ -16,6 +16,10 @@ uniform vec3 grass_green : source_color = vec3(0.24, 0.31, 0.11);
 uniform float grass_tint = 0.85;
 // canal A de tex_b = relevo (fotos do Poly Haven): transições por altura
 uniform bool has_height = false;
+// foto aérea de campo (Poly Haven, aerial_grass_rock), normalizada em torno de
+// 0,5: manchas de dezenas de metros (capim seco, verde, terra) em vez de ruído
+uniform sampler2D macro_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform bool has_macro = false;
 
 global uniform float wetness;
 global uniform float world_decay;
@@ -68,11 +72,17 @@ void fragment() {
 		float hr = rb.a;
 		float hc = cb.a;
 		float bw = 0.2;
-		float top = max(max(w_grass + hg, w_dirt + hd), max(w_rock + hr, w_grav + hc)) - bw;
-		w_grass = max(w_grass + hg - top, 0.0) * step(0.002, w_grass);
-		w_dirt = max(w_dirt + hd - top, 0.0) * step(0.002, w_dirt);
-		w_rock = max(w_rock + hr - top, 0.0) * step(0.002, w_rock);
-		w_grav = max(w_grav + hc - top, 0.0) * step(0.002, w_grav);
+		// só camadas presentes disputam o topo (uma de peso ~0 com relevo alto
+		// zeraria todas as outras: pixel preto)
+		float eg = step(0.002, w_grass) * (w_grass + hg + 1.0);
+		float ed = step(0.002, w_dirt) * (w_dirt + hd + 1.0);
+		float er = step(0.002, w_rock) * (w_rock + hr + 1.0);
+		float ec = step(0.002, w_grav) * (w_grav + hc + 1.0);
+		float top = max(max(eg, ed), max(er, ec)) - bw;
+		w_grass = max(eg - top, 0.0);
+		w_dirt = max(ed - top, 0.0);
+		w_rock = max(er - top, 0.0);
+		w_grav = max(ec - top, 0.0);
 	}
 	float tot = w_grass + w_dirt + w_rock + w_grav + 0.0001;
 	vec4 A = (ga * w_grass + da * w_dirt + ra * w_rock + ca * w_grav) / tot;
@@ -90,6 +100,13 @@ void fragment() {
 	vec3 alb = A.rgb;
 	// variação macro de cor (manchas secas / úmidas)
 	alb *= 0.76 + macro.r * 0.48;
+	if (has_macro) {
+		// duas amostras em escalas e ângulos diferentes: a foto não se repete
+		vec3 m1 = texture(macro_tex, uv / 34.0).rgb * 2.0;
+		vec3 m2 = texture(macro_tex, mat2(vec2(0.6, 0.8), vec2(-0.8, 0.6)) * uv / 97.0 + 0.37).rgb * 2.0;
+		vec3 mac = sqrt(m1 * m2);
+		alb *= mix(vec3(1.0), mac, (w_grass * 0.85 + w_dirt * 0.5 + w_grav * 0.3));
+	}
 	alb = mix(alb, alb * vec3(1.12, 1.02, 0.78), smoothstep(0.55, 0.8, macro.g) * w_grass * 0.6);
 	// pasto de verdade não é um tapete: manchas de ~50 m mais secas (palha) e
 	// outras mais verdes/úmidas, que quebram o verde uniforme dos campos abertos

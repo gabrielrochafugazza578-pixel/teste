@@ -1,0 +1,8 @@
+Foto aérea do terreno (variação de dezenas de metros, perto e distante)
+=====================================================================
+
+aerial_macro.jpg — derivada de "Aerial Grass Rock" (aerial_grass_rock), de Rob Tuytel
+Fonte: Poly Haven — https://polyhaven.com/a/aerial_grass_rock
+Licença: CC0 1.0 (domínio público) — https://polyhaven.com/license
+Reduzida para 1024 px e normalizada em torno de 0,5 (o shader multiplica pela
+cor do bioma), com a saturação reduzida.
