@@ -3,6 +3,7 @@ extends "res://tests/gallery_driver.gd"
 ## rua de manhã, pôr do sol, interior de casa, noite com lanterna, chuva, lago e mata.
 ## Uso: xvfb-run godot --path . --rendering-method forward_plus res://tests/fp_tour.tscn --
 ##      --no-audio --out=/tmp/tour [--preset=4] [--gfx=gi_quality:0] [--so=rua,interior]
+##      [--pontos] (~30 lugares espalhados pelo mapa, horas e climas variados)
 
 
 ## Antes de cada foto espera quadros de verdade (o SDFGI converge em ~15-20
@@ -24,9 +25,71 @@ func _quer(nome: String) -> bool:
 	return true
 
 
+## Lugares espalhados: [poi, hora, clima, distância da fachada]
+const PONTOS := [
+	["hospital", 10.0, 0, 16.0], ["delegacia", 8.5, 1, 14.0], ["escola", 15.0, 0, 16.0],
+	["estadio", 17.3, 0, 30.0], ["igreja_matriz", 7.0, 3, 18.0], ["mercado", 12.0, 2, 14.0],
+	["posto_vila", 16.0, 0, 16.0], ["oficina", 13.0, 4, 12.0], ["terminal", 18.2, 0, 20.0],
+	["clinica", 10.5, 1, 12.0], ["lab_nexus", 9.5, 0, 18.0], ["torre_radio", 6.6, 3, 18.0],
+	["corvalis_hq", 14.0, 2, 20.0], ["igreja_despertos", 19.2, 0, 16.0], ["apartamento_helena", 11.0, 0, 12.0],
+	["bunker", 15.5, 1, 14.0], ["cabanas_lago", 7.4, 3, 14.0], ["mirante", 17.8, 0, 10.0],
+	["tunel", 12.0, 0, 14.0], ["ponte_velha", 10.0, 4, 16.0], ["checkpoint_ponte", 16.5, 2, 14.0],
+	["praca", 13.0, 0, 14.0], ["centro", 21.5, 0, 10.0], ["acampamento_estrada", 9.0, 0, 12.0],
+	["acampamento_rio", 15.0, 0, 12.0], ["lago_azul", 12.0, 0, 16.0], ["chegada_caio", 18.0, 1, 10.0],
+	["avenida_central", 16.0, 5, 12.0], ["corvalis", 11.0, 0, 18.0], ["acampamento_floresta", 23.0, 0, 10.0],
+	["tunel_manutencao", 14.5, 2, 12.0],
+]
+
+
+## Segunda leva (--pontos=extra): [poi, hora, clima, posição relativa, alvo relativo]
+const EXTRA := [
+	["mirante", 17.8, 0, Vector3(0, 0, 6), Vector3(0, -20, 120)],
+	["chegada_caio", 16.5, 1, Vector3(0, 0, 18), Vector3(0, 2, -20)],
+	["avenida_central", 9.5, 0, Vector3(-6, 0, 60), Vector3(0, 6, -40)],
+	["praca", 18.4, 0, Vector3(14, 0, -10), Vector3(0, 3, 0)],
+]
+
+
+func _extra() -> void:
+	for pt: Array in EXTRA:
+		var c := g.layout.poi_pos(str(pt[0]))
+		if c == Vector3.ZERO:
+			continue
+		await _go(c + (pt[3] as Vector3), c + (pt[4] as Vector3), float(pt[1]), int(pt[2]), -0.05)
+		if g.player.flashlight_on:
+			g.player.toggle_flashlight()
+		await _wait(1.5)
+		await _shot(str(pt[0]) + "_b")
+
+
+func _pontos() -> void:
+	if "--pontos=extra" in OS.get_cmdline_user_args():
+		await _extra()
+		return
+	for pt: Array in PONTOS:
+		var id := str(pt[0])
+		if g.layout.poi_pos(id) == Vector3.ZERO:
+			continue
+		var fo := _front_of(id, float(pt[3]))
+		var hour := float(pt[1])
+		await _go(fo[0], fo[1], hour, int(pt[2]), -0.02)
+		var night := hour >= 20.0 or hour < 5.5
+		if night:
+			g.player.equipment["light"] = Inventory.make_stack("lanterna", 1, 1.0, {"battery": 100.0})
+			if not g.player.flashlight_on:
+				g.player.toggle_flashlight()
+		elif g.player.flashlight_on:
+			g.player.toggle_flashlight()
+		await _wait(1.5)
+		await _shot(id)
+
+
 func _gallery() -> void:
 	var L := g.layout
 	var W := WeatherManager.State
+	if " ".join(OS.get_cmdline_user_args()).contains("--pontos"):
+		await _pontos()
+		return
 	var av := L.poi_pos("avenida_central")
 	if _quer("rua"):
 		await _go(av + Vector3(4, 0, 30), av + Vector3(4, 0, -20), 9.0, W.CLEAR)

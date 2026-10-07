@@ -533,7 +533,7 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 				hy = 12.0
 		else:
 			hy += float(b["base"])
-		labels.append({"pos": Vector3(dp.x, hy, dp.z) + dn * 0.12,
+		labels.append({"pos": Vector3(dp.x, hy, dp.z) + dn * (0.4 if b["type"] in ["hospital", "market", "terminal", "office", "lab", "school", "stadium", "church", "police"] else 0.12),
 			"yaw": Util.dir_to_yaw(-dn), "text": nm, "size": 0.9 if b["type"] in ["hospital", "market", "terminal", "office", "stadium"] else 0.45})
 
 
