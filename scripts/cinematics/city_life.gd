@@ -83,14 +83,15 @@ func set_traffic(on: bool, at: Vector3, panic: bool = false) -> void:
 			"skew": _rng.randf_range(-0.35, 0.35) if panic else 0.0})
 
 
-func _paint(c: Color) -> StandardMaterial3D:
+## Pintura de carro de verdade (verniz, poeira nas partes baixas, reflexo) na cor
+## dada — o material liso de antes deixava os carros com cara de brinquedo.
+func _paint(c: Color) -> ShaderMaterial:
 	var key := c.to_html(false)
 	if _car_mats.has(key):
 		return _car_mats[key]
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	m.metallic = 0.35
-	m.roughness = 0.3
+	var m := Assets.track_textures(VehicleMeshBuilder.paint_material("clean").duplicate() as ShaderMaterial)
+	m.set_shader_parameter("paint_color", c)
+	m.set_shader_parameter("dirt", 0.12)
 	_car_mats[key] = m
 	return m
 

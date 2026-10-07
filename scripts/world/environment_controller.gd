@@ -309,6 +309,9 @@ func _update(delta: float) -> void:
 	# com neblina volumétrica (Forward+) a de distância fica mais leve: as duas somam
 	if env.volumetric_fog_enabled:
 		fog_d *= 0.6
+	# dia limpo: ar mais transparente (o véu cinza achatava o contraste de perto);
+	# a perspectiva aérea continua nas distâncias grandes
+	fog_d *= lerpf(1.0, 0.72, dl * (1.0 - clouds) * (1.0 - wm.fog) * (1.0 - wm.rain))
 	env.fog_density = fog_d * lerpf(1.0, 0.35, indoor)
 	env.fog_light_color = hor.lerp(Color(0.5, 0.52, 0.55), 0.3)
 	env.fog_light_energy = 0.8 + dl * 0.35
@@ -326,9 +329,9 @@ func _update(delta: float) -> void:
 		# noite pouca luz rebatida (lua, lanterna)
 		env.sdfgi_energy = lerpf(0.5, 2.4, dl) * float(Settings.graphics.get("gi_energy", 1.0))
 	if env.volumetric_fog_enabled:
-		env.volumetric_fog_ambient_inject = lerpf(0.05, 0.25, dl)
+		env.volumetric_fog_ambient_inject = lerpf(0.05, 0.16, dl)
 		# pôr/nascer do sol: o espalhamento para frente vira uma névoa laranja densa
-		var vf := (0.003 + wm.fog * 0.02 + wm.rain * 0.004 + mist * 0.015) * (1.0 - dusk * 0.6)
+		var vf := (0.0016 + clouds * 0.0014 + wm.fog * 0.02 + wm.rain * 0.004 + mist * 0.015) * (1.0 - dusk * 0.6)
 		env.volumetric_fog_density = lerpf(vf, 0.012, indoor)
 		env.volumetric_fog_albedo = Color(0.92, 0.92, 0.94).lerp(Color(0.8, 0.82, 0.86), clouds)
 		env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)

@@ -2,7 +2,7 @@ extends Node3D
 ## Vitrine do relevo das camadas (parallax + poças/sujeira nas frestas): paredes,
 ## pisos e uma faixa de terreno com transição grama/terra/rocha, sem carregar o mundo.
 ## Uso: xvfb-run godot --path . --rendering-method forward_plus res://tests/relevo.tscn --
-##      --no-audio --out=/tmp/relevo [--sem-relevo] [--chuva] [--hour=10] [--so=terreno,pisos]
+##      --no-audio --out=/tmp/relevo [--sem-relevo] [--chuva] [--hour=10] [--so=terreno,pisos] [--energia]
 
 var out := "/tmp/relevo"
 var hour := 10.0
@@ -50,6 +50,10 @@ func _ready() -> void:
 	# rua e muro de reboco largos (buracos e reboco caído aparecem com o abandono)
 	mb.box(Vector3(-24.0, -0.05, 4.0), Vector3(16, 0.1, 16), Assets.uv2_code(Assets.L_ASPHALT), 0.2)
 	mb.box(Vector3(-24.0, 2.0, -4.15), Vector3(16, 4, 0.3), Assets.uv2_code(Assets.L_PLASTER), 0.45, Color(0.85, 0.78, 0.62))
+	# fachadas com janelas (residencial de reboco e escritório de concreto)
+	mb.box(Vector3(-7.0, 6.0, -14.3), Vector3(12, 12, 0.6), Assets.uv2_code(Assets.L_PLASTER, Assets.WM_RES), 0.5, Color(0.86, 0.8, 0.7))
+	mb.box(Vector3(7.0, 9.0, -14.3), Vector3(14, 18, 0.6), Assets.uv2_code(Assets.L_CONCRETE, Assets.WM_OFFICE), 0.7)
+	mb.box(Vector3(0.0, -0.05, -9.0), Vector3(32, 0.1, 10), Assets.uv2_code(Assets.L_CONCRETE), 0.25)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mb.to_mesh(mat)
 	add_child(mi)
@@ -57,6 +61,7 @@ func _ready() -> void:
 	if "--chuva" in args:
 		RenderingServer.global_shader_parameter_set("wetness", 0.85)
 	RenderingServer.global_shader_parameter_set("world_decay", 1.0 if "--abandono" in args else 0.0)
+	RenderingServer.global_shader_parameter_set("city_power", 1.0 if "--energia" in args else 0.0)
 	var cam := Camera3D.new()
 	cam.fov = 60.0
 	add_child(cam)
@@ -70,7 +75,9 @@ func _ready() -> void:
 		["terreno", Vector3(0.0, 1.7, 15.0), Vector3(0.0, 0.0, 9.0)],
 		["terreno_largo", Vector3(-4.0, 5.5, 19.0), Vector3(-1.0, 0.0, 10.0)],
 		["abandono_rua", Vector3(-24.0, 3.5, 11.5), Vector3(-24.0, 0.0, 1.0)],
-		["abandono_muro", Vector3(-21.0, 1.7, 4.0), Vector3(-25.0, 1.4, -4.0)]]
+		["abandono_muro", Vector3(-21.0, 1.7, 4.0), Vector3(-25.0, 1.4, -4.0)],
+		["janelas", Vector3(0.0, 3.0, -2.5), Vector3(1.0, 7.0, -14.0)],
+		["janelas_perto", Vector3(-5.0, 4.5, -8.5), Vector3(-7.5, 4.6, -14.0)]]
 	for v in views:
 		if not so.is_empty() and not str(v[0]) in so:
 			continue

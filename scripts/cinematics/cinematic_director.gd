@@ -838,10 +838,8 @@ func _vehicle(type: String, pos: Vector3, yaw: float, lights: bool) -> Node3D:
 	var col := Color(0.95, 0.95, 0.93)
 	if type == "police":
 		col = Color(0.92, 0.92, 0.95)
-	var m := StandardMaterial3D.new()
-	m.albedo_color = col
-	m.metallic = 0.3
-	m.roughness = 0.35
+	var m := Assets.track_textures(VehicleMeshBuilder.paint_material("clean").duplicate() as ShaderMaterial)
+	m.set_shader_parameter("paint_color", col)
 	mi.set_surface_override_material(0, m)
 	root.add_child(mi)
 	var dims := VehicleMeshBuilder.dims(type)

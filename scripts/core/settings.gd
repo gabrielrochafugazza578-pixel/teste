@@ -248,7 +248,36 @@ func apply_all() -> void:
 	_apply_display()
 	_apply_viewport()
 	_apply_audio()
+	_apply_post()
 	EventBus.settings_changed.emit()
+
+
+var _post_layer: CanvasLayer
+var _post_mat: ShaderMaterial
+
+
+## Tratamento de câmera (nitidez, gradação, vinheta, granulação) sobre o 3D,
+## numa camada abaixo de toda a interface. Intensidade pelo pós-processamento.
+func _apply_post() -> void:
+	var pq := get_post_quality()
+	if _post_layer == null:
+		_post_layer = CanvasLayer.new()
+		_post_layer.layer = -10
+		var rect := ColorRect.new()
+		rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_post_mat = ShaderMaterial.new()
+		_post_mat.shader = load("res://shaders/post_cinematic.gdshader")
+		rect.material = _post_mat
+		_post_layer.add_child(rect)
+		add_child(_post_layer)
+	_post_layer.visible = pq >= 1 and not "--sem-pos" in OS.get_cmdline_user_args()
+	var fp := is_forward_plus()
+	# sem TAA (Compatibility) a nitidez realçaria o serrilhado: mais leve
+	_post_mat.set_shader_parameter("sharpen", (0.5 if fp else 0.25) * (1.0 if pq >= 2 else 0.6))
+	_post_mat.set_shader_parameter("grain", 0.028 if pq >= 2 else 0.0)
+	_post_mat.set_shader_parameter("aberration", 0.0018 if pq >= 3 else 0.0)
+	_post_mat.set_shader_parameter("vignette", 0.22 * float(accessibility.get("vignette", 1.0)))
 
 
 func _apply_display() -> void:
@@ -377,7 +406,7 @@ func get_detail_distance() -> float:
 
 
 func get_vegetation_density() -> float:
-	return [0.2, 0.45, 0.7, 1.0, 1.3][clampi(int(graphics["vegetation_quality"]), 0, 4)]
+	return [0.2, 0.45, 0.7, 1.0, 1.8][clampi(int(graphics["vegetation_quality"]), 0, 4)]
 
 
 func get_grass_distance() -> float:
