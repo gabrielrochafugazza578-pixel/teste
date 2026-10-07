@@ -24,7 +24,8 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	Settings.apply_preset(1)
+	if not " ".join(OS.get_cmdline_user_args()).contains("--preset="):
+		Settings.apply_preset(1)
 	await Assets.bake_all()
 	for q in 4:
 		var im: Image = Assets.char_a.get_layer_data(q)
@@ -48,6 +49,10 @@ func _run() -> void:
 		print("MALHA %s: %.1f ms, %d triângulos" % [str(who.get("id")), dt, tris])
 	vp = SubViewport.new()
 	vp.size = Vector2i(420, 640)
+	# --grande: fotos em alta (1080×1620, MSAA 4×)
+	if "--grande" in OS.get_cmdline_user_args():
+		vp.size = Vector2i(1080, 1620)
+		vp.msaa_3d = Viewport.MSAA_4X
 	vp.own_world_3d = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(vp)

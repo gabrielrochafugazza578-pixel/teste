@@ -134,6 +134,12 @@ func _cmdline_overrides() -> void:
 		if a.begins_with("--preset="):
 			apply_preset(int(a.substr(9)), false)
 	for a in OS.get_cmdline_user_args():
+		# --resolucao=1920x1080: tamanho da janela nesta execução (fotos)
+		if a.begins_with("--resolucao="):
+			var wh := a.substr(12).split("x")
+			if wh.size() == 2:
+				graphics["resolution"] = Vector2i(int(wh[0]), int(wh[1]))
+	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--gfx="):
 			for kv in a.substr(6).split(",", false):
 				var parts := kv.split(":")

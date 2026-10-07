@@ -283,8 +283,10 @@ func _photo_layer(layer: int, ch: int, size: int) -> Image:
 	var img := src
 	# --texturas-rgba: descomprime (testes em Vulkan por software, onde BC7 é
 	# decodificado na CPU a cada amostra e a imagem leva minutos por quadro)
-	if photo_scales.size() < LAYER_COUNT or "--texturas-rgba" in OS.get_cmdline_user_args():
-		size = mini(size, 1024)
+	# (--texturas-max: idem, mas sem reduzir — fotos em qualidade máxima)
+	var full := "--texturas-max" in OS.get_cmdline_user_args()
+	if photo_scales.size() < LAYER_COUNT or "--texturas-rgba" in OS.get_cmdline_user_args() or full:
+		size = mini(size, 1024) if not full else size
 		img = src.duplicate() as Image
 		if img.is_compressed():
 			img.decompress()

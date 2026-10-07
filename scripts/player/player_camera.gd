@@ -54,8 +54,25 @@ func _ready() -> void:
 	_noise.frequency = 1.3
 	first_person = str(Settings.controls.get("camera_mode", "third")) == "first"
 	fp = 1.0 if first_person else 0.0
+	_apply_dof()
 	EventBus.settings_changed.connect(func() -> void:
-		cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0))
+		cam.far = maxf(Settings.get_view_distance() + 300.0, 3400.0)
+		_apply_dof())
+
+
+## Profundidade de campo leve no Forward+ (qualidade alta/ultra): o que está a
+## mais de ~70 m perde um pouco de nitidez, como numa lente de verdade — separa
+## os planos e dá sensação de distância sem atrapalhar o jogo.
+func _apply_dof() -> void:
+	if not Settings.is_forward_plus() or int(Settings.graphics.get("preset", 1)) < 3:
+		cam.attributes = null
+		return
+	var ca := CameraAttributesPractical.new()
+	ca.dof_blur_far_enabled = true
+	ca.dof_blur_far_distance = 70.0
+	ca.dof_blur_far_transition = 140.0
+	ca.dof_blur_amount = 0.025
+	cam.attributes = ca
 
 
 func set_target(t: Node3D) -> void:

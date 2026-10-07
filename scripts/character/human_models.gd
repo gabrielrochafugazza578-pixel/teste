@@ -76,10 +76,11 @@ static func texture(name: String) -> Texture2D:
 	if ResourceLoader.exists(path):
 		var img: Image = load(path) as Image
 		if img != null:
-			if "--texturas-rgba" in OS.get_cmdline_user_args():
+			var full := "--texturas-max" in OS.get_cmdline_user_args()
+			if "--texturas-rgba" in OS.get_cmdline_user_args() or full:
 				img = img.duplicate()
 				img.decompress()
-				if img.get_width() > 1024:
+				if img.get_width() > 1024 and not full:
 					img.clear_mipmaps()
 					img.resize(1024, 1024, Image.INTERPOLATE_LANCZOS)
 					img.generate_mipmaps()

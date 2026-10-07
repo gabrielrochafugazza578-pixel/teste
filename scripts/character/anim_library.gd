@@ -217,6 +217,13 @@ static func _build() -> void:
 		[1.2, {"ua_r": _v(40, 0, -12), "fa_r": _v(65), "hand_r": _v(-15), "ua_l": _v(40, 0, 12), "fa_l": _v(65), "hand_l": _v(-15), "head": _v(-18), "spine": _v(-12)}]],
 		{"loop": true, "blend_in": 0.4})
 	_add("sit", 0.6, [[0.0, {}], [0.6, sit]], {"hold": true, "blend_in": 0.2, "blend_out": 0.5})
+	# sentado no chão encostado na parede (menu): joelhos para cima, braços
+	# apoiados nos joelhos, respiração lenta; a cabeça vira para a janela
+	var floor_sit := {"p": Vector3(0, -1.2, 0.12), "th_l": _v(140, 0, 10), "th_r": _v(126, 0, -8), "sh_l": _v(-122), "sh_r": _v(-108),
+		"ft_l": _v(-20), "ft_r": _v(-16), "spine": _v(12), "chest": _v(-10), "neck": _v(-2), "head": _v(-6, -38, 0),
+		"ua_l": _v(10, 0, 0), "fa_l": _v(80), "hand_l": _v(-25), "ua_r": _v(20, 0, 0), "fa_r": _v(40), "hand_r": _v(-35)}
+	_add("sit_floor", 7.0, [[0.0, floor_sit], [3.5, _merge(floor_sit, {"chest": _v(-5), "spine": _v(11), "head": _v(-1, -42, 2)})], [7.0, floor_sit]],
+		{"loop": true, "blend_in": 0.0})
 	_add("sit_twitch", 1.4, [[0.0, sit], [0.2, _merge(sit, {"head": _v(0, 0, 15), "ua_r": _v(25, 0, 20)})],
 		[0.32, _merge(sit, {"head": _v(-5, 0, -10)})], [0.9, _merge(sit, {"head": _v(-20, 0, 5), "spine": _v(-15)})], [1.4, sit]], {"loop": true, "blend_in": 0.2})
 	_add("head_tilt", 2.4, [[0.0, {}], [2.4, {"head": _v(-10, 0, 32), "neck": _v(0, 0, 10), "jaw": _v(-10)}]], {"hold": true, "blend_in": 0.5})

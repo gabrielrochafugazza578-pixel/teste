@@ -24,6 +24,9 @@ uniform bool has_macro = false;
 global uniform float wetness;
 global uniform float world_decay;
 global uniform float rain_intensity;
+global uniform vec3 sun_dir;
+global uniform float sun_strength;
+uniform float parallax_distance = 22.0;
 
 varying vec3 w_pos;
 varying vec3 w_nrm;
@@ -33,6 +36,29 @@ void vertex() {
 	w_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	w_nrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	splat = COLOR;
+}
+
+// relevo 0..1 misturado pelos pesos (grama, terra, rocha, cascalho)
+float t_height(vec2 p, vec4 w, vec2 gx, vec2 gy) {
+	float h = 0.0;
+	float tw = 0.0;
+	if (w.x > 0.01) {
+		h += textureGrad(tex_b, vec3(p * grass_scale, 7.0), gx * grass_scale, gy * grass_scale).a * 0.6 * w.x;
+		tw += w.x;
+	}
+	if (w.y > 0.01) {
+		h += textureGrad(tex_b, vec3(p * dirt_scale, 8.0), gx * dirt_scale, gy * dirt_scale).a * w.y;
+		tw += w.y;
+	}
+	if (w.z > 0.01) {
+		h += textureGrad(tex_b, vec3(p * rock_scale, 9.0), gx * rock_scale, gy * rock_scale).a * w.z;
+		tw += w.z;
+	}
+	if (w.w > 0.01) {
+		h += textureGrad(tex_b, vec3(p * gravel_scale, 12.0), gx * gravel_scale, gy * gravel_scale).a * w.w;
+		tw += w.w;
+	}
+	return h / max(tw, 1e-3);
 }
 
 void fragment() {
@@ -45,22 +71,74 @@ void fragment() {
 	float w_grav = clamp(splat.b, 0.0, 1.0) * (1.0 - w_rock);
 	float w_grass = clamp(1.0 - w_rock - w_dirt - w_grav, 0.0, 1.0);
 
-	vec4 ga = texture(tex_a, vec3(uv * grass_scale, 7.0));
+	// derivadas antes de qualquer desvio (o parallax mexe na UV dentro de um if)
+	vec2 gx = dFdx(uv);
+	vec2 gy = dFdy(uv);
+	vec4 wv = vec4(w_grass, w_dirt, w_rock, w_grav);
+	float pshadow = 0.0;
+#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
+	// --- Relevo de verdade perto da câmera: torrões, pedras e cascalho com
+	// profundidade (parallax pelo relevo misturado das fotos) e sombra própria
+	// do sol entre as pedras. A projeção é de cima: a profundidade é o eixo Y.
+	float cam_d = length(CAMERA_POSITION_WORLD - w_pos);
+	float pfade = has_height ? 1.0 - smoothstep(parallax_distance * 0.55, parallax_distance, cam_d) : 0.0;
+	// profundidade (m) de cada foto: grama, terra, rocha, cascalho
+	float pdepth = dot(wv, vec4(0.015, 0.035, 0.09, 0.035)) / max(dot(wv, vec4(1.0)), 1e-3);
+	if (pfade > 0.0) {
+		vec3 V = (CAMERA_POSITION_WORLD - w_pos) / max(cam_d, 1e-4);
+		float vz = max(V.y, 0.0);
+		float steps = floor(mix(24.0, 6.0, vz) * mix(0.5, 1.0, pfade));
+		vec2 delta = -V.xz / max(vz, 0.3) * pdepth * pfade / steps;
+		float st = 1.0 / steps;
+		vec2 ofs = uv;
+		float cur = 0.0;
+		float hd = 1.0 - t_height(ofs, wv, gx, gy);
+		vec2 prev = ofs;
+		float prev_hd = hd;
+		float prev_cur = 0.0;
+		for (int i = 0; i < 24; i++) {
+			if (float(i) >= steps || cur >= hd) {
+				break;
+			}
+			prev = ofs;
+			prev_hd = hd;
+			prev_cur = cur;
+			ofs += delta;
+			cur += st;
+			hd = 1.0 - t_height(ofs, wv, gx, gy);
+		}
+		float after = hd - cur;
+		float before = prev_hd - prev_cur;
+		uv = mix(ofs, prev, clamp(after / min(after - before, -1e-5), 0.0, 1.0));
+		if (sun_strength > 0.01 && sun_dir.y > 0.03) {
+			float hh = 1.0 - t_height(uv, wv, gx, gy);
+			vec2 ldir = sun_dir.xz / max(sun_dir.y, 0.12) * pdepth;
+			float sh = 0.0;
+			for (int i = 1; i <= 8; i++) {
+				float f = float(i) / 8.0;
+				float sd = 1.0 - t_height(uv + ldir * hh * f, wv, gx, gy);
+				sh = max(sh, (hh * (1.0 - f) - sd) * (1.0 - f * 0.6) * 7.0);
+			}
+			pshadow = clamp(sh, 0.0, 1.0) * pfade * smoothstep(0.03, 0.2, sun_dir.y);
+		}
+	}
+#endif
+	vec4 ga = textureGrad(tex_a, vec3(uv * grass_scale, 7.0), gx * grass_scale, gy * grass_scale);
 	float glum = dot(ga.rgb, vec3(0.299, 0.587, 0.114));
 	// média da própria foto (último mipmap): o detalhe fica em torno de 1 em
 	// qualquer renderizador/formato
 	float gavg = dot(textureLod(tex_a, vec3(0.5, 0.5, 7.0), 11.0).rgb, vec3(0.299, 0.587, 0.114));
 	ga.rgb = mix(ga.rgb, grass_green * (glum / max(gavg, 0.01)), grass_tint);
-	vec4 gb = texture(tex_b, vec3(uv * grass_scale, 7.0));
-	vec4 da = texture(tex_a, vec3(uv * dirt_scale, 8.0));
-	vec4 db = texture(tex_b, vec3(uv * dirt_scale, 8.0));
-	vec4 ra = texture(tex_a, vec3(uv * rock_scale, 9.0));
-	vec4 rb = texture(tex_b, vec3(uv * rock_scale, 9.0));
+	vec4 gb = textureGrad(tex_b, vec3(uv * grass_scale, 7.0), gx * grass_scale, gy * grass_scale);
+	vec4 da = textureGrad(tex_a, vec3(uv * dirt_scale, 8.0), gx * dirt_scale, gy * dirt_scale);
+	vec4 db = textureGrad(tex_b, vec3(uv * dirt_scale, 8.0), gx * dirt_scale, gy * dirt_scale);
+	vec4 ra = textureGrad(tex_a, vec3(uv * rock_scale, 9.0), gx * rock_scale, gy * rock_scale);
+	vec4 rb = textureGrad(tex_b, vec3(uv * rock_scale, 9.0), gx * rock_scale, gy * rock_scale);
 	vec4 ca = ga;
 	vec4 cb = gb;
 	if (w_grav > 0.01) {
-		ca = texture(tex_a, vec3(uv * gravel_scale, 12.0));
-		cb = texture(tex_b, vec3(uv * gravel_scale, 12.0));
+		ca = textureGrad(tex_a, vec3(uv * gravel_scale, 12.0), gx * gravel_scale, gy * gravel_scale);
+		cb = textureGrad(tex_b, vec3(uv * gravel_scale, 12.0), gx * gravel_scale, gy * gravel_scale);
 	}
 	// mistura por altura: na transição as pedras e torrões mais altos aparecem por
 	// cima e a terra/grama preenche os vãos (em vez de uma foto "transparente"
@@ -135,6 +213,8 @@ void fragment() {
 		nmap = normalize(mix(nmap, vec3(0.0, 0.0, 1.0), puddle));
 	}
 
+	// sombra própria do relevo tira só a parte do sol
+	alb *= 1.0 - pshadow * 0.7 * sun_strength;
 	ALBEDO = alb;
 	ROUGHNESS = rough;
 	METALLIC = 0.0;

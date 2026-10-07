@@ -261,6 +261,10 @@ func _update(delta: float) -> void:
 		sun.light_color = Color(1.0, 0.93, 0.82).lerp(Color(1.0, 0.6, 0.34), dusk)
 		sun.light_energy = (0.3 + dl * 1.45) * smoothstep(-0.05, 0.04, sh) * (1.0 - clouds * 0.45 - dark * 0.25) + flash * 2.0
 	sun.shadow_opacity = clampf(1.0 - clouds * 0.6, 0.35, 1.0) if not night else 0.6
+	# direção e força do sol para o relevo dos materiais (sombra própria do
+	# parallax: o rejunte e as frestas do lado oposto ao sol ficam na sombra)
+	ShaderGlobals.set_value("sun_dir", light_dir)
+	ShaderGlobals.set_value("sun_strength", clampf(sun.light_energy / 1.6, 0.0, 1.0) * sun.shadow_opacity * (1.0 - indoor))
 	# --- ambiente ---------------------------------------------------------
 	# luz do céu nas sombras: vem mais do zênite (azulado) que do horizonte alaranjado,
 	# e dessaturada (céu de cidade, poeira) para não "lavar" tudo de branco

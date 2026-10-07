@@ -82,16 +82,19 @@ func _test_opening(g: Game) -> void:
 		last_shot = id
 		_log("tomada " + id)
 		(func() -> void:
-			# foto no meio da tomada (longe dos escurecimentos de transição)
+			# foto no meio da tomada (longe dos escurecimentos de transição);
+			# com --cine-tres, também no começo e no fim (achar o que atravessa)
 			var d := float(g.cinematic._cur_shot.get("dur", 5.0))
-			var w := 0.0
-			while is_instance_valid(g.cinematic) and last_shot == id and w < 90.0 \
-					and (not g.cinematic.anim.is_playing() or not String(g.cinematic.anim.current_animation).ends_with(id) \
-						or g.cinematic.anim.current_animation_position < d * 0.5):
-				await get_tree().process_frame
-				w += get_process_delta_time()
-			if last_shot == id:
-				await _shot("cine_" + id)).call())
+			var fracs := [0.15, 0.5, 0.85] if "--cine-tres" in OS.get_cmdline_user_args() else [0.5]
+			for k in fracs.size():
+				var w := 0.0
+				while is_instance_valid(g.cinematic) and last_shot == id and w < 90.0 \
+						and (not g.cinematic.anim.is_playing() or not String(g.cinematic.anim.current_animation).ends_with(id) \
+							or g.cinematic.anim.current_animation_position < d * float(fracs[k])):
+					await get_tree().process_frame
+					w += get_process_delta_time()
+				if last_shot == id:
+					await _shot("cine_" + id + ("" if fracs.size() == 1 else "_" + "abc"[k]))).call())
 	var t := 0.0
 	var lt := 0.0
 	while g.cinematic != null and t < 600.0:

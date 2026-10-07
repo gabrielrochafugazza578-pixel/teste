@@ -2,8 +2,9 @@ class_name MainMenu
 extends Control
 ## Menu principal: Novo Jogo, Continuar, Carregar, Configurações (Gráficos,
 ## Áudio, Controles, Acessibilidade), Créditos e Sair. Fundo: cena 3D ao vivo
-## (MenuScene — a rua do jogo ao entardecer, cidade queimando, o Caio olhando),
-## com uma faixa escura à esquerda para o texto, vinheta e grão de filme.
+## (MenuScene — apartamento abandonado ao entardecer, sol entrando pela janela,
+## o Caio sentado no chão), com a coluna de texto escurecida à esquerda, vinheta
+## e grão de filme. Itens só em texto, sem caixas.
 ## O shader antigo (silhueta da cidade) fica de reserva se a cena 3D falhar.
 
 const BG_SHADER := """
@@ -53,14 +54,13 @@ uniform float t = 0.0;
 float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment(){
 	vec2 uv = UV;
-	float left = smoothstep(0.62, 0.0, uv.x);
-	float a = left * 0.78;
-	float vig = smoothstep(0.45, 1.25, length((uv - vec2(0.55, 0.5)) * vec2(1.25, 1.0)));
-	a = max(a, vig * 0.7);
-	float bars = step(uv.y, 0.045) + step(0.955, uv.y);
-	a = max(a, bars * 0.92);
-	vec3 col = mix(vec3(0.015, 0.012, 0.01), vec3(0.0), uv.x);
-	float grain = (h(uv * vec2(1920.0, 1080.0) + fract(t * 23.0) * 91.0) - 0.5) * 0.06;
+	// coluna do texto: escurece da esquerda, mais embaixo (onde ficam os itens)
+	float left = smoothstep(0.55, 0.0, uv.x) * mix(0.55, 0.85, smoothstep(0.2, 0.9, uv.y));
+	float a = left;
+	float vig = smoothstep(0.5, 1.3, length((uv - vec2(0.56, 0.48)) * vec2(1.2, 1.0)));
+	a = max(a, vig * 0.75);
+	vec3 col = vec3(0.012, 0.01, 0.008);
+	float grain = (h(uv * vec2(1920.0, 1080.0) + fract(t * 23.0) * 91.0) - 0.5) * 0.05;
 	COLOR = vec4(col + grain, clamp(a + abs(grain) * 0.4, 0.0, 1.0));
 }
 """
@@ -102,46 +102,75 @@ func _ready() -> void:
 	add_child(ov)
 	var root := MarginContainer.new()
 	UIKit.full_rect(root)
-	root.add_theme_constant_override("margin_left", 120)
-	root.add_theme_constant_override("margin_top", 110)
+	root.add_theme_constant_override("margin_left", 118)
+	root.add_theme_constant_override("margin_top", 96)
+	root.add_theme_constant_override("margin_bottom", 92)
 	add_child(root)
-	var v := UIKit.vbox(4)
+	var v := UIKit.vbox(0)
 	v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	root.add_child(v)
-	var t1 := UIKit.label("O  I N Í C I O", 30, Color(0.86, 0.84, 0.8))
-	t1.add_theme_constant_override("outline_size", 0)
-	var t2 := UIKit.label("DO FIM", 96, Color(0.95, 0.93, 0.89))
-	t2.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.75))
+	# título: letras espaçadas e finas em cima, o "DO FIM" grande e pesado
+	var f_thin := FontVariation.new()
+	f_thin.base_font = get_theme_default_font()
+	f_thin.spacing_glyph = 16
+	var f_big := FontVariation.new()
+	f_big.base_font = get_theme_default_font()
+	f_big.spacing_glyph = 4
+	f_big.variation_embolden = 0.55
+	var t1 := UIKit.label("O INÍCIO", 28, Color(0.88, 0.85, 0.8, 0.92))
+	t1.add_theme_font_override("font", f_thin)
+	var t2 := UIKit.label("DO FIM", 124, Color(0.96, 0.94, 0.9))
+	t2.add_theme_font_override("font", f_big)
+	t2.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.6))
 	t2.add_theme_constant_override("shadow_offset_x", 0)
-	t2.add_theme_constant_override("shadow_offset_y", 4)
-	t2.add_theme_constant_override("shadow_outline_size", 10)
+	t2.add_theme_constant_override("shadow_offset_y", 6)
+	t2.add_theme_constant_override("shadow_outline_size", 18)
+	t2.add_theme_constant_override("line_spacing", -18)
 	v.add_child(t1)
 	v.add_child(t2)
 	var rule := ColorRect.new()
 	rule.color = UITheme.ACCENT
-	rule.custom_minimum_size = Vector2(120, 3)
+	rule.custom_minimum_size = Vector2(64, 2)
 	rule.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(rule)
-	v.add_child(UIKit.spacer(10))
-	v.add_child(UIKit.label("Santa Aurora, três semanas depois do surto.", 18, Color(0.78, 0.74, 0.68)))
-	v.add_child(UIKit.spacer(46))
-	_buttons = UIKit.vbox(8)
-	_buttons.custom_minimum_size.x = 380.0
+	v.add_child(UIKit.spacer(16))
+	var sub := UIKit.label("Santa Aurora. Três semanas depois do surto.", 17, Color(0.8, 0.76, 0.7, 0.85))
+	sub.add_theme_font_override("font", f_thin)
+	sub.add_theme_constant_override("outline_size", 0)
+	var fs := FontVariation.new()
+	fs.base_font = get_theme_default_font()
+	fs.spacing_glyph = 2
+	sub.add_theme_font_override("font", fs)
+	v.add_child(sub)
+	var gap := Control.new()
+	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(gap)
+	_buttons = UIKit.vbox(2)
 	_buttons.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(_buttons)
 	var latest := SaveManager.latest_slot()
 	if latest != "":
 		var meta := SaveManager.read_meta(latest)
-		_buttons.add_child(UIKit.button("Continuar", func() -> void: _continue(latest)))
-		_buttons.add_child(UIKit.label("   Capítulo %d · Dia %d · %s" % [int(meta.get("chapter", 1)), int(meta.get("day", 1)), str(meta.get("location", ""))], 14, UITheme.TEXT_DIM))
-	_buttons.add_child(UIKit.button("Novo Jogo", _new_game))
-	_buttons.add_child(UIKit.button("Carregar", _open_load))
-	_buttons.add_child(UIKit.button("Configurações", _open_settings))
-	_buttons.add_child(UIKit.button("Créditos", _open_credits))
-	_buttons.add_child(UIKit.button("Sair", func() -> void: get_tree().quit()))
-	for b in _buttons.get_children():
-		if b is Button:
-			(b as Button).alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_buttons.add_child(_item("Continuar", func() -> void: _continue(latest)))
+		var info := UIKit.label("Capítulo %d · Dia %d · %s" % [int(meta.get("chapter", 1)), int(meta.get("day", 1)), str(meta.get("location", ""))], 14, Color(0.7, 0.66, 0.6, 0.8))
+		info.add_theme_constant_override("outline_size", 0)
+		var im := MarginContainer.new()
+		im.add_theme_constant_override("margin_left", 24)
+		im.add_theme_constant_override("margin_bottom", 10)
+		im.add_child(info)
+		_buttons.add_child(im)
+	_buttons.add_child(_item("Novo Jogo", _new_game))
+	_buttons.add_child(_item("Carregar", _open_load))
+	_buttons.add_child(_item("Configurações", _open_settings))
+	_buttons.add_child(_item("Créditos", _open_credits))
+	_buttons.add_child(_item("Sair", func() -> void: get_tree().quit()))
+	v.add_child(UIKit.spacer(26))
+	var hint := UIKit.label("Enter  selecionar      Esc  voltar", 13, Color(0.62, 0.6, 0.56, 0.7))
+	hint.add_theme_constant_override("outline_size", 0)
+	var hm := MarginContainer.new()
+	hm.add_theme_constant_override("margin_left", 24)
+	hm.add_child(hint)
+	v.add_child(hm)
 	var rend := "Forward+ (Vulkan)" if Settings.is_forward_plus() else "Compatibility (OpenGL 3.3)"
 	var ver := UIKit.label("v%s · Godot %s · %s" % [ProjectSettings.get_setting("application/config/version", "0.9"), Engine.get_version_info()["string"], rend], 13, Color(0.55, 0.53, 0.5))
 	add_child(ver)
@@ -153,6 +182,43 @@ func _ready() -> void:
 		AudioManager.music.play_cue("mus_title", 0.8)
 	else:
 		AudioManager.audio_ready.connect(func() -> void: AudioManager.music.play_cue("mus_title", 0.8), CONNECT_ONE_SHOT)
+
+
+## Item do menu só em texto: sem caixa; o selecionado acende, entra um pouco
+## para a direita e ganha um traço dourado à esquerda.
+func _item(text: String, cb: Callable) -> Button:
+	var b := UIKit.button(text, cb, 0.0, 30)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size = Vector2(420, 50)
+	b.flat = true
+	var idle := StyleBoxEmpty.new()
+	idle.content_margin_left = 24
+	var active := StyleBoxEmpty.new()
+	active.content_margin_left = 40
+	for st in ["normal", "pressed", "disabled", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, idle)
+	b.add_theme_stylebox_override("hover", active)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_theme_color_override("font_color", Color(0.76, 0.73, 0.68, 0.82))
+	b.add_theme_color_override("font_hover_color", Color(1.0, 0.97, 0.9))
+	b.add_theme_color_override("font_focus_color", Color(1.0, 0.97, 0.9))
+	b.add_theme_color_override("font_pressed_color", UITheme.ACCENT)
+	b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.5))
+	b.add_theme_constant_override("outline_size", 4)
+	var bar := ColorRect.new()
+	bar.color = UITheme.ACCENT
+	bar.size = Vector2(22, 2)
+	bar.position = Vector2(4, 25)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.visible = false
+	b.add_child(bar)
+	b.focus_entered.connect(func() -> void:
+		bar.visible = true
+		b.add_theme_stylebox_override("normal", active))
+	b.focus_exited.connect(func() -> void:
+		bar.visible = false
+		b.add_theme_stylebox_override("normal", idle))
+	return b
 
 
 func _process(delta: float) -> void:

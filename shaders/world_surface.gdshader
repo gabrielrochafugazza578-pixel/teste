@@ -30,11 +30,11 @@ uniform float interior_fill = 0.0;
 // canal A de tex_b = relevo (fotos com mapa de altura; a camada 5, metal, guarda metal)
 uniform bool has_height = false;
 uniform float parallax_scale = 1.0;
-uniform float parallax_distance = 14.0;
+uniform float parallax_distance = 24.0;
 // profundidade do relevo de cada camada, em metros
 const float LAYER_DEPTH[16] = float[16](
-	0.007, 0.01, 0.014, 0.003, 0.03, 0.0, 0.005, 0.012,
-	0.014, 0.06, 0.003, 0.004, 0.018, 0.015, 0.0, 0.0);
+	0.011, 0.017, 0.026, 0.005, 0.05, 0.0, 0.009, 0.02,
+	0.024, 0.09, 0.005, 0.007, 0.03, 0.026, 0.0, 0.0);
 
 global uniform float wetness;
 // 1 quando o SSAO de verdade está ligado (Forward+): alivia a oclusão "pintada"
@@ -46,6 +46,9 @@ global uniform float blackout_radius;
 global uniform float daylight;
 global uniform float rain_intensity;
 global uniform float detail_distance;
+// direção (para o sol) e força da luz do sol: sombra própria do relevo
+global uniform vec3 sun_dir;
+global uniform float sun_strength;
 
 varying vec3 w_pos;
 varying vec3 w_nrm;
@@ -119,6 +122,7 @@ void fragment() {
 	vec2 gy = dFdy(tuv);
 	vec3 Nn = normalize(w_nrm);
 	bool hgt = has_height && li != 5;
+	float pshadow = 0.0;
 #if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
 	// --- Relevo de verdade (parallax occlusion) perto da câmera ----------------
 	// rejunte dos tijolos, telhas, frestas da calçada, pedras: o raio de visão
@@ -139,7 +143,7 @@ void fragment() {
 		float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-12));
 		vec3 Vw = (CAMERA_POSITION_WORLD - w_pos) / max(cam_d, 1e-4);
 		vec3 vts = vec3(dot(Vw, T * inv), dot(Vw, B * inv), dot(Vw, Nn));
-		float steps = floor(mix(20.0, 6.0, clamp(vts.z, 0.0, 1.0)) * mix(0.5, 1.0, pfade));
+		float steps = floor(mix(32.0, 8.0, clamp(vts.z, 0.0, 1.0)) * mix(0.5, 1.0, pfade));
 		vec2 delta = -vts.xy / max(vts.z, 0.3) * pdepth * sc * pfade / steps;
 		float st = 1.0 / steps;
 		vec2 ofs = tuv;
@@ -148,7 +152,7 @@ void fragment() {
 		vec2 prev = ofs;
 		float prev_hd = hd;
 		float prev_cur = 0.0;
-		for (int i = 0; i < 20; i++) {
+		for (int i = 0; i < 32; i++) {
 			if (float(i) >= steps || cur >= hd) {
 				break;
 			}
@@ -162,6 +166,21 @@ void fragment() {
 		float after = hd - cur;
 		float before = prev_hd - prev_cur;
 		tuv = mix(ofs, prev, clamp(after / min(after - before, -1e-5), 0.0, 1.0));
+		// sombra própria: do ponto achado, um raio até o sol pelo mapa de altura;
+		// se o relevo passa por cima do raio, o ponto está na sombra (rejunte,
+		// fresta e o lado das pedras oposto ao sol)
+		vec3 lts = vec3(dot(sun_dir, T * inv), dot(sun_dir, B * inv), dot(sun_dir, Nn));
+		if (sun_strength > 0.01 && exterior && lts.z > 0.02) {
+			float hh = 1.0 - textureGrad(tex_b, vec3(tuv, v_layer), gx, gy).a;
+			vec2 ldir = lts.xy / max(lts.z, 0.12) * pdepth * sc;
+			float sh = 0.0;
+			for (int i = 1; i <= 10; i++) {
+				float f = float(i) / 10.0;
+				float sd = 1.0 - textureGrad(tex_b, vec3(tuv + ldir * hh * f, v_layer), gx, gy).a;
+				sh = max(sh, (hh * (1.0 - f) - sd) * (1.0 - f * 0.6) * 7.0);
+			}
+			pshadow = clamp(sh, 0.0, 1.0) * pfade * smoothstep(0.02, 0.2, lts.z);
+		}
 	}
 #endif
 	vec3 uvw = vec3(tuv, v_layer);
@@ -501,6 +520,8 @@ void fragment() {
 		}
 	}
 
+	// sombra própria do relevo só tira a parte do sol (a luz do céu continua)
+	alb *= 1.0 - pshadow * 0.7 * sun_strength * (1.0 - is_window);
 	if (interior_fill > 0.0) {
 		// forros e faces voltadas para baixo recebem a luz que rebate do piso
 		float down = clamp(-w_nrm.y, 0.0, 1.0);

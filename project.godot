@@ -136,6 +136,14 @@ blackout_origin={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+sun_dir={
+"type": "vec3",
+"value": Vector3(0.3, 0.8, 0.5)
+}
+sun_strength={
+"type": "float",
+"value": 0.0
+}
 blackout_radius={
 "type": "float",
 "value": 0.0
