@@ -284,7 +284,8 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
   colisão) e se afastam uns dos outros; a multidão sorteada procura um lugar livre ao nascer (e para o destino),
   os saqueadores saem pela porta aberta. Para conferir depois de editar:
   `godot --headless --path . res://tests/smoke_test.tscn -- --no-audio --opening --cine-audit` roda a abertura
-  sem renderizar (~4 min) e lista cada ator visível pela câmera dentro de algo (tomada, quem, o quê, onde).
+  sem renderizar (~4 min) e lista cada ator visível pela câmera dentro de algo (tomada, quem, o quê, onde)
+  e a câmera da cena dentro de prédio, parede ou carro (fora das transições com a tela escura).
 
 ---
 
