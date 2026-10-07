@@ -216,7 +216,10 @@ NOVIDADES DESTA VERSÃO
   - Chão de terra, grama e pedra misturados como na natureza (as pedras
     aparecem por cima, a terra preenche os vãos) e campos com manchas de
     capim seco e verde tiradas de uma foto aérea real.
-  - Carros com ferrugem, lama e lataria queimada em fotos reais.
+  - Carros com ferrugem, lama e lataria queimada em fotos reais, e vidros
+    empoeirados com marcas de água seca nos carros abandonados.
+  - Papel de parede (listrado ou com padrão miúdo) amarelado e descolando
+    nas paredes de dentro dos prédios.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

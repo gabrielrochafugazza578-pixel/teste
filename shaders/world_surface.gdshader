@@ -201,6 +201,47 @@ void fragment() {
 	vec3 nmap = vec3(nxy, sqrt(max(0.0, 1.0 - dot(nxy, nxy))));
 	vec3 emit = vec3(0.0);
 
+	// --- Papel de parede (paredes internas): listras ou padrão miúdo, desbotado,
+	// descolando em manchas onde aparece o reboco de baixo ----------------------
+	if (!exterior && li == 3 && an.y < 0.5) {
+		float pick = fract(v_seed * 7.13);
+		if (pick < 0.5) {
+			vec3 c2 = alb * mix(vec3(0.8, 0.85, 0.78), vec3(0.92, 0.8, 0.7), fract(v_seed * 3.7));
+			float pat;
+			float period;
+			if (pick < 0.25) {
+				// listras verticais
+				period = mix(0.12, 0.26, fract(v_seed * 11.0));
+				float x = abs(fract(UV.x / period) - 0.5) * 2.0;
+				float fx = max(fwidth(UV.x / period) * 2.0, 1e-4);
+				pat = clamp((x - 0.5) / fx + 0.5, 0.0, 1.0);
+			} else {
+				// losangos miúdos em fileiras desencontradas
+				period = 0.11;
+				vec2 g = UV / vec2(period, period * 1.3);
+				g.x += step(0.5, fract(g.y * 0.5)) * 0.5;
+				vec2 f = fract(g) - 0.5;
+				float dmd = abs(f.x) + abs(f.y);
+				float fw2 = max(fwidth(dmd), 1e-4);
+				pat = 1.0 - clamp((dmd - 0.2) / fw2 + 0.5, 0.0, 1.0);
+			}
+			// de longe vira a média (sem moiré)
+			float far_p = smoothstep(0.15, 0.4, max(dUV.x, dUV.y) / period);
+			pat = mix(pat, 0.3, far_p);
+			alb = mix(alb, c2, pat * 0.6);
+			// amarelado do tempo
+			alb *= mix(vec3(1.0), vec3(1.0, 0.95, 0.84), world_decay * 0.6);
+			// papel descolando: aparece o reboco cinza de baixo
+			float pm = texture(noise_tex, np * 0.21 + v_seed * 5.1).g * 0.6 + texture(noise_tex, np * 0.9).r * 0.4;
+			float th = 0.62 - world_decay * 0.07;
+			float peel = smoothstep(th, th + 0.01, pm);
+			float edge = smoothstep(th - 0.02, th, pm) * (1.0 - peel);
+			float lum0 = dot(base_rgb, vec3(0.3, 0.59, 0.11));
+			alb = mix(alb, vec3(0.62, 0.6, 0.56) * lum0 * 1.4, peel);
+			alb *= 1.0 - edge * 0.25;
+		}
+	}
+
 	// --- Abandono: reboco caído (aparece o tijolo) e buracos no asfalto ----------
 	float wdec = world_decay * grime;
 	float pothole = 0.0;
