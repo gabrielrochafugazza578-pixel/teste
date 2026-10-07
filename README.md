@@ -167,10 +167,19 @@ Exceções (arquivos de fora, em `assets/`):
   em `shaders/grass.gdshader`.
 * `assets/materials/NN_a.res` / `NN_b.res` — as 16 camadas em fotos 2K do [Poly Haven](https://polyhaven.com)
   (CC0; lista em `assets/materials/LICENCA.txt`). `tools/fetch_textures.py` baixa e monta os PNG no formato das
-  camadas (A = cor + rugosidade, B = normal xy + AO + metal; originais em `assets/materials/src/`, fora do git) e
+  camadas (A = cor + rugosidade, B = normal xy + AO + relevo — na camada 5, metal, o canal guarda o metal;
+  originais em `assets/materials/src/`, fora do git) e
   `tools/pack_layers.gd` comprime em BC7 com mipmaps; o jogo monta o `Texture2DArray` direto delas (qualidades
   menores descartam os níveis de cima). Escala real de cada foto em `escala.json`. Sem as fotos, as camadas
   voltam a ser geradas proceduralmente.
+  O relevo (mapa de altura do Poly Haven, passa-alta) vira parallax occlusion perto da câmera no Forward+
+  (`world_surface.gdshader`), sujeira no rejunte e água que junta primeiro nas frestas e buracos (os dois
+  renderizadores) e a mistura por altura de grama/terra/rocha/cascalho no `terrain.gdshader`. Com o abandono
+  (`world_decay`) o reboco solta e mostra o tijolo e o asfalto esfarela até a base de cascalho.
+  `tests/relevo.tscn` mostra as camadas com e sem relevo (`--sem-relevo`, `--chuva`, `--abandono`).
+* `assets/textures/terrain/aerial_macro.jpg` — foto aérea `aerial_grass_rock` (Poly Haven, CC0, Rob Tuytel)
+  normalizada: variação de dezenas de metros no terreno de perto e no distante. A pintura dos carros
+  (`vehicle_paint.gdshader`) usa as fotos da chapa enferrujada e da terra para ferrugem, lama e carcaça queimada.
 * `assets/textures/foliage/` — folhagem fotográfica montada por `tools/make_foliage.py` com as folhas recortadas
   dos atlas dos modelos de plantas do Poly Haven (copa, arbusto, trepadeira, pinheiro, fronde de palmeira e moita).
 * `assets/models/props/*` — modelos glTF escaneados do Poly Haven (CC0; `tools/fetch_models.py`), lidos por

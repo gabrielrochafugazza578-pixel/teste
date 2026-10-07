@@ -208,6 +208,15 @@ NOVIDADES DESTA VERSÃO
     reais e copa feita com as folhas da própria espécie.
   - Menu principal novo: a rua ao entardecer com a cidade queimando ao fundo e
     o Caio olhando, ao vivo (fumaça, brasas e luz de incêndio).
+  - Texturas com relevo de verdade: tijolos, telhas, calçada, pedras e casca
+    das árvores têm profundidade quando vistos de perto (Vulkan); a sujeira
+    assenta no rejunte e, na chuva, a água junta primeiro nas frestas.
+  - Cidade abandonada: o reboco das paredes solta e aparece o tijolo, e o
+    asfalto esfarela em buracos que viram poças quando chove.
+  - Chão de terra, grama e pedra misturados como na natureza (as pedras
+    aparecem por cima, a terra preenche os vãos) e campos com manchas de
+    capim seco e verde tiradas de uma foto aérea real.
+  - Carros com ferrugem, lama e lataria queimada em fotos reais.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

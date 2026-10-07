@@ -89,13 +89,28 @@ static func paint_material(state: String) -> ShaderMaterial:
 	return m
 
 
+## Vidro empoeirado (película irregular e marcas de água seca).
+static func _dirty_glass(amount: float) -> ShaderMaterial:
+	var key := "glass_%.2f" % amount
+	if _mats.has(key):
+		return _mats[key]
+	var m := ShaderMaterial.new()
+	m.shader = Assets.shader("res://shaders/vehicle_glass.gdshader")
+	m.set_shader_parameter("dirt", amount)
+	Assets.track_textures(m)
+	_mats[key] = m
+	return m
+
+
 static func surface_materials(state = "clean") -> Array:
 	# compatibilidade: surface_materials(true) = queimado
 	var st: String = ("burned" if state else "clean") if state is bool else str(state)
 	var burned := st == "burned"
 	var paint := paint_material(st)
 	# vidro: tom azul-acinzentado com reflexo do céu (não preto chapado); sujo fica fosco
-	var glass := Assets.pbr(Color(0.2, 0.25, 0.29) if st == "clean" else Color(0.27, 0.28, 0.27), 0.1 if st == "clean" else 0.42, 0.35 if st == "clean" else 0.15)
+	var glass: Material = Assets.pbr(Color(0.2, 0.25, 0.29) if st == "clean" else Color(0.27, 0.28, 0.27), 0.1 if st == "clean" else 0.42, 0.35 if st == "clean" else 0.15)
+	if st in ["dusty", "wreck"]:
+		glass = _dirty_glass(0.55 if st == "dusty" else 0.85)
 	var trim := Assets.pbr(Color(0.055, 0.055, 0.06) if not burned else Color(0.03, 0.028, 0.026), 0.75, 0.0)
 	var chrome := Assets.pbr(Color(0.62, 0.63, 0.65) if not burned else Color(0.2, 0.17, 0.15), 0.3 if not burned else 0.85, 0.9 if not burned else 0.2)
 	var lights := Assets.pbr(Color(0.85, 0.87, 0.88), 0.12, 0.3)
