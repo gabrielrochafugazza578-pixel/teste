@@ -21,7 +21,14 @@ void fragment() {
 	c = mix(c, mix(c, milky, 0.85), eye_cloud * iris);
 	// esclera amarelada e com vasos nos infectados
 	c = mix(c, c * vec3(1.0, 0.8, 0.62), infection * (1.0 - iris) * 0.7);
-	ALBEDO = c * 0.92;
+	// sombra da pálpebra de cima e dos cílios sobre o globo (sem ela o olho
+	// "acende" e parece de boneco): a parte que aponta para cima escurece
+	float up = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).y;
+	float lid = smoothstep(-0.05, 0.45, up);
+	c *= mix(1.0, 0.45, lid);
+	// esclera nunca é branco puro
+	c = mix(c, c * vec3(0.93, 0.88, 0.85), 1.0 - iris);
+	ALBEDO = c * 0.88;
 	ROUGHNESS = 0.06;
 	SPECULAR = 0.6;
 	CLEARCOAT = 1.0;

@@ -9,7 +9,7 @@ uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
 uniform float cutoff = 0.42;
 uniform float aniso = 0.55;
 uniform float rough_base = 0.5;
-uniform float spec = 0.3;
+uniform float spec = 0.22;
 // rgb = cor desejada, a = quanto tingir (0 = cor da foto)
 instance uniform vec4 hair_tint : source_color, instance_index(8) = vec4(1.0, 1.0, 1.0, 0.0);
 instance uniform float grime : instance_index(1) = 0.2;
@@ -20,14 +20,15 @@ void fragment() {
 	vec3 c = a.rgb;
 	// tinge pela luminância (o cabelo da textura vira castanho, preto, grisalho…)
 	float l = dot(c, vec3(0.3, 0.59, 0.11));
-	c = mix(c, vec3(l) * 2.4 * hair_tint.rgb, hair_tint.a);
+	// (luminância limitada: as pontas claras da foto viravam fios brancos)
+	c = mix(c, hair_tint.rgb * clamp(l * 2.4, 0.25, 1.35), hair_tint.a);
 	c = mix(c, c * vec3(0.7, 0.66, 0.6), clamp(grime, 0.0, 1.0) * 0.4);
 	ALBEDO = c * (1.0 - clamp(wetness, 0.0, 1.0) * 0.3);
 	ALPHA = a.a;
 	ALPHA_SCISSOR_THRESHOLD = cutoff;
 	ROUGHNESS = mix(rough_base, rough_base * 0.6, clamp(wetness, 0.0, 1.0));
-	SPECULAR = spec;
+	SPECULAR = spec * (0.4 + 0.6 * a.a);
 	ANISOTROPY = aniso;
 	ANISOTROPY_FLOW = vec2(0.0, 1.0);
-	BACKLIGHT = c * 0.35;
+	BACKLIGHT = c * 0.18;
 }

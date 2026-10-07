@@ -90,9 +90,19 @@ def R(cid, g, age, height, skin, hair, clothes, **kw):
 
 R("caio", 1.0, 31, 1.79, "toigo_light_skin_male_bronze", "short02",
   ["male_casualsuit05", "toigo_ankle_boots_male"], muscle=0.64, weight=0.47,
-  race={"caucasian": 0.55, "african": 0.3, "asian": 0.15}, skin_tone=(0.98, 0.95, 0.93), stubble=0.9,
+  race={"caucasian": 0.55, "african": 0.3, "asian": 0.15}, skin_tone=(0.98, 0.95, 0.93), stubble=0.7,
   tex_size={"skin": 2048, "male_casualsuit05": 2048}, params={"male_casualsuit05": {"desat": 0.3}},
-  backpack=True, grime=0.3)
+  backpack=True, grime=0.3,
+  # rosto marcado de sobrevivente: mandíbula e maçãs fortes, nariz com
+  # calombo, sobrancelha baixa e cansaço nos olhos
+  face={"chin/chin-width-incr": 0.35, "chin/chin-prominent-incr": 0.3, "head/head-square": 0.45,
+        "cheek/l-cheek-bones-incr": 0.45, "cheek/r-cheek-bones-incr": 0.45, "cheek/l-cheek-volume-decr": 0.3,
+        "cheek/r-cheek-volume-decr": 0.3, "nose/nose-hump-incr": 0.35, "nose/nose-scale-vert-incr": 0.15,
+        "eyebrows/eyebrows-trans-down": 0.4, "eyebrows/eyebrows-trans-forward": 0.35, "eyes/l-eye-bag-incr": 0.35,
+        "eyes/r-eye-bag-incr": 0.35, "eyes/l-eye-eyefold-down": 0.3, "eyes/r-eye-eyefold-down": 0.3,
+        "mouth/mouth-upperlip-volume-decr": 0.25, "neck/neck-scale-horiz-incr": 0.2},
+  expr={"eyebrows-left-down": 0.2, "eyebrows-right-down": 0.2, "mouth-compression": 0.12,
+        "eye-left-slit": 0.1, "eye-right-slit": 0.1})
 R("helena", 0.0, 38, 1.66, "young_caucasian_female", "ponytail01",
   ["toigo_basic_tucked_t-shirt", "toigo_wool_pants", "shoes06", "mindfront_cardigan_long_open_front",
    "frankyaye_glasses_library_male"], muscle=0.42, weight=0.42, eyes="green",
@@ -151,7 +161,14 @@ def Z(cid, base, **kw):
     """Infectado a partir de um civil: mantém a pele sob a roupa (aparece pelos rasgos)."""
     r = dict(RECIPES[base])
     r.pop("backpack", None)
+    r.pop("face", None)
     r["keep_body"] = True
+    # rosto de infectado: encovado, tendões do pescoço tensos, narinas abertas,
+    # lábio repuxado e o olhar parado
+    r["gaunt"] = 0.9
+    r["expr"] = {"neck-platysma": 0.75, "mouth-depression-retraction": 0.3, "mouth-upward-retraction": 0.22,
+                 "nose-left-dilatation": 0.35, "nose-right-dilatation": 0.35, "eye-left-opened-up": 0.2,
+                 "eye-right-opened-up": 0.2, "mouth-open": 0.1}
     r.update(kw)
     RECIPES[cid] = r
 
@@ -347,10 +364,109 @@ def macro_targets(r):
     return out
 
 
-def body_coords(r):
+def _pair(name, w):
+    """Alvo simétrico (l-/r-): o mesmo peso dos dois lados."""
+    grp, rest = name.split("/", 1)
+    return [("%s/l-%s" % (grp, rest), w), ("%s/r-%s" % (grp, rest), w)]
+
+
+def _signed(base, v):
+    """base-incr/-decr (ou -up/-down, -in/-out...) a partir de um valor com sinal."""
+    if isinstance(base, tuple):
+        pos, neg = base
+    else:
+        pos, neg = base + "-incr", base + "-decr"
+    return [(pos if v >= 0 else neg, abs(v))] if abs(v) > 1e-3 else []
+
+
+# Rosto: o MakeHuman sem detalhe dá rostos lisos e iguais. Cada pessoa ganha um
+# rosto próprio (formato da cabeça, queixo, maçãs, nariz, lábios, olhos,
+# sobrancelha, orelhas, um pouco de assimetria), estável pela semente do id,
+# com a idade marcando olheiras e bochechas; "face" na receita sobrepõe e
+# "expr" aplica unidades de expressão (misturadas pela origem étnica).
+def face_targets(cid, r):
+    rng = np.random.default_rng(abs(hash_str(cid)) % (2 ** 32))
+    g = float(r["g"])
+    age = float(r["age"])
+    old = min(max((age - 30.0) / 40.0, 0.0), 1.0)
+    out = []
+    u = lambda a=0.35: float(rng.uniform(-a, a))
+    shapes = ["head/head-oval", "head/head-round", "head/head-square", "head/head-rectangular", "head/head-diamond",
+              "head/head-invertedtriangular"]
+    sh = shapes[int(rng.integers(0, len(shapes)))]
+    if g > 0.5 and rng.random() < 0.5:
+        sh = "head/head-square"
+    out.append((sh, float(rng.uniform(0.2, 0.5))))
+    out += _signed("chin/chin-width", u() + 0.15 * g)
+    out += _signed("chin/chin-prominent", u(0.3) + 0.1 * g)
+    out += _signed("chin/chin-height", u(0.25))
+    out += _signed("chin/chin-cleft", max(0.0, u(0.4)) * g)
+    out += _pair("cheek/cheek-bones-incr", float(rng.uniform(0.1, 0.45)))
+    for n, w in _signed("cheek/l-cheek-volume", u(0.3) - 0.35 * old - 0.3 * float(r.get("gaunt", 0.0))):
+        out += [(n, w), (n.replace("/l-", "/r-"), w)]
+    out += _signed("nose/nose-hump", u(0.4) + 0.1 * g)
+    out += _signed("nose/nose-scale-horiz", u(0.3))
+    out += _signed("nose/nose-scale-vert", u(0.3) + 0.08 * old)
+    out += _signed("nose/nose-point-width", u(0.3))
+    out += _signed(("nose/nose-base-up", "nose/nose-base-down"), u(0.3))
+    out += _signed("nose/nose-nostrils-width", u(0.3))
+    out += _signed("mouth/mouth-upperlip-volume", u(0.35) - 0.2 * g - 0.2 * old)
+    out += _signed("mouth/mouth-lowerlip-volume", u(0.35) - 0.1 * g - 0.15 * old)
+    out += _signed("mouth/mouth-scale-horiz", u(0.25))
+    out += _signed(("mouth/mouth-angles-up", "mouth/mouth-angles-down"), u(0.2) - 0.15 * old)
+    out += _signed(("mouth/mouth-laugh-lines-out", "mouth/mouth-laugh-lines-in"), 0.2 + 0.5 * old)
+    out += _pair("eyes/eye-bag-incr", float(rng.uniform(0.05, 0.25)) + 0.5 * old)
+    out += _pair("eyes/eye-eyefold-down", float(rng.uniform(0.0, 0.3)) + 0.3 * old)
+    for n, w in _signed(("eyes/l-eye-height2-incr", "eyes/l-eye-height2-decr"), u(0.25)):
+        out += [(n, w), (n.replace("/l-", "/r-"), w)]
+    out += _signed(("eyebrows/eyebrows-trans-down", "eyebrows/eyebrows-trans-up"), 0.15 * g + u(0.2))
+    out += _signed(("eyebrows/eyebrows-trans-forward", "eyebrows/eyebrows-trans-backward"), 0.2 * g + u(0.15))
+    out += _signed(("forehead/forehead-temple-decr", "forehead/forehead-temple-incr"), 0.2 * old + u(0.2))
+    out += _pair("ears/ear-flap-incr", max(0.0, u(0.4)))
+    out += _pair("ears/ear-lobe-incr", max(0.0, u(0.3)) + 0.3 * old)
+    out += _signed(("neck/neck-double-incr", "neck/neck-double-decr"), (float(r.get("weight", 0.5)) - 0.5) * 0.8 + 0.2 * old)
+    # assimetria: ninguém tem as duas metades iguais
+    asym = ["asym-brown-1", "asym-cheek-1", "asym-eye-2", "asym-jaw-1", "asym-mouth-1", "asym-nose-2", "asym-temple-1"]
+    for k in rng.choice(len(asym), 4, replace=False):
+        out.append(("asym/%s-%s.target" % (asym[int(k)], "l" if rng.random() < 0.5 else "r"), float(rng.uniform(0.2, 0.55))))
+    over = dict((k, v) for k, v in r.get("face", {}).items())
+    if over:
+        opp = [("-incr", "-decr"), ("-up", "-down"), ("-in", "-out"), ("-forward", "-backward")]
+        keep = {}
+        for n, w in out:
+            keep[n] = w
+        for n, w in over.items():
+            for a_, b_ in opp:
+                for x, y in ((a_, b_), (b_, a_)):
+                    if n.endswith(x):
+                        keep.pop(n[: -len(x)] + y, None)
+            keep[n] = w
+        out = list(keep.items())
+    # expressões (unidades por origem: caucasian/african/asian)
+    for unit, w in r.get("expr", {}).items():
+        for race, rw in r["race"].items():
+            if rw > 1e-3:
+                out.append(("expression/units/%s/%s" % (race, unit), w * rw))
+    res = []
+    for n, w in out:
+        if not n.endswith(".target"):
+            n += ".target"
+        res.append((n, w))
+    return res
+
+
+def hash_str(s):
+    h = 2166136261
+    for ch in s.encode():
+        h = ((h ^ ch) * 16777619) & 0xFFFFFFFF
+    return h
+
+
+def body_coords(r, cid=""):
     V, _, _, _ = BASE
     V = V.copy()
-    for rel, w in macro_targets(r):
+    face = face_targets(cid, r) if cid and not r.get("no_face") else []
+    for rel, w in macro_targets(r) + face:
         p = os.path.join(MH, "data", "targets", rel)
         if not os.path.exists(p):
             print("  (sem alvo %s)" % rel)
@@ -787,7 +903,8 @@ def beard_weight(V):
     top = mouth_y + 0.17 + _sstep(0.2, 0.55, ax) * 0.1 + _sstep(0.85, 0.35, z) * _sstep(0.45, 0.65, ax) * 0.62
     w = _sstep(top + 0.06, top - 0.08, y)
     w *= _sstep(0.0, 0.35, z + (ax > 0.6) * 0.3)
-    w *= _sstep(chin_y - 0.2, chin_y - 0.02, y)
+    # pescoço: a barba some logo abaixo do queixo (descendo até a gola parecia sujeira)
+    w *= _sstep(chin_y - 0.1, chin_y + 0.04, y)
     must = _sstep(0.5, 0.3, ax) * _sstep(nose_y - 0.05, nose_y - 0.15, y) * _sstep(mouth_y + 0.02, mouth_y + 0.1, y) \
         * _sstep(1.1, 1.3, z)
     w = np.maximum(w, must)
@@ -1043,7 +1160,7 @@ def to_game(P, scale, ground):
 
 def build(cid, r):
     print("==", cid)
-    V = body_coords(r)
+    V = body_coords(r, cid)
     Vb, VTb, Fb, Gb = BASE
     nv = len(V)
     W = game_weights(nv)

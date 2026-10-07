@@ -1,0 +1,62 @@
+{
+ "walk": {
+  "frames": 34,
+  "speed": 1.499,
+  "file": "07_01.bvh"
+ },
+ "walk_slow": {
+  "frames": 45,
+  "speed": 1.007,
+  "file": "07_04.bvh"
+ },
+ "walk_brisk": {
+  "frames": 28,
+  "speed": 2.117,
+  "file": "07_12.bvh"
+ },
+ "jog": {
+  "frames": 26,
+  "speed": 2.934,
+  "file": "16_35.bvh"
+ },
+ "run": {
+  "frames": 22,
+  "speed": 3.742,
+  "file": "09_01.bvh"
+ },
+ "idle": {
+  "frames": 97,
+  "speed": 0.0,
+  "file": "82_08.bvh"
+ },
+ "idle_b": {
+  "frames": 235,
+  "speed": 0.0,
+  "file": "77_02.bvh"
+ },
+ "look_flash": {
+  "frames": 128,
+  "speed": 0.0,
+  "file": "77_05.bvh"
+ },
+ "creep": {
+  "frames": 20,
+  "speed": 1.289,
+  "file": "77_14.bvh"
+ },
+ "limp": {
+  "frames": 18,
+  "speed": 0.871,
+  "file": "77_19.bvh"
+ },
+ "zombie": {
+  "frames": 33,
+  "speed": 0.952,
+  "file": "20_08.bvh"
+ },
+ "zombie_b": {
+  "frames": 31,
+  "speed": 0.985,
+  "file": "21_08.bvh"
+ }
+}

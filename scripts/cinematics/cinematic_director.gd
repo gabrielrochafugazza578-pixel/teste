@@ -842,6 +842,8 @@ func _vehicle(type: String, pos: Vector3, yaw: float, lights: bool) -> Node3D:
 	m.roughness = 0.35
 	mi.set_surface_override_material(0, m)
 	root.add_child(mi)
+	var dims := VehicleMeshBuilder.dims(type)
+	_blocker(root, Vector3(float(dims["W"]), float(dims["roof"]), float(dims["L"])))
 	root.global_position = pos
 	root.rotation.y = yaw
 	if lights:
@@ -861,11 +863,30 @@ func _barricade(p: Vector3) -> void:
 		mi.mesh = PropLib.mesh("sandbags" if i % 2 == 0 else "concrete_barrier")
 		mi.position = Vector3(-6.0 + i * 3.0, 0, 0)
 		root.add_child(mi)
+	var blk := Node3D.new()
+	blk.position = Vector3(0, 0, 0)
+	root.add_child(blk)
+	_blocker(blk, Vector3(15.0, 1.0, 0.8))
 	props.append(root)
 	var v := _vehicle("police", p + Vector3(8.5, 0, -3.0), 0.4, true)
 	for k in 2:
 		var a := _spawn_actor("pm_%d" % k, "police:%d" % (20 + k), "world", [p.x - 3.0 + k * 5.0, p.y, p.z + 1.2], 0.0, "guard_idle")
 		props.append(a)
+
+
+## Corpo estático (camada de veículos/props) para os atores da cinemática
+## desviarem em vez de atravessar carros e barricadas.
+func _blocker(parent: Node3D, size: Vector3) -> void:
+	var sb := StaticBody3D.new()
+	sb.collision_layer = 1 << 4
+	sb.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	var bx := BoxShape3D.new()
+	bx.size = size
+	cs.shape = bx
+	cs.position = Vector3(0, size.y * 0.5, 0)
+	sb.add_child(cs)
+	parent.add_child(sb)
 
 
 func _clear_actors() -> void:

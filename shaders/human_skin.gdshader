@@ -12,6 +12,10 @@ uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
 uniform vec3 tone = vec3(1.0);
 uniform float sss = 0.4;
 uniform float normal_strength = 0.8;
+// poros e microrrugas (mapa repetível): só de perto, some com a distância
+uniform sampler2D pore_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float pore_scale = 12.0;
+uniform float pore_strength = 0.55;
 
 void fragment() {
 	vec3 alb = texture(albedo_tex, UV).rgb * tone;
@@ -52,7 +56,15 @@ void fragment() {
 	ALBEDO = alb;
 	ROUGHNESS = rough;
 	SPECULAR = 0.42;
-	NORMAL_MAP = vec3(nt.rg, 1.0);
+	vec2 nxy = nt.rg * 2.0 - 1.0;
+	float pf = 1.0 - smoothstep(1.2, 4.5, length(VERTEX));
+	if (pf > 0.0) {
+		vec2 pn = texture(pore_tex, UV * pore_scale).rg * 2.0 - 1.0;
+		nxy += pn * pore_strength * pf;
+		// fundo dos poros um pouco mais fosco
+		ROUGHNESS = clamp(rough + length(pn) * 0.08 * pf, 0.0, 1.0);
+	}
+	NORMAL_MAP = vec3(nxy * 0.5 + 0.5, 1.0);
 	NORMAL_MAP_DEPTH = normal_strength;
 	AO = nt.b;
 	AO_LIGHT_AFFECT = 0.3;

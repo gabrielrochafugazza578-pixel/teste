@@ -17,6 +17,8 @@ static var _table: Dictionary = {}
 static var _shaders: Dictionary = {}
 
 
+const PORES := "res://assets/textures/skin/skin_pores_n.png"
+
 static func is_model(ap: Dictionary) -> bool:
 	return str(ap.get("model", "")).begins_with("mh:")
 
@@ -99,15 +101,22 @@ static func material(kind: String, key: String, torn: bool = false) -> ShaderMat
 	match kind:
 		"body":
 			m.shader = _shader("res://shaders/human_skin.gdshader")
+			if ResourceLoader.exists(PORES):
+				m.set_shader_parameter("pore_tex", load(PORES))
 		"eyes":
 			m.shader = _shader("res://shaders/human_eye.gdshader")
-		"hair", "beard", "brow":
+		"brow":
+			m.shader = _shader("res://shaders/human_brow.gdshader")
+			# cílios: mais finos e escuros que a sobrancelha
+			if key.begins_with("eyelash"):
+				m.set_shader_parameter("opacity", 0.8)
+				m.set_shader_parameter("density", 1.3)
+		"hair", "beard":
 			m.shader = _shader("res://shaders/human_hair.gdshader")
-			if kind == "brow":
+			if kind == "hair":
+				# recorte mais baixo: fios mais cheios (sem o fundo aparecendo entre
+				# as mechas do rabo de cavalo)
 				m.set_shader_parameter("cutoff", 0.3)
-				m.set_shader_parameter("aniso", 0.0)
-				m.set_shader_parameter("spec", 0.25)
-				m.set_shader_parameter("rough_base", 0.6)
 			elif kind == "beard":
 				m.set_shader_parameter("cutoff", 0.36)
 				m.set_shader_parameter("aniso", 0.3)

@@ -61,6 +61,18 @@ func set_traffic(on: bool, at: Vector3, panic: bool = false) -> void:
 			col = Color(0.85, 0.85, 0.82)
 		mi.set_surface_override_material(0, _paint(col))
 		add_child(mi)
+		# corpo para os pedestres da cinemática desviarem (não atravessam o carro)
+		var dims := VehicleMeshBuilder.dims(type)
+		var sb := StaticBody3D.new()
+		sb.collision_layer = 1 << 4
+		sb.collision_mask = 0
+		var cs := CollisionShape3D.new()
+		var bx := BoxShape3D.new()
+		bx.size = Vector3(float(dims.get("W", 1.8)), float(dims.get("roof", 1.5)), float(dims.get("L", 4.2)))
+		cs.shape = bx
+		cs.position = Vector3(0, float(dims.get("roof", 1.5)) * 0.5, 0)
+		sb.add_child(cs)
+		mi.add_child(sb)
 		var z := anchor.z + _rng.randf_range(-SPAN, SPAN)
 		# no pânico a avenida vira um engarrafamento: carros quase parados, tortos, buzinando
 		var spd := _rng.randf_range(8.0, 13.0) if not panic else _rng.randf_range(0.0, 1.2)
@@ -128,7 +140,9 @@ func set_crowd(m: String, at: Vector3, frame: Transform3D = Transform3D.IDENTITY
 			a.play("run_scared")
 		var target := Vector3.INF
 		if m == "hospital":
-			target = frame * Vector3(_rng.randf_range(-1.5, 1.5), 0, 0.6)
+			# fila de verdade (duas colunas), cada um no seu lugar: antes todos
+			# iam para o mesmo ponto e se atravessavam
+			target = frame * Vector3((float(i % 2) - 0.5) * 0.95 + _rng.randf_range(-0.12, 0.12), 0, 0.7 + float(i / 2) * 0.78)
 		peds.append({"actor": a, "dir": dir, "x": x, "speed": spd, "still": still, "target": target})
 		if target != Vector3.INF:
 			a.walk_to(target, spd)

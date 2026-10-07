@@ -19,10 +19,15 @@ var _infect_to: float = 0.0
 var _infect_t: float = 0.0
 var _infect_dur: float = 0.0
 var _act_after_walk: String = ""
+# desvio de obstáculos ao andar (móveis, paredes, carros e os outros atores)
+var _steer_dir: Vector3 = Vector3.ZERO
+var _probe: PhysicsShapeQueryParameters3D
+const STEER_ANGLES := [0.0, 22.0, -22.0, 45.0, -45.0, 70.0, -70.0, 100.0, -100.0, 140.0, -140.0]
 
 
 func setup(appearance: Dictionary, w: World, lod: int = 0) -> void:
 	world = w
+	add_to_group("cine_actor")
 	body = HumanoidBody.new()
 	add_child(body)
 	body.setup(appearance, lod)
@@ -65,6 +70,59 @@ func infect(to: float, dur: float) -> void:
 	_infect_dur = maxf(dur, 0.01)
 
 
+## Direção livre mais próxima da desejada: sonda à frente (joelho e peito) em
+## leque; afasta-se dos outros atores. Sem isso o ator andava em linha reta
+## atravessando bancadas, mesas, carros e as outras pessoas.
+func _steer(want: Vector3) -> Vector3:
+	if not is_inside_tree():
+		return want
+	# longe da câmera ninguém repara: economiza as sondagens
+	var cam := get_viewport().get_camera_3d()
+	if cam and cam.global_position.distance_to(global_position) > 60.0:
+		return want
+	var space := get_world_3d().direct_space_state
+	if _probe == null:
+		_probe = PhysicsShapeQueryParameters3D.new()
+		var sh := SphereShape3D.new()
+		sh.radius = 0.24
+		_probe.shape = sh
+		_probe.collision_mask = 1 | (1 << 3) | (1 << 4)
+	var best := Vector3.ZERO
+	var best_cost := INF
+	var prev := _steer_dir if _steer_dir != Vector3.ZERO else want
+	for ang: float in STEER_ANGLES:
+		var d := want.rotated(Vector3.UP, deg_to_rad(ang))
+		var free := true
+		for dist: float in [0.32, 0.65]:
+			for hy: float in [0.45, 1.15]:
+				_probe.transform = Transform3D(Basis(), global_position + d * dist + Vector3(0, hy, 0))
+				if not space.intersect_shape(_probe, 1).is_empty():
+					free = false
+					break
+			if not free:
+				break
+		if free:
+			var cost := absf(ang) + rad_to_deg(d.angle_to(prev)) * 0.5
+			if cost < best_cost:
+				best_cost = cost
+				best = d
+	if best == Vector3.ZERO:
+		best = want
+	# separação dos outros atores (ninguém atravessa ninguém)
+	for o in get_tree().get_nodes_in_group("cine_actor"):
+		if o == self or not (o is Node3D):
+			continue
+		var off := global_position - (o as Node3D).global_position
+		off.y = 0.0
+		var dd := off.length()
+		if dd > 0.01 and dd < 0.85:
+			best += off / dd * (0.85 - dd) * 2.2
+	best.y = 0.0
+	best = best.normalized() if best.length() > 0.01 else want
+	_steer_dir = best if _steer_dir == Vector3.ZERO else _steer_dir.slerp(best, 0.35).normalized()
+	return _steer_dir
+
+
 func _process(delta: float) -> void:
 	var want := 0.0
 	var dir := Vector3.ZERO
@@ -73,11 +131,12 @@ func _process(delta: float) -> void:
 		to.y = 0.0
 		if to.length() < 0.25:
 			target = Vector3.INF
+			_steer_dir = Vector3.ZERO
 			if _act_after_walk != "":
 				body.play(_act_after_walk, 1.0)
 				_act_after_walk = ""
 		else:
-			dir = to.normalized()
+			dir = _steer(to.normalized())
 			want = speed * clampf(to.length() / 0.8, 0.3, 1.0)
 	_cur_speed = move_toward(_cur_speed, want, delta * 6.0)
 	if dir != Vector3.ZERO:

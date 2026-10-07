@@ -429,6 +429,166 @@ func _locomotion(dt: float) -> void:
 		_base[HB.SHIN_R] = Vector3(-35.0, 0.0, 0.0)
 		_base[HB.FOOT_L] = Vector3(-45.0, 0.0, 0.0)
 		_base[HB.FOOT_R] = Vector3(-45.0, 0.0, 0.0)
+	else:
+		_mocap(dt, spd, gw, dir_sign)
+
+
+# ---------------------------------------------------------------------------
+# Captura de movimento (CMU): andar, correr, parado, mancar, agachado, zumbi
+# ---------------------------------------------------------------------------
+const MOCAP_DIR := "res://assets/anim/mocap/"
+## conjuntos por estilo: clipes de locomoção em ordem de velocidade
+const MOCAP_SETS := {
+	"human": ["walk_slow", "walk", "walk_brisk", "jog", "run"],
+	"panic": ["jog", "run"],
+	"injured": ["walk_slow"],
+	"shamble": ["zombie_b", "zombie"],
+	"brute": ["zombie"],
+}
+## estilos em que só as pernas e o quadril vêm da captura: os braços e a cabeça
+## ficam no procedural (infectados de braços caídos, não o zumbi de filme antigo
+## de braços esticados da marcha capturada)
+const MOCAP_LEGS_ONLY := ["shamble", "brute", "injured"]
+static var _clips: Dictionary = {}
+static var mocap_on: bool = true
+var _mc_u: float = 0.0          # fase do ciclo de passada (0..1, começa na pisada esquerda)
+var _mc_idle: float = 0.0       # tempo do clipe parado
+var _mc_w: float = 0.0          # peso da captura (suaviza entrar/sair)
+
+
+## Clipe convertido por tools/mocap_retarget.py: quadros de poses (graus) e quadril.
+static func _clip(name_: String) -> Dictionary:
+	if _clips.has(name_):
+		return _clips[name_]
+	var c := {}
+	var txt := FileAccess.get_file_as_string(MOCAP_DIR + name_ + ".json")
+	var d = JSON.parse_string(txt) if txt != "" else null
+	if typeof(d) == TYPE_DICTIONARY:
+		var frames: Array = []
+		var hips := PackedVector3Array()
+		for fr: Dictionary in d["frames"]:
+			var q: Array[Quaternion] = []
+			q.resize(N)
+			for i in N:
+				var e = fr.get(str(i), null)
+				q[i] = Quaternion.from_euler(Vector3(e[0], e[1], e[2]) * DEG) if e != null else Quaternion.IDENTITY
+			frames.append(q)
+			var p: Array = fr.get("p", [0, 0, 0])
+			hips.append(Vector3(p[0], p[1], p[2]))
+		c = {"frames": frames, "hips": hips, "speed": float(d.get("speed", 0.0)), "fps": float(d.get("fps", 30.0))}
+	_clips[name_] = c
+	return c
+
+
+## Pose do clipe na fase u (0..1), com interpolação entre quadros.
+static func _clip_pose(c: Dictionary, u: float, out_q: Array, out_hips: Array) -> void:
+	var frames: Array = c["frames"]
+	var n := frames.size()
+	var x := fposmod(u, 1.0) * float(n - 1)
+	var i0 := int(x)
+	var i1 := mini(i0 + 1, n - 1)
+	var f := x - float(i0)
+	var a: Array = frames[i0]
+	var b: Array = frames[i1]
+	for i in N:
+		out_q[i] = (a[i] as Quaternion).slerp(b[i] as Quaternion, f)
+	out_hips[0] = (c["hips"] as PackedVector3Array)[i0].lerp((c["hips"] as PackedVector3Array)[i1], f)
+
+
+## Substitui o andar procedural pelo movimento capturado: escolhe os dois clipes
+## mais próximos da velocidade, avança a fase pelo comprimento REAL da passada
+## (o pé de apoio acompanha o chão, sem deslizar) e mistura com o clipe parado.
+func _mocap(dt: float, spd: float, gw: float, dir_sign: float) -> void:
+	if not mocap_on or not _leg_ik_on or crouch > 0.3:
+		_mc_w = move_toward(_mc_w, 0.0, dt * 4.0)
+		return
+	var set_names: Array = MOCAP_SETS.get(style, [])
+	var idle := _clip("idle")
+	if set_names.is_empty() or idle.is_empty():
+		_mc_w = move_toward(_mc_w, 0.0, dt * 4.0)
+		return
+	_mc_w = move_toward(_mc_w, 1.0, dt * 3.0)
+	# os clipes já estão na escala da perna do Caio (0,882 m)
+	var hs := (_len1 + _len2) / 0.8822
+	# par de clipes pela velocidade
+	var ca: Dictionary = {}
+	var cb: Dictionary = {}
+	var w := 0.0
+	var prev: Dictionary = {}
+	for nm in set_names:
+		var c := _clip(str(nm))
+		if c.is_empty():
+			continue
+		var cs := float(c["speed"]) * hs
+		if prev.is_empty():
+			ca = c
+			cb = c
+		if spd <= cs:
+			if prev.is_empty():
+				ca = c
+				cb = c
+				w = 0.0
+			else:
+				ca = prev
+				cb = c
+				var ps := float(prev["speed"]) * hs
+				w = clampf((spd - ps) / maxf(cs - ps, 0.01), 0.0, 1.0)
+			break
+		prev = c
+		ca = c
+		cb = c
+		w = 0.0
+	if ca.is_empty():
+		_mc_w = 0.0
+		return
+	# passada (m por ciclo) de cada clipe e fase pela velocidade real
+	var stride_a := float(ca["speed"]) * float((ca["frames"] as Array).size() - 1) / float(ca["fps"]) * hs
+	var stride_b := float(cb["speed"]) * float((cb["frames"] as Array).size() - 1) / float(cb["fps"]) * hs
+	var stride := lerpf(stride_a, stride_b, w)
+	if spd > 0.03 and stride > 0.05:
+		_mc_u = fposmod(_mc_u + dt * spd / stride * dir_sign, 1.0)
+	_mc_idle += dt
+	var qa: Array = []
+	qa.resize(N)
+	var qb: Array = []
+	qb.resize(N)
+	var qi: Array = []
+	qi.resize(N)
+	var ha := [Vector3.ZERO]
+	var hb := [Vector3.ZERO]
+	var hi := [Vector3.ZERO]
+	_clip_pose(ca, _mc_u, qa, ha)
+	_clip_pose(cb, _mc_u, qb, hb)
+	var idle_len := float((idle["frames"] as Array).size()) / float(idle["fps"])
+	# parado: vai e volta no clipe (não é um ciclo; sem salto no fim)
+	var xi := fposmod(_mc_idle / idle_len, 2.0)
+	_clip_pose(idle, 1.0 - absf(xi - 1.0), qi, hi)
+	var walk := gw
+	var mw := _mc_w
+	# no ar a pose de salto manda nas pernas
+	var mw_leg := mw * _ik_air
+	var legs_only := style in MOCAP_LEGS_ONLY
+	for i in N:
+		if i == HumanoidMeshBuilder.JAW:
+			continue
+		var bw := mw_leg if i >= HumanoidMeshBuilder.THIGH_L else mw
+		if i >= HumanoidMeshBuilder.NECK and i < HumanoidMeshBuilder.THIGH_L:
+			# cabeça e braços: no parado e nos infectados a pose procedural manda
+			# (o olhar segue o alvo; o ator capturado olhava para o chão)
+			bw *= (0.0 if legs_only else walk * 0.85) if i <= HumanoidMeshBuilder.JAW else (0.0 if legs_only else 1.0)
+		elif legs_only and i == HumanoidMeshBuilder.CHEST:
+			bw *= 0.4
+		if bw <= 0.001:
+			continue
+		var q: Quaternion = (qa[i] as Quaternion).slerp(qb[i] as Quaternion, w)
+		q = (qi[i] as Quaternion).slerp(q, walk)
+		var cur := Quaternion.from_euler(_base[i] * DEG)
+		_base[i] = Basis(cur.slerp(q, bw)).get_euler() / DEG
+	var hp: Vector3 = (ha[0] as Vector3).lerp(hb[0], w)
+	hp = (hi[0] as Vector3).lerp(hp, walk) * hs
+	_hips_base = _hips_base.lerp(hp, mw)
+	# pernas pela captura (FK), não pelo IK procedural
+	_leg_ov = [mw_leg, mw_leg]
 
 
 # ---------------------------------------------------------------------------
@@ -564,8 +724,14 @@ func _settle_on_ground() -> void:
 	else:
 		# deitado (quadril girado): desce até encostar, sem flutuar
 		var lying := smoothstep(28.0, 62.0, absf(_final[HumanoidMeshBuilder.HIPS].x))
-		if lying > 0.0 and low > 0.002:
-			_hips_final.y -= low * lying
+		# captura de movimento: o pé de apoio encosta no chão (a altura do
+		# quadril do ator capturado não bate com a de cada personagem)
+		var mc := _mc_w * _ik_air if action.is_empty() else 0.0
+		var down := maxf(lying, mc)
+		if down > 0.0 and low > 0.002:
+			_hips_final.y -= low * down
+			if mc > 0.0:
+				_blend_legs()
 
 
 # ---------------------------------------------------------------------------

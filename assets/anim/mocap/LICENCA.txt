@@ -1,0 +1,5 @@
+Movimentos capturados: CMU Graphics Lab Motion Capture Database (http://mocap.cs.cmu.edu),
+financiada pela NSF EIA-0196217. Conversão BVH: https://github.com/Shriinivas/cmubvh.
+"CMU places no restrictions on the use of the original dataset"; a conversão também não.
+Retarget para o esqueleto do jogo: tools/mocap_retarget.py.
+Clipes: walk (07_01.bvh), walk_slow (07_04.bvh), walk_brisk (07_12.bvh), jog (16_35.bvh), run (09_01.bvh), idle (82_08.bvh), idle_b (77_02.bvh), look_flash (77_05.bvh), creep (77_14.bvh), limp (77_19.bvh), zombie (20_08.bvh), zombie_b (21_08.bvh)

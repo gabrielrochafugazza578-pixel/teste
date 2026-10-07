@@ -639,7 +639,7 @@
   "kind": "skin",
   "normal": "skin_shared_n",
   "params": {},
-  "size": 1024.0
+  "size": 2048.0
  },
  "skin_young_caucasian_male": {
   "albedo": "skin_young_caucasian_male_a",
