@@ -821,6 +821,7 @@ func _spawn_actor(id: String, ap: String, spec: String, off, yaw: float, anim_na
 	var a := CineActor.new()
 	add_child(a)
 	a.setup(_appearance(ap), world, 0)
+	a.set_meta("cine_id", id)
 	a.place(frame(spec) * _v(off), frame_dir(spec, yaw))
 	if anim_name != "":
 		a.play(anim_name)
@@ -831,6 +832,7 @@ func _spawn_actor(id: String, ap: String, spec: String, off, yaw: float, anim_na
 func _vehicle(type: String, pos: Vector3, yaw: float, lights: bool) -> Node3D:
 	var root := Node3D.new()
 	add_child(root)
+	root.set_meta("cine_id", "veiculo_" + type)
 	var mi := MeshInstance3D.new()
 	mi.mesh = VehicleMeshBuilder.mesh(type)
 	var col := Color(0.95, 0.95, 0.93)
@@ -857,6 +859,7 @@ func _vehicle(type: String, pos: Vector3, yaw: float, lights: bool) -> Node3D:
 func _barricade(p: Vector3) -> void:
 	var root := Node3D.new()
 	add_child(root)
+	root.set_meta("cine_id", "barricada")
 	root.global_position = p
 	for i in 5:
 		var mi := MeshInstance3D.new()

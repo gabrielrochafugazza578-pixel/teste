@@ -738,13 +738,58 @@ def bake_masks(sf, J, mouth, kind, seed, eyes=()):
     col[:, 0] = np.clip(b, 0, 1)
     col[:, 1] = np.clip(g, 0, 1)
     col[:, 2] = np.clip(t, 0, 1)
-    # alfa: 1 - olheira (em volta dos olhos; o shader afunda nos infectados)
-    if kind == "body" and len(eyes):
-        o = np.zeros(n)
-        for e in eyes:
-            o = np.maximum(o, np.exp(-(np.linalg.norm((P - e) * [1.0, 1.25, 1.6], axis=1) / 0.03) ** 2))
-        col[:, 3] = 1.0 - np.clip(o * 1.2, 0, 1)
+    # alfa da pele: 0,5 neutro; abaixo, olheira (o shader afunda nos infectados);
+    # acima, couro cabeludo sob o cabelo (scalp_mask). As duas regiões nunca se
+    # tocam, então a interpolação entre vértices não mistura uma com a outra.
+    if kind == "body":
+        col[:, 3] = 0.5
+        if len(eyes):
+            o = np.zeros(n)
+            for e in eyes:
+                o = np.maximum(o, np.exp(-(np.linalg.norm((P - e) * [1.0, 1.25, 1.6], axis=1) / 0.03) ** 2))
+            col[:, 3] = 0.5 - 0.5 * np.clip(o * 1.2, 0, 1)
     sf["color"] = col
+
+
+def scalp_mask(body, hair, J):
+    """Quanto cada vértice da pele fica sob o cabelo (0..1): a pele ali é pintada
+    da cor do cabelo pelo shader, sem o corte duro na testa e nas têmporas onde
+    os cartões de cabelo acabam ou deixam frestas."""
+    from scipy.spatial import cKDTree
+    P, N = body["pos"], body["nrm"]
+    H = hair["pos"]
+    T = hair["idx"].reshape(-1, 3)
+    # pontos nos triângulos (cartões grandes têm poucos vértices)
+    a, b, c = H[T[:, 0]], H[T[:, 1]], H[T[:, 2]]
+    pts = [H, (a + b + c) / 3, (a + b) / 2, (b + c) / 2, (c + a) / 2,
+           (4 * a + b + c) / 6, (a + 4 * b + c) / 6, (a + b + 4 * c) / 6]
+    S = np.concatenate(pts)
+    d, k = cKDTree(S).query(P)
+    to = S[k] - P
+    to /= np.maximum(np.linalg.norm(to, axis=1, keepdims=True), 1e-6)
+    above = np.sum(to * N, axis=1)
+    s = _sstep(0.03, 0.008, d) * _sstep(-0.15, 0.3, above)
+    # só a cabeça (não o pescoço/ombros sob o cabelo comprido)
+    s *= _sstep(J[BI["head"]][1] - 0.035, J[BI["head"]][1] + 0.005, P[:, 1])
+    # orelhas ficam limpas (coordenadas da malha base do MakeHuman, dm)
+    B = BASE[0][body["src"]]
+    e = ((np.abs(B[:, 0]) - 0.8) / 0.13) ** 2 + ((B[:, 1] - 7.0) / 0.4) ** 2 + ((B[:, 2] - 0.45) / 0.24) ** 2
+    s *= _sstep(0.75, 1.15, e)
+    # costeleta termina no meio da orelha (na nuca o cabelo desce mais)
+    s *= 1.0 - _sstep(0.1, 0.35, B[:, 2]) * (1.0 - _sstep(6.92, 7.12, B[:, 1]))
+    return np.clip(s, 0, 1)
+
+
+def hair_color(key):
+    """Cor média (sRGB 0..1) dos fios na textura do cabelo."""
+    path = os.path.join(OUT, "tex", key + "_a.png")
+    if not os.path.exists(path):
+        return None
+    a = np.asarray(Image.open(path).convert("RGBA").resize((256, 256))).astype(np.float32) / 255.0
+    w = a[:, :, 3] > 0.5
+    if w.sum() < 10:
+        return None
+    return [round(float(x), 4) for x in a[w, :3].mean(0)]
 
 
 # ---------------------------------------------------------------------------
@@ -913,6 +958,9 @@ def beard_weight(V):
     w *= _sstep(0.0, 0.35, z + (ax > 0.6) * 0.3)
     # pescoço: a barba some logo abaixo do queixo (descendo até a gola parecia sujeira)
     w *= _sstep(chin_y - 0.1, chin_y + 0.04, y)
+    # o limite de baixo segue a mandíbula: sob o queixo vai até o começo da
+    # garganta, nos lados para na linha do maxilar (e não desce pelo pescoço)
+    w *= _sstep(-0.1, 0.12, z - (0.75 - (y - chin_y) * 1.2))
     must = _sstep(0.5, 0.3, ax) * _sstep(nose_y - 0.05, nose_y - 0.15, y) * _sstep(mouth_y + 0.02, mouth_y + 0.1, y) \
         * _sstep(1.1, 1.3, z)
     w = np.maximum(w, must)
@@ -937,17 +985,18 @@ def stubble(skin_img, density, color, seed=3):
             dr.polygon([(VT[t][0] * size, (1 - VT[t][1]) * size) for t in ti], fill=int(val * 255))
     m = np.asarray(mask.filter(ImageFilter.GaussianBlur(size / 700))).astype(np.float32) / 255.0
     a = np.asarray(skin_img.convert("RGB")).astype(np.float32)
-    # sombra da barba raspada
-    a *= (1.0 - m * 0.22 * density)[:, :, None]
-    a = a * (1 - m[:, :, None] * 0.12 * density) + np.array([70, 74, 80]) * m[:, :, None] * 0.12 * density
+    # sombra da barba raspada (azulada, contínua: é ela que dá o "rosto barbado")
+    a *= (1.0 - m * 0.26 * density)[:, :, None]
+    a = a * (1 - m[:, :, None] * 0.18 * density) + np.array([62, 64, 70]) * m[:, :, None] * 0.18 * density
     # fios: traços de 1 px puxados para "baixo" no rosto (+u no layout do MakeHuman)
     rng = np.random.default_rng(seed)
     hair = np.zeros((size, size), np.float32)
     ys, xs = np.nonzero(m > 0.05)
-    n = int(len(ys) * 0.2 * density)
+    n = int(len(ys) * 0.24 * density)
     pick = rng.integers(0, len(ys), n)
     py, px = ys[pick], xs[pick]
-    keep = rng.random(n) < m[py, px]
+    # borda rala (sem pontinhos soltos que pareciam sujeira)
+    keep = rng.random(n) < m[py, px] ** 1.8
     py, px = py[keep], px[keep]
     ln = max(2, int(size / 900))
     for k in range(ln + 1):
@@ -955,7 +1004,7 @@ def stubble(skin_img, density, color, seed=3):
         yy = np.clip(py + (rng.random(len(py)) < 0.3).astype(int) * k // 2, 0, size - 1)
         hair[yy, xx] = np.maximum(hair[yy, xx], 1.0 - k / (ln + 1.5))
     hair = np.asarray(Image.fromarray((hair * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.6))).astype(np.float32) / 255.0
-    al = np.clip(hair * 1.4, 0, 1) * 0.7
+    al = np.clip(hair * 1.3, 0, 1) * 0.55
     a = a * (1 - al[:, :, None]) + np.array(color, np.float32)[None, None, :] * al[:, :, None]
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGB")
 
@@ -1344,6 +1393,13 @@ def build(cid, r):
     for k, sf in enumerate(surfaces):
         kind = sf["name"].split(":")[0]
         bake_masks(sf, J, mouth, "cloth" if kind in ("cloth", "gear") else kind, k * 31 + len(cid), eyes)
+    scalp = None
+    hair_sf = [sf for sf in surfaces if sf["name"] == "hair"]
+    if hair_sf:
+        sm = scalp_mask(surfaces[0], hair_sf[0], J)
+        col = surfaces[0]["color"]
+        col[:, 3] = np.where(sm > 0.002, 0.5 + 0.5 * sm, col[:, 3])
+        scalp = hair_color(hair_sf[0]["mat"])
 
     # pé (para o IK do animador): ponta, calcanhar e altura do tornozelo
     fp = np.concatenate([s["pos"][s["bones"][:, 0] == BI["foot_l"]] for s in surfaces])
@@ -1352,7 +1408,7 @@ def build(cid, r):
     heel = float(fp[:, 2].max() - ank[2])
     foot = [toe, heel, float(ank[1])]
 
-    write(cid, r, J, foot, merge_surfaces(surfaces))
+    write(cid, r, J, foot, merge_surfaces(surfaces), scalp)
 
 
 def is_garment(nm, r):
@@ -1404,10 +1460,12 @@ def merge_surfaces(surfaces):
     return out
 
 
-def write(cid, r, J, foot, surfaces):
+def write(cid, r, J, foot, surfaces, scalp=None):
     os.makedirs(OUT, exist_ok=True)
     meta = {"id": cid, "height": r["height"], "joints": J.round(5).tolist(), "foot": [round(x, 4) for x in foot],
             "grime": r.get("grime", 0.2), "surfaces": []}
+    if scalp:
+        meta["scalp"] = scalp
     with open(os.path.join(OUT, cid + ".bin"), "wb") as f:
         for s in surfaces:
             nv = len(s["pos"])

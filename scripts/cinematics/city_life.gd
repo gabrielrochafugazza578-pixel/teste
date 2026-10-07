@@ -73,6 +73,7 @@ func set_traffic(on: bool, at: Vector3, panic: bool = false) -> void:
 		cs.position = Vector3(0, float(dims.get("roof", 1.5)) * 0.5, 0)
 		sb.add_child(cs)
 		mi.add_child(sb)
+		mi.set_meta("cine_id", "carro_%d" % cars.size())
 		var z := anchor.z + _rng.randf_range(-SPAN, SPAN)
 		# no pânico a avenida vira um engarrafamento: carros quase parados, tortos, buzinando
 		var spd := _rng.randf_range(8.0, 13.0) if not panic else _rng.randf_range(0.0, 1.2)
@@ -114,6 +115,8 @@ func set_crowd(m: String, at: Vector3, frame: Transform3D = Transform3D.IDENTITY
 		if m == "hospital" and i % 6 == 0:
 			ap = Appearance.paramedic(seed_v)
 		a.setup(ap, world, 1)
+		a.set_meta("cine_id", "%s_%d" % [m, i])
+		a.settle_spawn = true
 		var side := -1.0 if i % 2 == 0 else 1.0
 		var x := anchor.x + side * (SIDEWALK_X + _rng.randf_range(-1.2, 1.2))
 		var z := anchor.z + _rng.randf_range(-70.0, 70.0)
@@ -133,13 +136,15 @@ func set_crowd(m: String, at: Vector3, frame: Transform3D = Transform3D.IDENTITY
 				z = p.z
 				spd = _rng.randf_range(0.8, 1.2)
 		a.place(Vector3(x, 0, z), 0.0 if dir < 0.0 else PI)
-		var still := m == "normal" and _rng.randf() < 0.25
+		# hospital: 12 na fila (mais que isso a fila chegava na ambulância parada);
+		# os outros esperam em volta, parados
+		var still := (m == "normal" and _rng.randf() < 0.25) or (m == "hospital" and i >= 12)
 		if still:
 			a.play(["phone", "gaze", "look_around"][_rng.randi() % 3])
 		elif m == "panic" and _rng.randf() < 0.3:
 			a.play("run_scared")
 		var target := Vector3.INF
-		if m == "hospital":
+		if m == "hospital" and not still:
 			# fila de verdade (duas colunas), cada um no seu lugar: antes todos
 			# iam para o mesmo ponto e se atravessavam
 			target = frame * Vector3((float(i % 2) - 0.5) * 0.95 + _rng.randf_range(-0.12, 0.12), 0, 0.7 + float(i / 2) * 0.78)
@@ -155,13 +160,21 @@ func crowd_at(frame: Transform3D, anim: String, n: int) -> Array:
 		var a := CineActor.new()
 		add_child(a)
 		a.setup(Appearance.civilian(900 + i * 13), world, 1)
-		var start := frame * Vector3(_rng.randf_range(-1.0, 1.0), 0, -0.5 - i * 0.8)
+		a.set_meta("cine_id", "saque_%d" % i)
+		# em fila atrás da porta; passam PELA porta (antes saíam em diagonal
+		# atravessando a parede ao lado dela) e só então se espalham
+		var lane := _rng.randf_range(-0.2, 0.2)
+		var start := frame * Vector3(lane, 0, -0.6 - i * 0.85)
 		a.place(start, 0.0)
 		var dest := frame * Vector3(_rng.randf_range(-10.0, 10.0), 0, _rng.randf_range(8.0, 14.0))
-		a.walk_to(dest, _rng.randf_range(2.2, 3.4))
+		a.walk_path([frame * Vector3(lane * 0.5, 0, 0.0), frame * Vector3(lane, 0, 1.6), dest], _rng.randf_range(2.2, 3.4))
 		if anim == "carry":
 			a.play("carry_box")
 		out.append(a)
+	# a porta da loja abre (para fora, longe de quem sai): antes passavam pela folha
+	for d in get_tree().get_nodes_in_group("interactable"):
+		if d is Door and (d as Door).global_position.distance_to(frame.origin) < 2.5 and not out.is_empty():
+			(d as Door).set_open(true, out[0])
 	return out
 
 

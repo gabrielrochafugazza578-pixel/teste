@@ -126,7 +126,8 @@ func _run() -> void:
 			body.mesh_instance.material_override = cm
 		body.animator.update(0.0)
 		body.rotation.y = deg_to_rad(28.0)
-		var h := float(cast[name_].get("height", 1.75))
+		# altura do modelo de verdade (a aparência original não sabe qual malha virou)
+		var h := float(body.appearance.get("height", cast[name_].get("height", 1.75)))
 		# corpo inteiro
 		cam.position = Vector3(0.0, h * 0.55, -h * 2.55)
 		cam.look_at(Vector3(0, h * 0.5, 0), Vector3.UP)

@@ -176,6 +176,16 @@ static func set_params(mi: MeshInstance3D, ap: Dictionary) -> void:
 			mi.set_instance_shader_parameter(slot, ap[slot])
 	if ap.has("hair_tint"):
 		mi.set_instance_shader_parameter("hair_tint", ap["hair_tint"])
+	# couro cabeludo: cor média dos fios, com o mesmo tingimento do shader do cabelo
+	var sc: Array = mi.mesh.get_meta("scalp", []) if mi.mesh else []
+	if sc.size() == 3:
+		var c := Color(sc[0], sc[1], sc[2]).srgb_to_linear()
+		var ht: Color = ap.get("hair_tint", Color(1, 1, 1, 0))
+		if ht.a > 0.0:
+			var l := c.r * 0.3 + c.g * 0.59 + c.b * 0.11
+			var t := ht.srgb_to_linear() * clampf(l * 2.4, 0.25, 1.35)
+			c = c.lerp(Color(t.r, t.g, t.b), ht.a)
+		mi.set_instance_shader_parameter("scalp_color", Color(c.r, c.g, c.b).linear_to_srgb())
 
 
 # ---------------------------------------------------------------------------

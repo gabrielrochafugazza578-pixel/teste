@@ -2,10 +2,11 @@ extends Node3D
 ## Vitrine do relevo das camadas (parallax + poças/sujeira nas frestas): paredes,
 ## pisos e uma faixa de terreno com transição grama/terra/rocha, sem carregar o mundo.
 ## Uso: xvfb-run godot --path . --rendering-method forward_plus res://tests/relevo.tscn --
-##      --no-audio --out=/tmp/relevo [--sem-relevo] [--chuva] [--hour=10]
+##      --no-audio --out=/tmp/relevo [--sem-relevo] [--chuva] [--hour=10] [--so=terreno,pisos]
 
 var out := "/tmp/relevo"
 var hour := 10.0
+var so: PackedStringArray = []
 
 
 func _ready() -> void:
@@ -15,6 +16,8 @@ func _ready() -> void:
 			out = a.substr(6)
 		elif a.begins_with("--hour="):
 			hour = float(a.substr(7))
+		elif a.begins_with("--so="):
+			so = a.substr(5).split(",")
 	DirAccess.make_dir_recursive_absolute(out)
 	Settings.apply_preset(4 if RenderingServer.get_current_rendering_method() == "forward_plus" else 1)
 	await Assets.bake_all()
@@ -69,6 +72,8 @@ func _ready() -> void:
 		["abandono_rua", Vector3(-24.0, 3.5, 11.5), Vector3(-24.0, 0.0, 1.0)],
 		["abandono_muro", Vector3(-21.0, 1.7, 4.0), Vector3(-25.0, 1.4, -4.0)]]
 	for v in views:
+		if not so.is_empty() and not str(v[0]) in so:
+			continue
 		cam.look_at_from_position(v[1], v[2])
 		for k in 30:
 			await get_tree().process_frame

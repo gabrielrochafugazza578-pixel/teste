@@ -308,14 +308,6 @@
   },
   "size": 1024.0
  },
- "long01": {
-  "albedo": "long01_a",
-  "alpha": true,
-  "kind": "hair",
-  "normal": "long01_n",
-  "params": {},
-  "size": 1024.0
- },
  "male_casualsuit03": {
   "albedo": "male_casualsuit03_a",
   "alpha": true,
@@ -540,14 +532,6 @@
   "params": {},
   "size": 1024.0
  },
- "short02": {
-  "albedo": "short02_a",
-  "alpha": true,
-  "kind": "hair",
-  "normal": "short02_n",
-  "params": {},
-  "size": 1024.0
- },
  "short03": {
   "albedo": "short03_a",
   "alpha": true,
@@ -645,20 +629,6 @@
  },
  "skin_toigo_light_skin_male_bronze_barba7": {
   "albedo": "skin_toigo_light_skin_male_bronze_barba7_a",
-  "alpha": false,
-  "kind": "skin",
-  "normal": "skin_shared_n",
-  "params": {
-   "tone": [
-    0.98,
-    0.95,
-    0.93
-   ]
-  },
-  "size": 2048.0
- },
- "skin_toigo_light_skin_male_bronze_barba9": {
-  "albedo": "skin_toigo_light_skin_male_bronze_barba9_a",
   "alpha": false,
   "kind": "skin",
   "normal": "skin_shared_n",

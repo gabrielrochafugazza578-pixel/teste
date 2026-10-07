@@ -16,6 +16,8 @@ uniform float normal_strength = 0.8;
 uniform sampler2D pore_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float pore_scale = 12.0;
 uniform float pore_strength = 0.55;
+// cor do couro cabeludo sob o cabelo (média dos fios da pessoa)
+instance uniform vec3 scalp_color : source_color, instance_index(9) = vec3(0.07, 0.055, 0.045);
 
 void fragment() {
 	vec3 alb = texture(albedo_tex, UV).rgb * tone;
@@ -23,6 +25,20 @@ void fragment() {
 	float rough = nt.a;
 	vec4 mask = COLOR;
 	float inf = infection;
+	// alfa da máscara: 0,5 neutro, abaixo olheira, acima couro cabeludo
+	float sock = clamp((0.5 - mask.a) * 2.0, 0.0, 1.0);
+	float scalp = clamp((mask.a - 0.5) * 2.0, 0.0, 1.0);
+	if (scalp > 0.004) {
+		// raiz dos fios: borda irregular (ruído fino) e cor do cabelo por cima
+		float hn = texture(detail_tex, UV * vec2(61.0, 15.0)).g;
+		float hn2 = texture(detail_tex, UV * 17.0 + vec2(0.31, 0.17)).g;
+		float edge = scalp + (hn - 0.5) * 0.7 + (hn2 - 0.5) * 0.35;
+		// raiz rala na borda (a pele aparece entre os fios) e cheia por baixo
+		float cover = smoothstep(0.15, 0.85, edge) * (0.55 + 0.4 * smoothstep(0.55, 0.95, scalp));
+		vec3 hc = mix(alb * 0.55, scalp_color * (0.7 + hn * 0.5), 0.8);
+		alb = mix(alb, hc, cover);
+		rough = mix(rough, 0.6, cover);
+	}
 	if (inf > 0.001) {
 		vec4 dt = texture(detail_tex, UV * 6.0);
 		vec4 dt2 = texture(detail_tex, UV * 1.7 + vec2(0.13, 0.41));
@@ -32,7 +48,6 @@ void fragment() {
 		alb = mix(alb, pale, inf * 0.85);
 		alb = mix(alb, vec3(0.36, 0.36, 0.31), inf * 0.22);
 		// olheiras fundas e pálpebras arroxeadas (alfa da máscara)
-		float sock = 1.0 - mask.a;
 		alb = mix(alb, alb * vec3(0.32, 0.22, 0.24), sock * inf * 0.9);
 		// sujeira/encardido geral da pele
 		alb *= 1.0 - inf * 0.12 * dt2.g;

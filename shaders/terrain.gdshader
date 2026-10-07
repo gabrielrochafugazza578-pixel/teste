@@ -38,24 +38,58 @@ void vertex() {
 	splat = COLOR;
 }
 
+// Anti-repetição (técnica de I. Quilez): o chão é dividido em regiões irregulares
+// (ruído de ~8 m) e cada uma usa a foto deslocada de um valor aleatório; na
+// fronteira entre duas a de pedras mais altas fica por cima (sem a grade de
+// pedras idênticas a cada 2 m). oab = deslocamentos das duas regiões, fv = fase.
+float ab_w(float fv, float ha, float hb) {
+	return smoothstep(0.45, 0.55, fv + (hb - ha) * 0.12);
+}
+
+float ab_h(float layer, vec2 p, vec2 gx, vec2 gy, vec4 oab, float fv) {
+	if (fv < 0.33) {
+		return textureGrad(tex_b, vec3(p + oab.xy, layer), gx, gy).a;
+	}
+	if (fv > 0.67) {
+		return textureGrad(tex_b, vec3(p + oab.zw, layer), gx, gy).a;
+	}
+	float h1 = textureGrad(tex_b, vec3(p + oab.xy, layer), gx, gy).a;
+	float h2 = textureGrad(tex_b, vec3(p + oab.zw, layer), gx, gy).a;
+	return mix(h1, h2, ab_w(fv, h1, h2));
+}
+
+void ab_tex(float layer, vec2 p, vec2 gx, vec2 gy, vec4 oab, float fv, out vec4 ta, out vec4 tb) {
+	if (fv < 0.33 || fv > 0.67) {
+		vec2 o = fv < 0.33 ? oab.xy : oab.zw;
+		ta = textureGrad(tex_a, vec3(p + o, layer), gx, gy);
+		tb = textureGrad(tex_b, vec3(p + o, layer), gx, gy);
+		return;
+	}
+	vec4 b1 = textureGrad(tex_b, vec3(p + oab.xy, layer), gx, gy);
+	vec4 b2 = textureGrad(tex_b, vec3(p + oab.zw, layer), gx, gy);
+	float w = ab_w(fv, b1.a, b2.a);
+	tb = mix(b1, b2, w);
+	ta = mix(textureGrad(tex_a, vec3(p + oab.xy, layer), gx, gy), textureGrad(tex_a, vec3(p + oab.zw, layer), gx, gy), w);
+}
+
 // relevo 0..1 misturado pelos pesos (grama, terra, rocha, cascalho)
-float t_height(vec2 p, vec4 w, vec2 gx, vec2 gy) {
+float t_height(vec2 p, vec4 w, vec2 gx, vec2 gy, vec4 oab, float fv) {
 	float h = 0.0;
 	float tw = 0.0;
 	if (w.x > 0.01) {
-		h += textureGrad(tex_b, vec3(p * grass_scale, 7.0), gx * grass_scale, gy * grass_scale).a * 0.6 * w.x;
+		h += ab_h(7.0, p * grass_scale, gx * grass_scale, gy * grass_scale, oab, fv) * 0.6 * w.x;
 		tw += w.x;
 	}
 	if (w.y > 0.01) {
-		h += textureGrad(tex_b, vec3(p * dirt_scale, 8.0), gx * dirt_scale, gy * dirt_scale).a * w.y;
+		h += ab_h(8.0, p * dirt_scale, gx * dirt_scale, gy * dirt_scale, oab, fv) * w.y;
 		tw += w.y;
 	}
 	if (w.z > 0.01) {
-		h += textureGrad(tex_b, vec3(p * rock_scale, 9.0), gx * rock_scale, gy * rock_scale).a * w.z;
+		h += ab_h(9.0, p * rock_scale, gx * rock_scale, gy * rock_scale, oab, fv) * w.z;
 		tw += w.z;
 	}
 	if (w.w > 0.01) {
-		h += textureGrad(tex_b, vec3(p * gravel_scale, 12.0), gx * gravel_scale, gy * gravel_scale).a * w.w;
+		h += ab_h(12.0, p * gravel_scale, gx * gravel_scale, gy * gravel_scale, oab, fv) * w.w;
 		tw += w.w;
 	}
 	return h / max(tw, 1e-3);
@@ -76,6 +110,9 @@ void fragment() {
 	vec2 gy = dFdy(uv);
 	vec4 wv = vec4(w_grass, w_dirt, w_rock, w_grav);
 	float pshadow = 0.0;
+	float kv = texture(noise_tex, uv * 0.23 + vec2(0.17, 0.53)).r * 9.0;
+	float fv = fract(kv);
+	vec4 oab = vec4(sin(vec2(3.0, 7.0) * floor(kv)), sin(vec2(3.0, 7.0) * (floor(kv) + 1.0))) * 7.31;
 #if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
 	// --- Relevo de verdade perto da câmera: torrões, pedras e cascalho com
 	// profundidade (parallax pelo relevo misturado das fotos) e sombra própria
@@ -92,7 +129,7 @@ void fragment() {
 		float st = 1.0 / steps;
 		vec2 ofs = uv;
 		float cur = 0.0;
-		float hd = 1.0 - t_height(ofs, wv, gx, gy);
+		float hd = 1.0 - t_height(ofs, wv, gx, gy, oab, fv);
 		vec2 prev = ofs;
 		float prev_hd = hd;
 		float prev_cur = 0.0;
@@ -105,40 +142,42 @@ void fragment() {
 			prev_cur = cur;
 			ofs += delta;
 			cur += st;
-			hd = 1.0 - t_height(ofs, wv, gx, gy);
+			hd = 1.0 - t_height(ofs, wv, gx, gy, oab, fv);
 		}
 		float after = hd - cur;
 		float before = prev_hd - prev_cur;
 		uv = mix(ofs, prev, clamp(after / min(after - before, -1e-5), 0.0, 1.0));
 		if (sun_strength > 0.01 && sun_dir.y > 0.03) {
-			float hh = 1.0 - t_height(uv, wv, gx, gy);
+			float hh = 1.0 - t_height(uv, wv, gx, gy, oab, fv);
 			vec2 ldir = sun_dir.xz / max(sun_dir.y, 0.12) * pdepth;
 			float sh = 0.0;
 			for (int i = 1; i <= 8; i++) {
 				float f = float(i) / 8.0;
-				float sd = 1.0 - t_height(uv + ldir * hh * f, wv, gx, gy);
+				float sd = 1.0 - t_height(uv + ldir * hh * f, wv, gx, gy, oab, fv);
 				sh = max(sh, (hh * (1.0 - f) - sd) * (1.0 - f * 0.6) * 7.0);
 			}
 			pshadow = clamp(sh, 0.0, 1.0) * pfade * smoothstep(0.03, 0.2, sun_dir.y);
 		}
 	}
 #endif
-	vec4 ga = textureGrad(tex_a, vec3(uv * grass_scale, 7.0), gx * grass_scale, gy * grass_scale);
+	vec4 ga;
+	vec4 gb;
+	ab_tex(7.0, uv * grass_scale, gx * grass_scale, gy * grass_scale, oab, fv, ga, gb);
 	float glum = dot(ga.rgb, vec3(0.299, 0.587, 0.114));
 	// média da própria foto (último mipmap): o detalhe fica em torno de 1 em
 	// qualquer renderizador/formato
 	float gavg = dot(textureLod(tex_a, vec3(0.5, 0.5, 7.0), 11.0).rgb, vec3(0.299, 0.587, 0.114));
 	ga.rgb = mix(ga.rgb, grass_green * (glum / max(gavg, 0.01)), grass_tint);
-	vec4 gb = textureGrad(tex_b, vec3(uv * grass_scale, 7.0), gx * grass_scale, gy * grass_scale);
-	vec4 da = textureGrad(tex_a, vec3(uv * dirt_scale, 8.0), gx * dirt_scale, gy * dirt_scale);
-	vec4 db = textureGrad(tex_b, vec3(uv * dirt_scale, 8.0), gx * dirt_scale, gy * dirt_scale);
-	vec4 ra = textureGrad(tex_a, vec3(uv * rock_scale, 9.0), gx * rock_scale, gy * rock_scale);
-	vec4 rb = textureGrad(tex_b, vec3(uv * rock_scale, 9.0), gx * rock_scale, gy * rock_scale);
+	vec4 da;
+	vec4 db;
+	ab_tex(8.0, uv * dirt_scale, gx * dirt_scale, gy * dirt_scale, oab, fv, da, db);
+	vec4 ra;
+	vec4 rb;
+	ab_tex(9.0, uv * rock_scale, gx * rock_scale, gy * rock_scale, oab, fv, ra, rb);
 	vec4 ca = ga;
 	vec4 cb = gb;
 	if (w_grav > 0.01) {
-		ca = textureGrad(tex_a, vec3(uv * gravel_scale, 12.0), gx * gravel_scale, gy * gravel_scale);
-		cb = textureGrad(tex_b, vec3(uv * gravel_scale, 12.0), gx * gravel_scale, gy * gravel_scale);
+		ab_tex(12.0, uv * gravel_scale, gx * gravel_scale, gy * gravel_scale, oab, fv, ca, cb);
 	}
 	// mistura por altura: na transição as pedras e torrões mais altos aparecem por
 	// cima e a terra/grama preenche os vãos (em vez de uma foto "transparente"

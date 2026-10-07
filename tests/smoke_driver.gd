@@ -97,9 +97,15 @@ func _test_opening(g: Game) -> void:
 					await _shot("cine_" + id + ("" if fracs.size() == 1 else "_" + "abc"[k]))).call())
 	var t := 0.0
 	var lt := 0.0
+	var audit := "--cine-audit" in OS.get_cmdline_user_args()
+	var acc := {}
+	var at := 0.0
 	while g.cinematic != null and t < 600.0:
 		await get_tree().process_frame
 		t += get_process_delta_time()
+		if audit and t - at > 0.1 and is_instance_valid(g.cinematic):
+			at = t
+			_audit(g, last_shot, t, acc)
 		if Engine.has_meta("cine_log") and t - lt > 2.0:
 			lt = t
 			var pl := g.player
@@ -117,6 +123,8 @@ func _test_opening(g: Game) -> void:
 				names.append(str(h.get("collider")) + "#" + str(h.get("shape")))
 			_log("  sobreposições: %s · camada=%d máscara=%d · last_motion=%s" % [str(names), pl.collision_layer, pl.collision_mask, str(pl.get_last_motion())])
 			_log("caio: fis=%s cine=%s alvo=%s vel=%s pos=%s chão=%s" % [str(pl.is_physics_processing()), str(pl.cinematic), str(pl.cine_target), str(pl.velocity.snapped(Vector3.ONE * 0.01)), str(pl.global_position.snapped(Vector3.ONE * 0.01)), str(pl.is_on_floor())])
+	if audit:
+		_audit_report(acc)
 	var p := g.player
 	_log("Cinemática terminou em %.1fs. última=%s controle=%s cam_gameplay=%s pos=%s" % [t, last_shot, str(p.control_enabled), str(p.cam_rig.cam.current), str(p.global_position)])
 	var ip := g.layout.poi_pos("inicio_gameplay")
@@ -308,3 +316,89 @@ func _test_gameplay(g: Game) -> void:
 			_log("Carregado: pos=%s pano_limpo=%d" % [str(ng.player.global_position), ng.player.inventory.count("pano_limpo")])
 			break
 	SaveManager.delete_slot("3")
+
+
+## --cine-audit: a cada 0,1 s procura atores da cinemática visíveis pela câmera
+## atravessando algo (mundo, carros, barricadas, o Caio) ou uns aos outros.
+func _audit(g: Game, shot: String, t: float, acc: Dictionary) -> void:
+	var cam := get_viewport().get_camera_3d()
+	var space := g.get_world_3d().direct_space_state
+	var q := PhysicsShapeQueryParameters3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.15
+	cap.height = 1.25
+	q.shape = cap
+	q.collision_mask = 1 | (1 << 1) | (1 << 3) | (1 << 4)
+	var names := {}
+	if not g.cinematic._cur_shot.is_empty():
+		shot = str(g.cinematic._cur_shot.get("id", shot))
+	var list: Array = []
+	for a in get_tree().get_nodes_in_group("cine_actor"):
+		var n3 := a as Node3D
+		if n3 == null or not n3.is_inside_tree() or not n3.is_visible_in_tree():
+			continue
+		var p := n3.global_position
+		if cam and (cam.global_position.distance_to(p) > 40.0 or not cam.is_position_in_frustum(p + Vector3(0, 1.0, 0))):
+			continue
+		list.append(n3)
+	var pl := g.player
+	for a: Node3D in list:
+		var an := _audit_name(a)
+		var p := a.global_position
+		q.transform = Transform3D(Basis(), p + Vector3(0, 0.3 + 0.625, 0))
+		var info := space.get_rest_info(q)
+		if not info.is_empty():
+			var col := instance_from_id(int(info["collider_id"]))
+			var what := "?"
+			if col is CollisionObject3D:
+				var co := col as CollisionObject3D
+				var owner_node := co.shape_owner_get_owner(co.shape_find_owner(int(info["shape"])))
+				what = _audit_name(co) + ":" + (String(owner_node.name) if owner_node else "?")
+				if owner_node is CollisionShape3D and (owner_node as CollisionShape3D).shape:
+					what += "(" + (owner_node as CollisionShape3D).shape.get_class() + ")"
+				if co == pl:
+					what = "CAIO"
+			elif col != null:
+				what = col.get_class()
+			else:
+				# corpo criado direto no servidor de física (prédios, ruas, mobília)
+				var rid: RID = info["rid"]
+				var sh := PhysicsServer3D.body_get_shape(rid, int(info["shape"]))
+				var xf := PhysicsServer3D.body_get_shape_transform(rid, int(info["shape"]))
+				var bx := PhysicsServer3D.body_get_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM) as Transform3D
+				what = "mundo:%s %s" % [str(PhysicsServer3D.shape_get_type(sh)), str(PhysicsServer3D.shape_get_data(sh))] + " em " + str((bx * xf).origin.snapped(Vector3.ONE * 0.1))
+			_audit_add(acc, shot, an, what, t, info["point"])
+		for b: Node3D in list:
+			if b == a or _audit_name(b) < an:
+				continue
+			var d := b.global_position - p
+			if absf(d.y) < 1.0 and Vector2(d.x, d.z).length() < 0.42:
+				_audit_add(acc, shot, an, "ator " + _audit_name(b), t, p)
+
+
+## Nome legível: o primeiro "cine_id" subindo pela árvore, senão o caminho curto.
+func _audit_name(n: Node) -> String:
+	var k := n
+	var path := ""
+	while k != null:
+		if k.has_meta("cine_id"):
+			return str(k.get_meta("cine_id")) + path
+		if path.count("/") < 2:
+			path = "/" + String(k.name) + path
+		k = k.get_parent()
+	return path
+
+
+func _audit_add(acc: Dictionary, shot: String, who: String, what: String, t: float, pos: Vector3) -> void:
+	var k := shot + " | " + who + " x " + what
+	if not acc.has(k):
+		acc[k] = {"n": 0, "t": t, "pos": pos}
+	acc[k]["n"] += 1
+
+
+func _audit_report(acc: Dictionary) -> void:
+	var keys := acc.keys()
+	keys.sort_custom(func(x, y) -> bool: return acc[x]["t"] < acc[y]["t"])
+	_log("AUDITORIA: %d casos" % keys.size())
+	for k in keys:
+		_log("  %s · %.1f s · desde %.1fs em %s" % [k, acc[k]["n"] * 0.1, acc[k]["t"], str((acc[k]["pos"] as Vector3).snapped(Vector3.ONE * 0.1))])

@@ -35,7 +35,7 @@ const STYLES := {
 		"elbow_hi": 78.0, "lean_lo": 1.0, "lean_hi": 9.0, "spine_bias": 0.0, "head_bias": 0.0, "roll_bias": 0.0,
 		"lift_r": 1.0, "duty_r_add": 0.0, "toe_out": 6.0},
 	"shamble": {"step_lo": 1.25, "step_hi": 1.4, "duty_lo": 0.72, "duty_hi": 0.7, "lift_lo": 0.04, "lift_hi": 0.06,
-		"sway": 0.03, "yaw_amp": 9.0, "arm_amp_lo": 5.0, "arm_amp_hi": 6.0, "arm_bias": 36.0, "arm_out": 4.0,
+		"sway": 0.03, "yaw_amp": 9.0, "arm_amp_lo": 9.0, "arm_amp_hi": 11.0, "arm_bias": 14.0, "arm_out": 6.0,
 		"elbow_idle": 30.0, "elbow_lo": 0.0, "elbow_hi": 0.0, "lean_lo": 6.0, "spine_bias": 16.0, "head_bias": 24.0,
 		"roll_bias": 3.0, "lift_r": 0.3, "duty_r_add": 0.05, "toe_out": 12.0, "sag_lo": 0.025, "sag_hi": 0.03},
 	"feral": {"step_lo": 2.3, "step_hi": 3.5, "duty_lo": 0.5, "duty_hi": 0.32, "lift_lo": 0.12, "lift_hi": 0.3,
@@ -577,14 +577,23 @@ func _mocap(dt: float, spd: float, gw: float, dir_sign: float) -> void:
 			# cabeça e braços: no parado e nos infectados a pose procedural manda
 			# (o olhar segue o alvo; o ator capturado olhava para o chão)
 			bw *= (0.0 if legs_only else walk * 0.85) if i <= HumanoidMeshBuilder.JAW else (0.0 if legs_only else 1.0)
-		elif legs_only and i == HumanoidMeshBuilder.CHEST:
-			bw *= 0.4
+		elif legs_only and (i == HumanoidMeshBuilder.CHEST or i == HumanoidMeshBuilder.SPINE):
+			# o tronco curvado do procedural fica (a cabeça compensa olhando à frente)
+			bw *= 0.3
 		if bw <= 0.001:
 			continue
 		var q: Quaternion = (qa[i] as Quaternion).slerp(qb[i] as Quaternion, w)
 		q = (qi[i] as Quaternion).slerp(q, walk)
 		var cur := Quaternion.from_euler(_base[i] * DEG)
 		_base[i] = Basis(cur.slerp(q, bw)).get_euler() / DEG
+	if legs_only:
+		# cabeça um pouco baixa em relação ao mundo, seja qual for a inclinação
+		# do quadril capturado (senão o infectado anda olhando para o céu)
+		var HB := HumanoidMeshBuilder
+		var torso := _base[HB.HIPS].x + _base[HB.SPINE].x + _base[HB.CHEST].x
+		var d := (-6.0 - (torso + _base[HB.NECK].x + _base[HB.HEAD].x)) * mw
+		_addb(HB.NECK, Vector3(d * 0.4, 0, 0))
+		_addb(HB.HEAD, Vector3(d * 0.6, 0, 0))
 	var hp: Vector3 = (ha[0] as Vector3).lerp(hb[0], w)
 	hp = (hi[0] as Vector3).lerp(hp, walk) * hs
 	_hips_base = _hips_base.lerp(hp, mw)

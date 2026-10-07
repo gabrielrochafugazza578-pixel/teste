@@ -229,9 +229,15 @@ NOVIDADES DESTA VERSÃO
   - Cada personagem com um rosto próprio (queixo, maçãs, nariz, lábios,
     olhos, orelhas e assimetria); infectados de rosto encovado. Sobrancelhas
     finas na cor do cabelo, cabelo mais cheio, poros na pele de perto.
+    Linha do cabelo natural (sem o corte reto na testa) e barba que para na
+    mandíbula em vez de descer pelo pescoço.
   - Relevo mais fundo e com sombra própria do sol em tijolos, telhas, pedras
-    e no chão de terra; profundidade de campo leve no modo Vulkan.
-  - Cinemática: as pessoas desviam de móveis, carros e umas das outras.
+    e no chão de terra; profundidade de campo leve no modo Vulkan. O chão de
+    terra não mostra mais a mesma pedra repetida em grade.
+  - Cinemática: as pessoas desviam de móveis, carros e umas das outras;
+    ninguém nasce dentro de carro ou parede, os saqueadores saem pela porta
+    aberta do mercado e a fila do hospital não encosta na ambulância.
+  - Infectados andam curvados, de cabeça baixa (antes olhavam para o céu).
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

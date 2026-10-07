@@ -93,6 +93,8 @@ func _pack_mesh(id: String, meta: Dictionary) -> void:
 	mesh.set_meta("joints", meta["joints"])
 	mesh.set_meta("foot", meta["foot"])
 	mesh.set_meta("height", meta["height"])
+	if meta.has("scalp"):
+		mesh.set_meta("scalp", meta["scalp"])
 	mesh.custom_aabb = AABB(Vector3(-1.4, -0.3, -1.4), Vector3(2.8, 2.8, 2.8))
 	var out := DST + "/" + id + ".res"
 	ResourceSaver.save(mesh, out, ResourceSaver.FLAG_COMPRESS)

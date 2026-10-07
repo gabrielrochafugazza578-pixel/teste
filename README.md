@@ -174,7 +174,8 @@ Exceções (arquivos de fora, em `assets/`):
   voltam a ser geradas proceduralmente.
   O relevo (mapa de altura do Poly Haven, passa-alta) vira parallax occlusion perto da câmera no Forward+
   (`world_surface.gdshader`), sujeira no rejunte e água que junta primeiro nas frestas e buracos (os dois
-  renderizadores) e a mistura por altura de grama/terra/rocha/cascalho no `terrain.gdshader`. Com o abandono
+  renderizadores) e a mistura por altura de grama/terra/rocha/cascalho no `terrain.gdshader` (com
+  anti-repetição: regiões de ~4 m usam a foto deslocada e a borda entre elas segue as pedras). Com o abandono
   (`world_decay`) o reboco solta e mostra o tijolo e o asfalto esfarela até a base de cascalho.
   `tests/relevo.tscn` mostra as camadas com e sem relevo (`--sem-relevo`, `--chuva`, `--abandono`).
 * `assets/textures/terrain/aerial_macro.jpg` — foto aérea `aerial_grass_rock` (Poly Haven, CC0, Rob Tuytel)
@@ -192,11 +193,12 @@ Exceções (arquivos de fora, em `assets/`):
   algumas CC-BY, com autor e licença de cada uma em `assets/characters/CREDITOS.txt`).
   `tools/make_humans.py` veste cada receita (corpo pelos alvos macro, roupas pelo `.mhclo`, pele escondida
   apagada), converte os 163 ossos do MakeHuman nos 18 do jogo, baixa os braços da pose em A para a de descanso,
-  grava as máscaras de sangue/sujeira/rasgo/olheira na cor do vértice, pinta a barba por fazer na pele e
-  gera mochila e fungo; `tools/pack_humans.gd` cria as `ArrayMesh` com LODs e as texturas BC7.
+  grava as máscaras de sangue/sujeira/rasgo/olheira/couro cabeludo na cor do vértice (alfa: 0,5 neutro, abaixo
+  olheira, acima a pele sob o cabelo, pintada pelo shader na cor média dos fios — sem o corte duro na testa),
+  pinta a barba por fazer na pele (até a linha da mandíbula) e gera mochila e fungo; `tools/pack_humans.gd` cria as `ArrayMesh` com LODs e as texturas BC7.
   `HumanModels` escolhe o modelo/pele de qualquer aparência antiga (gênero, idade, papel, tom de pele, cor
   da roupa e do cabelo) e aplica materiais compartilhados por peça (`shaders/human_*`) com o que varia por
-  pessoa em parâmetros de instância (`infection`, `grime`, `blood`, `wear`, `tint_*`, `hair_tint`).
+  pessoa em parâmetros de instância (`infection`, `grime`, `blood`, `wear`, `tint_*`, `hair_tint`, `scalp_color`).
 * `assets/models/trees/` — jacarandá e acácia escaneados do Poly Haven (CC0). `tools/make_trees.py` tira os
   galhinhos finos, agrupa as folhas reais em tufos (cartões com as folhas da espécie, k-means) e grava;
   `tools/pack_trees.gd` simplifica tronco e galhos com o meshoptimizer até a meta de cada nível. `Vegetation`
@@ -207,7 +209,8 @@ Exceções (arquivos de fora, em `assets/`):
   direções das juntas para o esqueleto de 18 ossos, escolhe um ciclo de passada estável (pisada do pé
   esquerdo) e calibra o chão; o `ProceduralAnimator` mistura andar devagar/normal/apressado, trote e corrida
   pela velocidade (fase pelo comprimento real da passada, sem deslizar), toca o parado em vai-e-volta e, nos
-  infectados e feridos, usa só pernas e quadril capturados. Ações (ataques, usar itens…) continuam por poses-chave.
+  infectados e feridos, usa só pernas e quadril capturados (tronco curvado e cabeça baixa do procedural).
+  Ações (ataques, usar itens…) continuam por poses-chave.
 * Rostos: `tools/make_humans.py` aplica os alvos de rosto do MakeHuman (CC0; cabeça, queixo, maçãs, nariz,
   lábios, olhos, sobrancelha, orelhas, assimetria e expressões) por personagem, estáveis pela semente do id
   (`face`/`expr` na receita sobrepõem). Sobrancelhas e cílios em `shaders/human_brow.gdshader` (transparência
@@ -277,6 +280,11 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
   `godot --headless --path . -s tools/bake_cinematic.gd` gera `cinematics/opening_library.tres`; adicione-a ao
   `AnimationPlayer` de `scenes/cinematics/opening_cinematic.tscn` (a biblioteca da cena tem prioridade;
   apague o `.tres` para voltar a usar só o JSON).
+* Ninguém atravessa nada: os atores desviam por sondas à frente (móveis, paredes, carros e barricadas têm
+  colisão) e se afastam uns dos outros; a multidão sorteada procura um lugar livre ao nascer (e para o destino),
+  os saqueadores saem pela porta aberta. Para conferir depois de editar:
+  `godot --headless --path . res://tests/smoke_test.tscn -- --no-audio --opening --cine-audit` roda a abertura
+  sem renderizar (~4 min) e lista cada ator visível pela câmera dentro de algo (tomada, quem, o quê, onde).
 
 ---
 
