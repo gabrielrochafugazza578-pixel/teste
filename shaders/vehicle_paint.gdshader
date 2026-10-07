@@ -62,7 +62,7 @@ void fragment() {
 	float d = clamp(dirt * (low * 0.95 + top * 0.75 + n.r * 0.35) * (0.55 + n2.g * 0.9) + (dh - 0.5) * 0.35 * dirt, 0.0, 1.0);
 	d = smoothstep(0.08, 0.7, d);
 	// poeira fina por cima, lama da foto de terra embaixo (respingo das rodas)
-	vec3 dust = mix(vec3(0.38, 0.34, 0.28), vec3(0.52, 0.48, 0.41), dlum);
+	vec3 dust = mix(vec3(0.3, 0.27, 0.22), vec3(0.42, 0.38, 0.31), dlum);
 	vec3 dirt_col = mix(dust, da.rgb * vec3(1.15, 1.08, 0.98), low * 0.8);
 	vec3 alb = mix(base, dirt_col, d * 0.88);
 	// ferrugem: manchas que começam embaixo e nas bordas; o metal nu da foto

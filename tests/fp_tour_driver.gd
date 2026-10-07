@@ -68,7 +68,7 @@ func _pontos() -> void:
 		return
 	for pt: Array in PONTOS:
 		var id := str(pt[0])
-		if g.layout.poi_pos(id) == Vector3.ZERO:
+		if g.layout.poi_pos(id) == Vector3.ZERO or not _quer(id):
 			continue
 		var fo := _front_of(id, float(pt[3]))
 		var hour := float(pt[1])

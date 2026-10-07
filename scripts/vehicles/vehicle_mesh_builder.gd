@@ -113,10 +113,26 @@ static func surface_materials(state = "clean") -> Array:
 		glass = _dirty_glass(0.55 if st == "dusty" else 0.85)
 	var trim := Assets.pbr(Color(0.055, 0.055, 0.06) if not burned else Color(0.03, 0.028, 0.026), 0.75, 0.0)
 	var chrome := Assets.pbr(Color(0.62, 0.63, 0.65) if not burned else Color(0.2, 0.17, 0.15), 0.3 if not burned else 0.85, 0.9 if not burned else 0.2)
-	var lights := Assets.pbr(Color(0.85, 0.87, 0.88), 0.12, 0.3)
-	var tail := Assets.pbr(Color(0.55, 0.03, 0.02), 0.2, 0.0)
+	# lente de farol: vidro claro sobre o refletor (deixa ver o cromado atrás e
+	# reflete o céu); lanterna vermelha translúcida
+	var lights := _lens(Color(0.9, 0.92, 0.95, 0.35), 0.04)
+	var tail := _lens(Color(0.6, 0.04, 0.03, 0.85), 0.08)
 	var plate := Assets.pbr(Color(0.86, 0.86, 0.84) if st == "clean" else Color(0.68, 0.66, 0.6), 0.6, 0.0)
 	return [paint, glass, trim, chrome, lights, tail, plate]
+
+
+static func _lens(c: Color, rough: float) -> StandardMaterial3D:
+	var key := "lens_%s_%.2f" % [c.to_html(), rough]
+	if _mats.has(key):
+		return _mats[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	m.roughness = rough
+	m.metallic_specular = 0.9
+	m.rim_enabled = false
+	_mats[key] = m
+	return m
 
 
 ## Roda avulsa (eixo X, face externa em +X), para veículos dirigíveis com rodas animadas.
@@ -222,8 +238,11 @@ static func _loft(b: MeshBuf, t: Dictionary, drop: float, col: Color) -> void:
 	var zr := L * 0.5
 	var N := 26
 	# perfil da meia seção: (fração da largura, fração da altura), de baixo (centro) até em cima (centro)
-	var sec := [Vector2(0.0, 0.0), Vector2(0.86, 0.0), Vector2(0.965, 0.07), Vector2(1.0, 0.28), Vector2(1.0, 0.6),
-		Vector2(0.98, 0.83), Vector2(0.93, 0.96), Vector2(0.8, 1.0), Vector2(0.4, 1.012), Vector2(0.0, 1.016)]
+	# lateral com saia recolhida embaixo, vinco de cintura (pega a luz como uma
+	# linha) e ombro caindo para o capô — nada de chapa reta de caixa
+	var sec := [Vector2(0.0, 0.0), Vector2(0.86, 0.0), Vector2(0.95, 0.05), Vector2(0.985, 0.18), Vector2(1.0, 0.4),
+		Vector2(0.996, 0.6), Vector2(1.0, 0.67), Vector2(0.984, 0.75), Vector2(0.955, 0.88), Vector2(0.9, 0.97),
+		Vector2(0.78, 1.0), Vector2(0.4, 1.012), Vector2(0.0, 1.016)]
 	if t.get("boxy", false):
 		sec = [Vector2(0.0, 0.0), Vector2(0.9, 0.0), Vector2(0.985, 0.06), Vector2(1.0, 0.25), Vector2(1.0, 0.85),
 			Vector2(0.985, 0.96), Vector2(0.92, 1.0), Vector2(0.0, 1.0)]
@@ -495,8 +514,24 @@ static func _build(t: Dictionary, S: Array, state: String, with_wheels: bool, r:
 	var yr := _top_at(zr - 0.01, t) - drop
 	var wf := _w_at(zf, t)
 	var wr_ := _w_at(zr, t)
-	trim.box(Vector3(0, base + 0.08, zf - 0.02), Vector3(wf * 1.9, 0.12, 0.1), 0.0)
-	trim.box(Vector3(0, base + 0.08, zr + 0.02), Vector3(wr_ * 1.9, 0.12, 0.1), 0.0)
+	# para-choques arredondados que contornam os cantos (antes eram dois blocos)
+	for end: Array in [[zf, -1.0, wf], [zr, 1.0, wr_]]:
+		var ze: float = end[0]
+		var dz: float = end[1]
+		var we: float = end[2]
+		var by := base + 0.12
+		var rr := 0.085
+		var zc := ze + dz * 0.03
+		trim.tube(Vector3(-we * 0.86, by, zc), Vector3(we * 0.86, by, zc), rr, rr, 12, 0.0, 0.0, white, false)
+		for sgn: float in [-1.0, 1.0]:
+			var c0 := Vector3(we * 0.86 * sgn, by, zc)
+			var c1 := Vector3(we * 0.99 * sgn, by, zc - dz * 0.12)
+			var c2 := Vector3(we * 1.02 * sgn, by, zc - dz * 0.42)
+			trim.tube(c0, c1, rr, rr * 0.95, 12, 0.0, 0.0, white, false)
+			trim.tube(c1, c2, rr * 0.95, rr * 0.7, 12, 0.0, 0.0, white, true)
+		# friso cromado fino no meio do para-choque (carro de passeio)
+		if not boxy:
+			chrome.tube(Vector3(-we * 0.8, by + 0.015, zc + dz * rr * 0.95), Vector3(we * 0.8, by + 0.015, zc + dz * rr * 0.95), 0.008, 0.008, 5, 0.0, 0.0, Color(0.8, 0.8, 0.82), true)
 	# grade
 	var gy := yf - 0.13
 	trim.box(Vector3(0, gy, zf - 0.004), Vector3(wf * 0.9, 0.13, 0.02), 0.0)
@@ -508,6 +543,9 @@ static func _build(t: Dictionary, S: Array, state: String, with_wheels: bool, r:
 		var hx := wf * 0.72 * sgn
 		chrome.box(Vector3(hx, gy + 0.01, zf - 0.006), Vector3(wf * 0.42, 0.15, 0.02), 0.0, 0.0, Color(0.7, 0.72, 0.74))
 		if not burned:
+			# refletor parabólico (dois "copos" cromados) atrás da lente
+			for kx: float in [-0.25, 0.25]:
+				chrome.tube(Vector3(hx + kx * wf * 0.36, gy + 0.01, zf + 0.004), Vector3(hx + kx * wf * 0.36, gy + 0.01, zf - 0.012), 0.025, 0.055, 12, 0.0, 0.0, Color(0.95, 0.95, 0.97), false)
 			lights.box(Vector3(hx, gy + 0.01, zf - 0.018), Vector3(wf * 0.38, 0.12, 0.012), 0.0)
 			tail.box(Vector3(wf * 0.93 * sgn, gy - 0.02, zf + 0.04), Vector3(0.02, 0.05, 0.1), 0.0, 0.0, Color(1.6, 1.0, 0.2))
 			# lanternas: vermelho + ré branca

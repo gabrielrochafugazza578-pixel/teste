@@ -77,7 +77,8 @@ func _ready() -> void:
 		["abandono_rua", Vector3(-24.0, 3.5, 11.5), Vector3(-24.0, 0.0, 1.0)],
 		["abandono_muro", Vector3(-21.0, 1.7, 4.0), Vector3(-25.0, 1.4, -4.0)],
 		["janelas", Vector3(0.0, 3.0, -2.5), Vector3(1.0, 7.0, -14.0)],
-		["janelas_perto", Vector3(-5.0, 4.5, -8.5), Vector3(-7.5, 4.6, -14.0)]]
+		["janelas_perto", Vector3(-5.0, 4.5, -8.5), Vector3(-7.5, 4.6, -14.0)],
+		["fachada_rua", Vector3(-3.0, 1.6, -7.5), Vector3(-1.0, 2.6, -14.0)]]
 	for v in views:
 		if not so.is_empty() and not str(v[0]) in so:
 			continue

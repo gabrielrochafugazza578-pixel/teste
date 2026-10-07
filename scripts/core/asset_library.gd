@@ -417,7 +417,10 @@ func world_material(kind: String = "exterior") -> ShaderMaterial:
 		"roads":
 			m.set_shader_parameter("enable_windows", false)
 		_:
-			pass
+			# pichações no térreo das fachadas (folha gerada por tools/make_graffiti.py)
+			if ResourceLoader.exists("res://assets/textures/decals/pixo.png"):
+				m.set_shader_parameter("graffiti_tex", load("res://assets/textures/decals/pixo.png"))
+				m.set_shader_parameter("has_graffiti", true)
 	_mats[key] = _track(m)
 	return m
 

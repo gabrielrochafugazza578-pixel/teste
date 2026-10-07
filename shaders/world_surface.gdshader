@@ -27,6 +27,9 @@ uniform float grime = 1.0;
 uniform float emission_boost = 1.0;
 // Interiores: luz indireta falsa (claridade que entra pelas janelas e rebate), quente.
 uniform float interior_fill = 0.0;
+// pichações (folha 4x2 gerada por tools/make_graffiti.py) no térreo das fachadas
+uniform sampler2D graffiti_tex : source_color, filter_linear_mipmap, repeat_disable;
+uniform bool has_graffiti = false;
 // canal A de tex_b = relevo (fotos com mapa de altura; a camada 5, metal, guarda metal)
 uniform bool has_height = false;
 uniform float parallax_scale = 1.0;
@@ -351,17 +354,23 @@ void fragment() {
 	// --- Deterioração: fuligem, escorridos, musgo -------------------------------
 	float decay = world_decay * grime;
 	// fuligem/escorridos são de prédio: tronco de árvore (casca) fica de fora
-	if (decay > 0.01 && li != 13) {
+	// fachadas: escorrido de chuva e fuligem mesmo antes do colapso (cidade de
+	// verdade não tem parede limpa); filetes finos e compridos + manchas largas
+	bool facade = exterior && v_wmode > 0.5 && v_wmode < 3.5 && an.y < 0.3;
+	float wthr = facade ? max(decay, 0.4) : decay;
+	if (wthr > 0.01 && li != 13) {
 		float streak = texture(noise_tex, vec2(np.x * 0.35, np.y * 0.02)).g;
+		float fine_s = texture(noise_tex, vec2(np.x * 1.6 + v_seed * 13.0, np.y * 0.012)).r;
 		float vertical = 1.0 - an.y;
 		float dirt = smoothstep(0.35, 0.8, streak * 0.7 + nz.r * 0.5) * vertical;
-		alb = mix(alb, alb * vec3(0.5, 0.47, 0.42), dirt * decay * 0.75);
+		dirt = max(dirt, smoothstep(0.62, 0.85, fine_s) * vertical * (facade ? 0.45 : 0.0));
+		alb = mix(alb, alb * vec3(0.5, 0.47, 0.42), dirt * wthr * 0.75);
 		// Em fachadas UV.y = altura acima da base do prédio: musgo sobe do chão.
 		float base_h = v_wmode > 0.5 ? UV.y : 10.0;
 		float moss_mask = smoothstep(0.55, 0.75, nz.r + nz.b * 0.2) * (an.y > 0.6 ? 1.0 : smoothstep(1.6, 0.0, base_h) * 0.7);
 		alb = mix(alb, vec3(0.13, 0.16, 0.07) * (0.7 + nz.g * 0.6), moss_mask * decay * (exterior ? 0.55 : 0.12));
 		rough = mix(rough, 0.95, moss_mask * decay * 0.5);
-		ao *= 1.0 - dirt * decay * 0.25;
+		ao *= 1.0 - dirt * wthr * 0.25;
 	}
 	// sujeira assentada nas partes baixas do relevo (rejunte, frestas, entre as pedras)
 	if (hgt) {
@@ -401,6 +410,7 @@ void fragment() {
 
 	// --- Janelas procedurais ---------------------------------------------------
 	float is_window = 0.0;
+	float win_mask = 0.0;
 	if (enable_windows && v_wmode > 0.5 && v_wmode < 3.5 && an.y < 0.3) {
 		vec2 cell_size = v_wmode < 1.5 ? vec2(3.1, 2.9) : (v_wmode < 2.5 ? vec2(2.4, 3.4) : vec2(3.6, 3.6));
 		vec2 g = UV / cell_size;
@@ -664,8 +674,32 @@ void fragment() {
 			alb = mix(alb, rev_col, win * reveal);
 			rough = mix(rough, 0.85, win * reveal);
 			is_window = win * (1.0 - broken) * (1.0 - reveal);
+			win_mask = clamp(win + frame, 0.0, 1.0);
 			emit = rad * transmit * emission_boost * win * (1.0 - reveal);
 		}
+	}
+
+	// pichação no térreo: células de 4,5 m ao longo da parede, algumas pichadas
+	// (mais depois do colapso); texto sempre da esquerda para a direita
+	if (has_graffiti && facade) {
+		float gcw = 4.5;
+		float gcx = floor(UV.x / gcw);
+		float gr = h21(vec2(gcx, 7.3) + v_seed * 91.0);
+		float gi = floor(h21(vec2(gcx, 3.1) + v_seed * 17.0) * 8.0);
+		float tw = mix(2.6, 3.9, h21(vec2(gcx, 5.5) + v_seed * 3.0));
+		float gx0 = gcx * gcw + (gcw - tw) * h21(vec2(gcx, 9.9) + v_seed);
+		float gy0 = 0.35 + 0.5 * h21(vec2(gcx, 1.7) + v_seed * 5.0);
+		float gu = (UV.x - gx0) / tw;
+		float gv = 1.0 - (UV.y - gy0) / (tw * 0.62);
+		vec3 rightv = cross(vec3(0.0, 1.0, 0.0), normalize(w_nrm));
+		gu = dot(u_dir, rightv) < 0.0 ? 1.0 - gu : gu;
+		float inside = step(0.0, gu) * step(gu, 1.0) * step(0.0, gv) * step(gv, 1.0);
+		vec2 guv = vec2((mod(gi, 4.0) + clamp(gu, 0.0, 1.0)) / 4.0, (floor(gi / 4.0) + clamp(gv, 0.0, 1.0)) / 2.0);
+		vec4 gt = textureGrad(graffiti_tex, guv, dFdx(UV.x) / tw * vec2(0.25, 0.0) + vec2(0.0, dFdx(UV.y) / tw * 0.8), dFdy(UV.x) / tw * vec2(0.25, 0.0) + vec2(0.0, dFdy(UV.y) / tw * 0.8));
+		// só na parede: vidro, caixilho e vão ficam limpos
+		float gm = gt.a * inside * step(gr, 0.2 + world_decay * 0.4) * step(UV.y, 3.4) * (1.0 - win_mask);
+		alb = mix(alb, gt.rgb * (0.85 + 0.15 * nz.g), gm * 0.92);
+		rough = mix(rough, 0.7, gm);
 	}
 
 	// --- Contato com o chão: a base das fachadas é mais escura (sujeira, respingo
