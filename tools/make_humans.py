@@ -108,7 +108,7 @@ R("caio", 1.0, 31, 1.79, "toigo_light_skin_male_bronze", "culturalibre_hair_02",
         "eye-left-slit": 0.1, "eye-right-slit": 0.1})
 R("helena", 0.0, 38, 1.66, "young_caucasian_female", "rehmanpolanski_hair_bun_brown",
   ["toigo_basic_tucked_t-shirt", "toigo_wool_pants", "shoes06", "mindfront_cardigan_long_open_front",
-   "frankyaye_glasses_library_male"], muscle=0.42, weight=0.42, eyes="green",
+   "spamrakuen_sagerfrogs_glasses_03"], muscle=0.42, weight=0.42, eyes="green",
   race={"caucasian": 0.9, "asian": 0.1}, tex_size={"skin": 2048},
   params={"mindfront_cardigan_long_open_front": LABCOAT})
 # civis
@@ -137,7 +137,7 @@ R("civ_f5", 0.0, 68, 1.58, "old_caucasian_female", "ponytail01", ["janexx_old_fe
 # pesquisadores, paciente, polícia, sobreviventes
 R("researcher_m", 1.0, 45, 1.77, "middleage_caucasian_male", "culturalibre_hair_05",
   ["elvs_male_shirt_tie_tucked1", "toigo_wool_pants", "shoes04", "mindfront_cardigan_long_open_front",
-   "frankyaye_glasses_library_male"], weight=0.55, params={"mindfront_cardigan_long_open_front": LABCOAT})
+   "spamrakuen_tbm_glasses_frames_01"], weight=0.55, params={"mindfront_cardigan_long_open_front": LABCOAT})
 R("researcher_f", 0.0, 34, 1.64, "young_asian_female", "ponytail01",
   ["toigo_basic_tucked_t-shirt", "toigo_wool_pants", "shoes06", "mindfront_cardigan_long_open_front"],
   race={"asian": 0.6, "caucasian": 0.4}, weight=0.42, params={"mindfront_cardigan_long_open_front": LABCOAT})

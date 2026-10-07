@@ -18,7 +18,6 @@ MakeHuman (CC0 1.0, https://www.makehumancommunity.org). Assets da comunidade us
   eyelashes01                                CC0      makehuman_system http://www.makehumancommunity.org
   eyelashes02                                CC0      makehuman_system http://www.makehumancommunity.org
   female_elegantsuit01                       CC0      makehuman_system http://www.makehumancommunity.org
-  frankyaye_glasses_library_male             CC0      frankyaye http://www.makehumancommunity.org/node/153
   janexx_old_female_sweater                  CC-BY    janexx http://www.makehumancommunity.org/node/2767
   joepal_crude_t-shirt_female                CC0      Joel Palmius http://www.makehumancommunity.org/node/894
   male_casualsuit03                          CC0      makehuman_system http://www.makehumancommunity.org
@@ -50,6 +49,8 @@ MakeHuman (CC0 1.0, https://www.makehumancommunity.org). Assets da comunidade us
   short01                                    CC0      makehuman_system http://www.makehumancommunity.org
   short03                                    CC0      makehuman_system http://www.makehumancommunity.org
   short04                                    CC0      makehuman_system http://www.makehumancommunity.org
+  spamrakuen_sagerfrogs_glasses_03           CC0      spamrakuen http://www.makehumancommunity.org/node/3333
+  spamrakuen_tbm_glasses_frames_01           CC0      spamrakuen http://www.makehumancommunity.org/node/3330
   toigo_ankle_boots_female                   CC0      MargaretToigo http://www.makehumancommunity.org/node/1738
   toigo_ankle_boots_male                     CC0      MargaretToigo http://www.makehumancommunity.org/node/1743
   toigo_basic_tucked_t-shirt                 CC0      MargaretToigo http://www.makehumancommunity.org/node/1203

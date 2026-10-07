@@ -689,6 +689,28 @@
   "params": {},
   "size": 1024.0
  },
+ "spamrakuen_sagerfrogs_glasses_03": {
+  "albedo": "spamrakuen_sagerfrogs_glasses_03_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "spamrakuen_sagerfrogs_glasses_03_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
+ "spamrakuen_tbm_glasses_frames_01": {
+  "albedo": "spamrakuen_tbm_glasses_frames_01_a",
+  "alpha": true,
+  "kind": "cloth",
+  "normal": "spamrakuen_tbm_glasses_frames_01_n",
+  "params": {
+   "alpha_cut": 0.5,
+   "tint_slot": 3.0
+  },
+  "size": 1024.0
+ },
  "strap": {
   "alpha": false,
   "kind": "gear",

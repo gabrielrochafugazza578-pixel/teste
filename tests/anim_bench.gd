@@ -3,8 +3,9 @@ extends Node
 ## e mede apoio dos pés (altura, deslize). Saída em --out=DIR (PNG por quadro + relatório).
 ## Uso: xvfb-run godot --path . --rendering-driver opengl3 res://tests/anim_bench.tscn -- --out=/tmp/anim [--only=nome]
 
-const FW := 200
-const FH := 300
+var FW := 200
+var FH := 300
+var quem := "caio"
 var out := "/tmp/anim"
 var only := ""
 var view_mode := "side"
@@ -23,6 +24,12 @@ func _ready() -> void:
 			only = a.substr(7)
 		elif a.begins_with("--view="):
 			view_mode = a.substr(7)
+		elif a == "--grande":
+			# quadros grandes para mostrar (com sombra)
+			FW = 480
+			FH = 720
+		elif a.begins_with("--quem="):
+			quem = a.substr(7)
 	DirAccess.make_dir_recursive_absolute(out)
 	_run()
 
@@ -45,6 +52,7 @@ func _stage() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -30, 0)
 	sun.light_energy = 1.1
+	sun.shadow_enabled = FW > 200
 	vp.add_child(sun)
 	var floor_mi := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
@@ -69,7 +77,7 @@ func _stage() -> void:
 	vp.add_child(cam)
 	body = HumanoidBody.new()
 	vp.add_child(body)
-	body.setup(Appearance.caio(), 0)
+	body.setup(Appearance.infected("errante", 12) if quem == "zumbi" else Appearance.caio(), 0)
 	body.mesh_instance.custom_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 5, 6))
 
 
@@ -117,7 +125,7 @@ func _ankle(right: bool) -> Vector3:
 
 
 func _loco(name_: String, style: String, spd: float, crouch: bool = false, frames: int = 8, view_side: bool = true) -> void:
-	if only != "" and only != name_:
+	if only != "" and not name_ in only.split(","):
 		return
 	var an := _reset()
 	an.style = style
@@ -165,7 +173,7 @@ func _loco(name_: String, style: String, spd: float, crouch: bool = false, frame
 
 
 func _action(name_: String, frames: int = 8, speed_mult: float = 1.0, side: bool = true) -> void:
-	if only != "" and only != name_:
+	if only != "" and not name_ in only.split(","):
 		return
 	var an := _reset()
 	_view(side)
