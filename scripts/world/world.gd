@@ -458,6 +458,10 @@ func wait_area(pos: Vector3, radius: float = 70.0, timeout: float = 20.0) -> voi
 	_eval_timer = 0.0
 	var t := 0.0
 	while (not is_area_ready(pos, radius) or not is_phase_ready(pos, radius * 0.7)) and t < timeout:
+		# o mundo pode sair da árvore no meio da espera (carregar um save
+		# troca a cena): a espera termina em vez de acessar a árvore nula
+		if not is_inside_tree():
+			return
 		await get_tree().process_frame
 		t += get_process_delta_time()
 
