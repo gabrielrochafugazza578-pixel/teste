@@ -71,7 +71,9 @@ static func _flags(layout: WorldLayout, c: Vector2i, flags: Array, colliders: Ar
 		var door: Vector3 = di[0]
 		var n: Vector3 = di[1]
 		var side := n.cross(Vector3.UP)
-		var pos := door + n * 1.7 + side * (float(di[2]) * 0.5 + 2.2)
+		# fora da largura do letreiro grande sobre a porta (o pano tapava as letras)
+		var sign_half := str(b.get("name", "")).length() * 0.27
+		var pos := door + n * 1.7 + side * maxf(float(di[2]) * 0.5 + 2.2, sign_half + 1.2)
 		# o pano se estende para longe da porta, paralelo à fachada
 		var dir := side
 		flags.append({"pos": pos, "yaw": atan2(-dir.z, dir.x)})
