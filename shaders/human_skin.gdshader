@@ -44,9 +44,10 @@ void fragment() {
 		vec4 dt2 = texture(detail_tex, UV * 1.7 + vec2(0.13, 0.41));
 		float l = dot(alb, vec3(0.3, 0.59, 0.11));
 		// sem circulação: cor some, fica cinza-amarelado (peles escuras ficam acinzentadas)
-		vec3 pale = vec3(l) * vec3(1.0, 1.0, 0.86) * (1.0 + inf * 0.1);
+		// (cinza doente, não gesso: em pele clara o branco puro parecia reboco)
+		vec3 pale = vec3(l) * vec3(0.72, 0.74, 0.64);
 		alb = mix(alb, pale, inf * 0.85);
-		alb = mix(alb, vec3(0.36, 0.36, 0.31), inf * 0.22);
+		alb = mix(alb, vec3(0.27, 0.27, 0.23), inf * 0.22);
 		// olheiras fundas e pálpebras arroxeadas (alfa da máscara)
 		alb = mix(alb, alb * vec3(0.32, 0.22, 0.24), sock * inf * 0.9);
 		// sujeira/encardido geral da pele

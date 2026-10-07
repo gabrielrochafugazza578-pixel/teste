@@ -9,7 +9,7 @@ uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
 uniform float cutoff = 0.42;
 uniform float aniso = 0.55;
 uniform float rough_base = 0.5;
-uniform float spec = 0.22;
+uniform float spec = 0.16;
 // rgb = cor desejada, a = quanto tingir (0 = cor da foto)
 instance uniform vec4 hair_tint : source_color, instance_index(8) = vec4(1.0, 1.0, 1.0, 0.0);
 instance uniform float grime : instance_index(1) = 0.2;
@@ -27,7 +27,14 @@ void fragment() {
 	ALPHA = a.a;
 	ALPHA_SCISSOR_THRESHOLD = cutoff;
 	ROUGHNESS = mix(rough_base, rough_base * 0.6, clamp(wetness, 0.0, 1.0));
-	SPECULAR = spec * (0.4 + 0.6 * a.a);
+	// a normal é curvada para fora da cabeça (volume); onde ela fica rasante para
+	// a câmera (rabo de cavalo atrás da cabeça) o Fresnel ia a 100% e o reflexo do
+	// céu virava mechas brancas
+	SPECULAR = spec * (0.4 + 0.6 * a.a) * smoothstep(0.02, 0.4, dot(NORMAL, VIEW));
+	// fios se sombreiam: o reflexo do céu nos cartões vistos de lado virava
+	// mechas brancas (Fresnel rasante); a luz direta continua inteira
+	AO = 0.4;
+	AO_LIGHT_AFFECT = 0.0;
 	ANISOTROPY = aniso;
 	ANISOTROPY_FLOW = vec2(0.0, 1.0);
 	BACKLIGHT = c * 0.18;
