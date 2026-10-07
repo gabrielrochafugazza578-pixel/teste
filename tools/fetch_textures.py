@@ -3,12 +3,14 @@
 empacota no formato das camadas do jogo:
 
   <NN>_a.png  RGB = cor (sRGB)      A = rugosidade
-  <NN>_b.png  RG  = normal (OpenGL) B = oclusão (AO)   A = metal
+  <NN>_b.png  RG  = normal (OpenGL) B = oclusão (AO)   A = relevo (altura 0..1)
+              (na camada 5, metal, A = metal: é a única com metal de verdade)
 
 Também grava assets/materials/escala.json com a escala real de cada foto
 (repetições por metro), lida das dimensões informadas pelo Poly Haven.
 
 Uso: python3 tools/fetch_textures.py [tamanho=2048]
+     python3 tools/fetch_textures.py --so-relevo   (só põe o relevo nos _b.png existentes)
      godot --headless --path . -s tools/pack_layers.gd
 """
 import io
@@ -83,7 +85,54 @@ def img(files: dict, key: str, res: str):
     return Image.open(io.BytesIO(get(f["url"])))
 
 
+METAL_LAYER = 5
+
+
+def relevo(files: dict, res: str, size: int) -> Image.Image:
+    """Mapa de deslocamento do Poly Haven normalizado para 0..1 (percentis 1 e
+    99%): todas as camadas usam a faixa toda e a profundidade fica no shader."""
+    d = img(files, "Displacement", res)
+    if d is None:
+        return Image.new("L", (size, size), 128)
+    d = d.convert("L").resize((size, size), Image.LANCZOS)
+    # passa-alta: as fotos trazem ondulações de dezenas de cm (placas "côncavas",
+    # manchas no asfalto) que no parallax e nas poças pareceriam buracos; fica
+    # o relevo fino (rejunte, frestas, pedriscos) com um pouco do grosso
+    from PIL import ImageChops, ImageFilter
+    low = d.filter(ImageFilter.GaussianBlur(size / 40.0))
+    hp = ImageChops.add(ImageChops.subtract(d, low, 1.0, 128), Image.new("L", d.size, 0))
+    d = Image.blend(hp, d, 0.25)
+    h = d.histogram()
+    n = sum(h)
+    acc, lo, hi = 0, 0, 255
+    for i, c in enumerate(h):
+        acc += c
+        if acc >= n * 0.01 and lo == 0:
+            lo = i
+        if acc >= n * 0.99:
+            hi = i
+            break
+    k = 255.0 / max(1, hi - lo)
+    return d.point(lambda v: max(0, min(255, int((v - lo) * k))))
+
+
+def so_relevo(res: str) -> None:
+    for layer, pid in LAYERS.items():
+        if layer == METAL_LAYER:
+            continue
+        path = os.path.join(OUT, "%02d_b.png" % layer)
+        b = Image.open(path).convert("RGBA")
+        files = json.loads(get(f"{API}/files/{pid}"))
+        r, g, ao, _m = b.split()
+        b = Image.merge("RGBA", (r, g, ao, relevo(files, res, b.size[0])))
+        b.save(path, optimize=True)
+        print("relevo  camada %2d  %s" % (layer, pid))
+
+
 def main() -> None:
+    if "--so-relevo" in sys.argv:
+        so_relevo("2k")
+        return
     size = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 2048
     res = "2k" if size > 1024 else "1k"
     os.makedirs(OUT, exist_ok=True)
@@ -107,6 +156,8 @@ def main() -> None:
             ao = arm.getchannel("R") if arm is not None else Image.new("L", (size, size), 255)
         ao = ao.convert("L").resize((size, size), Image.LANCZOS)
         metal = arm.getchannel("B") if arm is not None else Image.new("L", (size, size), 0)
+        if layer != METAL_LAYER:
+            metal = relevo(files, res, size)
         if layer in ADJUST:
             from PIL import ImageEnhance
             br, sat = ADJUST[layer]

@@ -363,12 +363,20 @@ func _assign_textures(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("tex_a", surface_a)
 	m.set_shader_parameter("tex_b", surface_b)
 	m.set_shader_parameter("noise_tex", noise_tex)
+	# fotos do Poly Haven: canal A de tex_b é o relevo (nas procedurais é o metal)
+	m.set_shader_parameter("has_height", photo_scales.size() == LAYER_COUNT)
 	m.set_shader_parameter("detail_a", char_a)
 	m.set_shader_parameter("detail_b", char_b)
 	m.set_shader_parameter("detail_rep", char_rep)
 	m.set_shader_parameter("leaf_tex", m.get_meta("photo_tex") if m.has_meta("photo_tex") else leaf_tex)
 	m.set_shader_parameter("weapon_a", weapon_a)
 	m.set_shader_parameter("weapon_b", weapon_b)
+
+
+## Material de fora da biblioteca que usa as texturas compartilhadas (camadas,
+## ruído): recebe agora e de novo a cada rebake.
+func track_textures(m: ShaderMaterial) -> ShaderMaterial:
+	return _track(m)
 
 
 func _track(m: ShaderMaterial) -> ShaderMaterial:

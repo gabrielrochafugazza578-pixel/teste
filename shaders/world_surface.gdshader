@@ -27,6 +27,14 @@ uniform float grime = 1.0;
 uniform float emission_boost = 1.0;
 // Interiores: luz indireta falsa (claridade que entra pelas janelas e rebate), quente.
 uniform float interior_fill = 0.0;
+// canal A de tex_b = relevo (fotos com mapa de altura; a camada 5, metal, guarda metal)
+uniform bool has_height = false;
+uniform float parallax_scale = 1.0;
+uniform float parallax_distance = 14.0;
+// profundidade do relevo de cada camada, em metros
+const float LAYER_DEPTH[16] = float[16](
+	0.007, 0.01, 0.014, 0.003, 0.03, 0.0, 0.005, 0.012,
+	0.014, 0.06, 0.003, 0.004, 0.018, 0.015, 0.0, 0.0);
 
 global uniform float wetness;
 // 1 quando o SSAO de verdade está ligado (Forward+): alivia a oclusão "pintada"
@@ -106,9 +114,62 @@ void fragment() {
 	vec2 dUV = fwidth(UV);
 	// sentido em que UV.x cresce ao longo da parede (para o interior das janelas)
 	vec3 u_dir = dFdx(UV.x) * dFdx(w_pos) + dFdy(UV.x) * dFdy(w_pos);
-	vec3 uvw = vec3(UV * sc, v_layer);
-	vec4 a = texture(tex_a, uvw);
-	vec4 b = texture(tex_b, uvw);
+	vec2 tuv = UV * sc;
+	vec2 gx = dFdx(tuv);
+	vec2 gy = dFdy(tuv);
+	vec3 Nn = normalize(w_nrm);
+	bool hgt = has_height && li != 5;
+#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
+	// --- Relevo de verdade (parallax occlusion) perto da câmera ----------------
+	// rejunte dos tijolos, telhas, frestas da calçada, pedras: o raio de visão
+	// desce no mapa de altura (canal A de tex_b) até bater no relevo. Base
+	// tangente pelas derivadas de tela (independe do sinal da tangente da malha).
+	vec3 dpx = dFdx(w_pos);
+	vec3 dpy = dFdy(w_pos);
+	vec2 dux = dFdx(UV);
+	vec2 duy = dFdy(UV);
+	float pdepth = hgt ? LAYER_DEPTH[li] * parallax_scale : 0.0;
+	float cam_d = length(CAMERA_POSITION_WORLD - w_pos);
+	float pfade = 1.0 - smoothstep(parallax_distance * 0.55, parallax_distance, cam_d);
+	if (pdepth > 0.0 && pfade > 0.0) {
+		vec3 p2 = cross(dpy, Nn);
+		vec3 p1 = cross(Nn, dpx);
+		vec3 T = p2 * dux.x + p1 * duy.x;
+		vec3 B = p2 * dux.y + p1 * duy.y;
+		float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-12));
+		vec3 Vw = (CAMERA_POSITION_WORLD - w_pos) / max(cam_d, 1e-4);
+		vec3 vts = vec3(dot(Vw, T * inv), dot(Vw, B * inv), dot(Vw, Nn));
+		float steps = floor(mix(20.0, 6.0, clamp(vts.z, 0.0, 1.0)) * mix(0.5, 1.0, pfade));
+		vec2 delta = -vts.xy / max(vts.z, 0.3) * pdepth * sc * pfade / steps;
+		float st = 1.0 / steps;
+		vec2 ofs = tuv;
+		float cur = 0.0;
+		float hd = 1.0 - textureGrad(tex_b, vec3(ofs, v_layer), gx, gy).a;
+		vec2 prev = ofs;
+		float prev_hd = hd;
+		float prev_cur = 0.0;
+		for (int i = 0; i < 20; i++) {
+			if (float(i) >= steps || cur >= hd) {
+				break;
+			}
+			prev = ofs;
+			prev_hd = hd;
+			prev_cur = cur;
+			ofs += delta;
+			cur += st;
+			hd = 1.0 - textureGrad(tex_b, vec3(ofs, v_layer), gx, gy).a;
+		}
+		float after = hd - cur;
+		float before = prev_hd - prev_cur;
+		tuv = mix(ofs, prev, clamp(after / min(after - before, -1e-5), 0.0, 1.0));
+	}
+#endif
+	vec3 uvw = vec3(tuv, v_layer);
+	vec4 a = textureGrad(tex_a, uvw, gx, gy);
+	vec4 b = textureGrad(tex_b, uvw, gx, gy);
+	// altura 0..1 do relevo (0 = rejunte/fresta); a camada de metal guarda metal
+	float h = hgt ? b.a : 0.5;
+	float crev = smoothstep(0.42, 0.05, h);
 
 	// Projeção dominante para ruídos em espaço de mundo (1 amostra, barato)
 	vec3 an = abs(w_nrm);
@@ -119,8 +180,9 @@ void fragment() {
 	// anti-repetição nas camadas orgânicas (asfalto, reboco, grama, terra, rocha,
 	// cascalho, casca): 2ª amostra girada em outra escala, misturada por ruído de mundo
 	if (li == 0 || li == 3 || li == 7 || li == 8 || li == 9 || li == 12 || li == 13) {
-		vec2 ruv = mat2(vec2(0.8, -0.6), vec2(0.6, 0.8)) * (UV * sc * 0.41) + vec2(0.37, 0.71);
-		vec3 a2 = texture(tex_a, vec3(ruv, v_layer)).rgb;
+		mat2 rot = mat2(vec2(0.8, -0.6), vec2(0.6, 0.8));
+		vec2 ruv = rot * (tuv * 0.41) + vec2(0.37, 0.71);
+		vec3 a2 = textureGrad(tex_a, vec3(ruv, v_layer), rot * gx * 0.41, rot * gy * 0.41).rgb;
 		base_rgb = mix(base_rgb, a2, smoothstep(0.3, 0.7, nz.g) * 0.5);
 	}
 	// grama: foto amarronzada (chão entre as folhas) puxada para verde de gramado
@@ -133,7 +195,7 @@ void fragment() {
 	base_rgb *= 0.9 + nz.r * 0.2;
 	vec3 alb = base_rgb * v_tint.rgb;
 	float rough = a.a;
-	float metal = b.a;
+	float metal = hgt ? 0.0 : b.a;
 	float ao = b.b * v_tint.a;
 	vec2 nxy = (b.rg * 2.0 - 1.0) * normal_strength;
 	vec3 nmap = vec3(nxy, sqrt(max(0.0, 1.0 - dot(nxy, nxy))));
@@ -153,6 +215,10 @@ void fragment() {
 		alb = mix(alb, vec3(0.13, 0.16, 0.07) * (0.7 + nz.g * 0.6), moss_mask * decay * (exterior ? 0.55 : 0.12));
 		rough = mix(rough, 0.95, moss_mask * decay * 0.5);
 		ao *= 1.0 - dirt * decay * 0.25;
+	}
+	// sujeira assentada nas partes baixas do relevo (rejunte, frestas, entre as pedras)
+	if (hgt) {
+		alb *= 1.0 - crev * (0.1 + decay * 0.2);
 	}
 
 	// --- Sinalização horizontal (ruas: modo 4 rua, 5 avenida, 6 rodovia) --------
@@ -314,12 +380,17 @@ void fragment() {
 		float porous = clamp(rough, 0.0, 1.0);
 		float exposure = mix(0.45, 1.0, clamp(w_nrm.y, 0.0, 1.0));
 		float wet = wetness * exposure * (1.0 - is_window);
+		// frestas e rejuntes molham primeiro e secam por último
+		wet = clamp(wet * mix(0.85, 1.7, crev), 0.0, 1.0);
 		alb *= mix(1.0, 0.55, wet * porous);
 		rough = mix(rough, 0.18, wet * 0.85);
 		if (enable_puddles && w_nrm.y > 0.92) {
 			float pn = texture(noise_tex, w_pos.xz * 0.028).r * 0.7 + nz.b * 0.3;
 			float th = 0.8 - wetness * 0.12;
+			pn += (0.5 - h) * 0.08;
 			float puddle = smoothstep(th, th + 0.04, pn) * smoothstep(0.2, 0.6, wetness);
+			// água parada nas frestas, no rejunte e entre as pedras do chão
+			puddle = max(puddle, smoothstep(0.55, 0.98, crev) * smoothstep(0.3, 0.8, wetness) * 0.7);
 			alb = mix(alb, alb * 0.35 + vec3(0.01), puddle);
 			rough = mix(rough, 0.02, puddle);
 			vec3 flatn = vec3(0.0, 0.0, 1.0);

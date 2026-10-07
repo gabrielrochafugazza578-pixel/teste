@@ -14,6 +14,8 @@ uniform float gravel_scale = 0.8;
 // detalhe (luminância, relevo, rugosidade) e leva a cor para verde de gramado
 uniform vec3 grass_green : source_color = vec3(0.24, 0.31, 0.11);
 uniform float grass_tint = 0.85;
+// canal A de tex_b = relevo (fotos do Poly Haven): transições por altura
+uniform bool has_height = false;
 
 global uniform float wetness;
 global uniform float world_decay;
@@ -56,9 +58,34 @@ void fragment() {
 		ca = texture(tex_a, vec3(uv * gravel_scale, 12.0));
 		cb = texture(tex_b, vec3(uv * gravel_scale, 12.0));
 	}
+	// mistura por altura: na transição as pedras e torrões mais altos aparecem por
+	// cima e a terra/grama preenche os vãos (em vez de uma foto "transparente"
+	// sobre a outra); a altura de cada foto entra em pé de igualdade com o peso
+	float crev = 0.0;
+	if (has_height) {
+		float hg = gb.a * 0.6;
+		float hd = db.a;
+		float hr = rb.a;
+		float hc = cb.a;
+		float bw = 0.2;
+		float top = max(max(w_grass + hg, w_dirt + hd), max(w_rock + hr, w_grav + hc)) - bw;
+		w_grass = max(w_grass + hg - top, 0.0) * step(0.002, w_grass);
+		w_dirt = max(w_dirt + hd - top, 0.0) * step(0.002, w_dirt);
+		w_rock = max(w_rock + hr - top, 0.0) * step(0.002, w_rock);
+		w_grav = max(w_grav + hc - top, 0.0) * step(0.002, w_grav);
+	}
 	float tot = w_grass + w_dirt + w_rock + w_grav + 0.0001;
 	vec4 A = (ga * w_grass + da * w_dirt + ra * w_rock + ca * w_grav) / tot;
 	vec4 B = (gb * w_grass + db * w_dirt + rb * w_rock + cb * w_grav) / tot;
+	if (has_height) {
+		float hmix = (gb.a * w_grass + db.a * w_dirt + rb.a * w_rock + cb.a * w_grav) / tot;
+		crev = smoothstep(0.4, 0.05, hmix);
+	}
+	w_grass /= tot;
+	w_dirt /= tot;
+	w_rock /= tot;
+	w_grav /= tot;
+	tot = 1.0;
 
 	vec3 alb = A.rgb;
 	// variação macro de cor (manchas secas / úmidas)
@@ -82,7 +109,10 @@ void fragment() {
 		float wet = wetness * (0.5 + 0.5 * (1.0 - slope));
 		alb *= mix(1.0, 0.6, wet);
 		rough = mix(rough, 0.35, wet * 0.8);
-		float puddle = smoothstep(0.66 - wetness * 0.12, 0.7 - wetness * 0.12, meso.b * 0.6 + macro.r * 0.4) * (w_dirt + w_grav) * smoothstep(0.35, 0.7, wetness) * (1.0 - slope);
+		float wsum = (w_dirt + w_grav) / tot;
+		// a água junta primeiro nas partes baixas do relevo (entre pedras e torrões)
+		float puddle = smoothstep(0.66 - wetness * 0.12, 0.7 - wetness * 0.12, meso.b * 0.6 + macro.r * 0.4 + crev * 0.06) * wsum * smoothstep(0.35, 0.7, wetness) * (1.0 - slope);
+		puddle = max(puddle, smoothstep(0.72, 1.0, crev) * wsum * smoothstep(0.5, 0.95, wetness) * (1.0 - slope) * 0.4);
 		alb = mix(alb, vec3(0.05, 0.045, 0.04), puddle * 0.8);
 		rough = mix(rough, 0.03, puddle);
 		nmap = normalize(mix(nmap, vec3(0.0, 0.0, 1.0), puddle));

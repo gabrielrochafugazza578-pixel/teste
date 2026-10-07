@@ -71,7 +71,8 @@ static func paint_material(state: String) -> ShaderMaterial:
 		return _mats[key]
 	var m := ShaderMaterial.new()
 	m.shader = Assets.shader("res://shaders/vehicle_paint.gdshader")
-	m.set_shader_parameter("noise_tex", Assets.noise_tex)
+	# fotos das camadas (ferrugem, terra) e ruído, atualizados se a qualidade mudar
+	Assets.track_textures(m)
 	match state:
 		"dusty":
 			m.set_shader_parameter("dirt", 0.5)

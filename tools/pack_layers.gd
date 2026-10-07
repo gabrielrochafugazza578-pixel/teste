@@ -14,6 +14,10 @@ func _init() -> void:
 			var path := "%s/%02d_%s.png" % [src, layer, ch]
 			if not FileAccess.file_exists(path):
 				continue
+			var out := "res://assets/materials/%02d_%s.res" % [layer, ch]
+			# já empacotado depois da última mudança da foto
+			if FileAccess.file_exists(out) and FileAccess.get_modified_time(out) > FileAccess.get_modified_time(path):
+				continue
 			var img := Image.load_from_file(path)
 			if img == null:
 				printerr("falha ao ler ", path)
@@ -27,7 +31,6 @@ func _init() -> void:
 			if err != OK:
 				printerr("compressão falhou (%d) em %s" % [err, path])
 				continue
-			var out := "res://assets/materials/%02d_%s.res" % [layer, ch]
 			ResourceSaver.save(img, out, ResourceSaver.FLAG_COMPRESS)
 			n += 1
 			print("%s  %s  %d ms" % [out, Image.FORMAT_BPTC_RGBA == img.get_format(), Time.get_ticks_msec() - t0])
