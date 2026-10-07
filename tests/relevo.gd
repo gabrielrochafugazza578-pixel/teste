@@ -18,6 +18,12 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(out)
 	Settings.apply_preset(4 if RenderingServer.get_current_rendering_method() == "forward_plus" else 1)
 	await Assets.bake_all()
+	if "--ruido" in OS.get_cmdline_user_args():
+		var ni := Assets.noise_tex.get_image()
+		ni.decompress()
+		ni.save_png(out + "/ruido.png")
+		get_tree().quit()
+		return
 	GameState.in_game = false
 	TimeManager.locked_hour = hour
 	TimeManager.set_time(hour)
@@ -38,12 +44,16 @@ func _ready() -> void:
 	var walls := [Assets.L_BRICK, Assets.L_PLASTER, Assets.L_PANELS, Assets.L_WOOD, Assets.L_ROOF, Assets.L_BARK]
 	for i in walls.size():
 		mb.box(Vector3(-10 + i * 4.0, 1.5, -0.15), Vector3(4, 3, 0.3), Assets.uv2_code(walls[i]), 0.6)
+	# rua e muro de reboco largos (buracos e reboco caído aparecem com o abandono)
+	mb.box(Vector3(-24.0, -0.05, 4.0), Vector3(16, 0.1, 16), Assets.uv2_code(Assets.L_ASPHALT), 0.2)
+	mb.box(Vector3(-24.0, 2.0, -4.15), Vector3(16, 4, 0.3), Assets.uv2_code(Assets.L_PLASTER), 0.45, Color(0.85, 0.78, 0.62))
 	var mi := MeshInstance3D.new()
 	mi.mesh = mb.to_mesh(mat)
 	add_child(mi)
 	add_child(_terrain(tm))
 	if "--chuva" in args:
 		RenderingServer.global_shader_parameter_set("wetness", 0.85)
+	RenderingServer.global_shader_parameter_set("world_decay", 1.0 if "--abandono" in args else 0.0)
 	var cam := Camera3D.new()
 	cam.fov = 60.0
 	add_child(cam)
@@ -55,7 +65,9 @@ func _ready() -> void:
 		["pisos", Vector3(-6.0, 1.7, 5.5), Vector3(-6.0, 0.0, 1.2)],
 		["rocha_cascalho", Vector3(2.0, 1.6, 5.0), Vector3(3.0, 0.0, 1.5)],
 		["terreno", Vector3(0.0, 1.7, 15.0), Vector3(0.0, 0.0, 9.0)],
-		["terreno_largo", Vector3(-4.0, 5.5, 19.0), Vector3(-1.0, 0.0, 10.0)]]
+		["terreno_largo", Vector3(-4.0, 5.5, 19.0), Vector3(-1.0, 0.0, 10.0)],
+		["abandono_rua", Vector3(-24.0, 3.5, 11.5), Vector3(-24.0, 0.0, 1.0)],
+		["abandono_muro", Vector3(-21.0, 1.7, 4.0), Vector3(-25.0, 1.4, -4.0)]]
 	for v in views:
 		cam.look_at_from_position(v[1], v[2])
 		for k in 30:

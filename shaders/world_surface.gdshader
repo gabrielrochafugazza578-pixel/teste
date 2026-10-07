@@ -201,6 +201,58 @@ void fragment() {
 	vec3 nmap = vec3(nxy, sqrt(max(0.0, 1.0 - dot(nxy, nxy))));
 	vec3 emit = vec3(0.0);
 
+	// --- Abandono: reboco caído (aparece o tijolo) e buracos no asfalto ----------
+	float wdec = world_decay * grime;
+	float pothole = 0.0;
+	if (exterior && hgt && wdec > 0.01) {
+		if (li == 3 && an.y < 0.5) {
+			// manchas onde o reboco soltou: mais perto do chão (umidade que sobe)
+			// e onde o próprio reboco é mais fino (relevo baixo)
+			float base_h = v_wmode > 0.5 ? UV.y : 10.0;
+			float pm = texture(noise_tex, np * 0.11 + v_seed * 3.7).r * 0.65 + texture(noise_tex, np * 0.47 + 0.19).g * 0.35;
+			pm += smoothstep(1.8, 0.0, base_h) * 0.12 - h * 0.04;
+			// (o ruído fica em ~0,37 ± 0,06: ~10% da parede no abandono total)
+			float th = 0.51 - wdec * 0.06;
+			float hole = smoothstep(th, th + 0.006, pm);
+			// borda: a espessura do reboco faz sombra e o tijolo fica mais escuro ali
+			float rim = smoothstep(th - 0.014, th, pm) * (1.0 - hole);
+			float s2 = layer_scales[2];
+			vec2 buv = UV * s2 + vec2(v_seed * 5.0, 0.0);
+			vec4 ba = textureGrad(tex_a, vec3(buv, 2.0), gx / sc * s2, gy / sc * s2);
+			vec4 bb = textureGrad(tex_b, vec3(buv, 2.0), gx / sc * s2, gy / sc * s2);
+			vec2 bxy = (bb.rg * 2.0 - 1.0) * normal_strength;
+			vec3 bn = vec3(bxy, sqrt(max(0.0, 1.0 - dot(bxy, bxy))));
+			alb = mix(alb, ba.rgb * (0.75 + 0.25 * smoothstep(0.0, 0.012, pm - th)), hole);
+			alb *= 1.0 - rim * 0.3;
+			rough = mix(rough, ba.a, hole);
+			ao = mix(ao, bb.b, hole);
+			nmap = normalize(mix(nmap, bn, hole));
+			h = mix(h, bb.a * 0.6, hole);
+			crev = max(crev * (1.0 - hole), smoothstep(0.42, 0.05, h) * hole);
+		} else if (li == 0 && an.y > 0.9) {
+			// buracos: o asfalto some e fica a base de cascalho, mais funda (junta água)
+			float pn2 = texture(noise_tex, w_pos.xz * 0.17 + vec2(0.31, 0.67)).b * 0.7 + texture(noise_tex, w_pos.xz * 0.6).g * 0.3;
+			// (~3% da rua no abandono total)
+			float th = 0.47 - wdec * 0.04;
+			pothole = smoothstep(th, th + 0.008, pn2 + (0.5 - h) * 0.02);
+			float rim = smoothstep(th - 0.012, th, pn2) * (1.0 - pothole);
+			float s12 = layer_scales[12];
+			vec2 cuv = w_pos.xz * s12;
+			vec4 ca = textureGrad(tex_a, vec3(cuv, 12.0), gx / sc * s12, gy / sc * s12);
+			vec4 cb = textureGrad(tex_b, vec3(cuv, 12.0), gx / sc * s12, gy / sc * s12);
+			vec2 cxy = cb.rg * 2.0 - 1.0;
+			vec3 cn = vec3(cxy, sqrt(max(0.0, 1.0 - dot(cxy, cxy))));
+			alb = mix(alb, ca.rgb * vec3(0.42, 0.41, 0.39), pothole);
+			alb *= 1.0 - rim * 0.25;
+			rough = mix(rough, ca.a, pothole);
+			ao = mix(ao, cb.b * 0.8, pothole);
+			nmap = normalize(mix(nmap, cn, pothole));
+			// fundo do buraco = parte mais baixa: a chuva enche primeiro
+			crev = max(crev, pothole * mix(0.75, 1.0, smoothstep(0.6, 0.1, cb.a)));
+			h = min(h, 1.0 - pothole);
+		}
+	}
+
 	// --- Deterioração: fuligem, escorridos, musgo -------------------------------
 	float decay = world_decay * grime;
 	// fuligem/escorridos são de prédio: tronco de árvore (casca) fica de fora
@@ -247,6 +299,7 @@ void fragment() {
 			m = max(m, edge);
 		}
 		float wear = smoothstep(0.2, 0.55, nz.g + 0.35 - world_decay * 0.3);
+		m *= 1.0 - pothole;
 		alb = mix(alb, mc, m * 0.85 * wear);
 		rough = mix(rough, 0.6, m * wear);
 	}
