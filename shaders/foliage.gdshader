@@ -83,11 +83,16 @@ void fragment() {
 	ROUGHNESS = mix(0.8, 0.4, wetness);
 	// folhas de dentro da copa se sombreiam: sem isso a luz do céu/GI lavava os
 	// cartões de branco-azulado (a luz direta do sol continua inteira)
-	AO = mix(0.3, 0.9, v_shade);
+	AO = mix(0.38, 0.9, v_shade);
 	AO_LIGHT_AFFECT = 0.0;
-	// face de trás levemente mais escura (sem BACKLIGHT, compatível com GL3)
+	// face de trás levemente mais escura
 	if (!FRONT_FACING) {
 		ALBEDO *= 0.8;
 		NORMAL = -NORMAL;
 	}
+#if CURRENT_RENDERER != RENDERER_COMPATIBILITY
+	// luz que atravessa a folha: contra o sol a copa acende verde-amarelada nas
+	// bordas e nos buracos em vez de virar uma mancha preta
+	BACKLIGHT = alb * vec3(0.95, 1.0, 0.55) * (0.55 + v_shade * 0.35);
+#endif
 }

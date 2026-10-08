@@ -373,14 +373,14 @@ func _step_props(d: Dictionary) -> void:
 		var l := Label3D.new()
 		l.text = str(lb["text"])
 		l.font_size = 48
-		l.outline_size = 6
+		l.outline_size = int(lb.get("outline", 6))
 		l.pixel_size = float(lb["size"]) / 48.0
-		l.modulate = Color(0.92, 0.9, 0.84)
+		l.modulate = lb.get("color", Color(0.92, 0.9, 0.84))
 		l.outline_modulate = Color(0.05, 0.05, 0.05, 0.9)
 		l.shaded = true
 		l.double_sided = false
 		l.position = lb["pos"]
-		l.rotation.y = float(lb["yaw"])
+		l.rotation = Vector3(0.0, float(lb["yaw"]), float(lb.get("roll", 0.0)))
 		l.visibility_range_end = 90.0 if float(lb["size"]) < 0.6 else 220.0
 		l.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(l)

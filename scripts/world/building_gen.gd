@@ -5,6 +5,8 @@ extends RefCounted
 ## Função pura (sem nós) => pode rodar em thread de trabalho.
 
 const FOUND := 1.2
+## beiral do telhado da igreja (curto: o frontão e a cimalha cobrem a empena)
+const CHURCH_EAVE := 0.15
 
 
 static func cell_h(wmode: int, fallback: float) -> float:
@@ -129,7 +131,8 @@ static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open
 		var ridge_x := r.size.x >= r.size.y
 		var span := r.size.y if ridge_x else r.size.x
 		var rise := span * (0.18 if int(b["roof_layer"]) == Assets.L_METAL else 0.32)
-		shell.gable_roof(r, top, rise, 0.45 if lod == 0 else 0.3, ridge_x, roof_code, code, seedf, Color(1, 1, 1), tint)
+		var eave := CHURCH_EAVE if t == "church" else (0.45 if lod == 0 else 0.3)
+		shell.gable_roof(r, top, rise, eave, ridge_x, roof_code, code, seedf, Color(1, 1, 1), tint)
 		# laje interna (tampa o topo da parede sob o telhado)
 		shell.quad(Vector3(x0, top, z0), Vector3(x1, top, z0), Vector3(x1, top, z1), Vector3(x0, top, z1), Vector3.UP,
 			Vector2(x0, z0), Vector2(x1, z0), Vector2(x1, z1), Vector2(x0, z1), roof_code, seedf, Color(0.6, 0.6, 0.6))
@@ -143,6 +146,8 @@ static func build(b: Dictionary, shell: MeshBuf, detail: MeshBuf, lod: int, open
 			detail.box(Vector3((x0 + x1) * 0.5, top + ph * 0.5, z1 - 0.12), Vector3(r.size.x, ph, 0.24), pc, seedf, tint * 0.95)
 			detail.box(Vector3(x0 + 0.12, top + ph * 0.5, (z0 + z1) * 0.5), Vector3(0.24, ph, r.size.y - 0.48), pc, seedf, tint * 0.95)
 			detail.box(Vector3(x1 - 0.12, top + ph * 0.5, (z0 + z1) * 0.5), Vector3(0.24, ph, r.size.y - 0.48), pc, seedf, tint * 0.95)
+	if t == "church":
+		_church(b, detail, top, seedf, relief if lod == 0 else 0)
 	if lod == 0:
 		_details(b, detail, top, seedf)
 		if roof != "gable" and t not in ["church", "gas_station", "guardhouse"]:
@@ -267,31 +272,38 @@ static func _details(b: Dictionary, d: MeshBuf, top: float, seedf: float) -> voi
 	# chaminé industrial
 	if b.get("chimney", false):
 		d.cylinder(Transform3D(Basis.IDENTITY, Vector3(r.end.x - 4.0, top - 1.0, r.end.y - 4.0)), 1.6, 24.0, 12, Assets.uv2_code(Assets.L_BRICK), seedf, Color(1, 1, 1), true, 1.1)
-	# igreja: torre + cruz
-	if t == "church":
-		# torre no canto da fachada (centrada na porta, o bloco dela tampava a entrada)
-		var cdi := door_info(b)
-		var cn: Vector3 = cdi[1]
-		var cside := cn.cross(Vector3.UP)
-		var half_w := (r.size.x if absf(cn.z) > 0.5 else r.size.y) * 0.5
-		var tp: Vector3 = (cdi[0] as Vector3) - cn * 2.8 + cside * maxf(half_w - 2.8, 3.0)
-		var tx := tp.x
-		var tz := tp.z
-		d.box(Vector3(tx, base + 9.0, tz), Vector3(5.0, 18.0, 5.0), Assets.uv2_code(int(b["layer"])), seedf, b["tint"])
-		d.box(Vector3(tx, base + 18.0 + 1.5, tz), Vector3(0.25, 3.0, 0.25), MET, seedf, Color(0.8, 0.75, 0.5))
-		d.box(Vector3(tx, base + 19.6, tz), Vector3(1.4, 0.25, 0.25), MET, seedf, Color(0.8, 0.75, 0.5))
-		d.add_box_collider(Vector3(tx, base + 9.0, tz), Vector3(5.0, 18.0, 5.0))
-	# posto: cobertura sobre as bombas
+	# posto: cobertura sobre as bombas (testeira com faixas, forro de painéis com
+	# luminárias), ilhas de concreto com protetores e piso de concreto em placas
 	if t == "gas_station":
 		var cp := _front_point(b, 7.0)
 		var along_x := facing == 0 or facing == 2
-		var csz := Vector3(12.0, 0.6, 8.0) if along_x else Vector3(8.0, 0.6, 12.0)
-		d.box(cp + Vector3(0, 5.0, 0), csz, MET, seedf, Color(0.9, 0.9, 0.9))
-		d.box(cp + Vector3(0, 4.62, 0), csz * Vector3(1.0, 0.25, 1.0) + Vector3(0.1, 0, 0.1), MET, seedf, Color(0.85, 0.15, 0.1))
+		var csz := Vector3(12.0, 0.9, 8.0) if along_x else Vector3(8.0, 0.9, 12.0)
+		var PAN := Assets.uv2_code(Assets.L_PANELS)
+		d.box(cp + Vector3(0, 5.05, 0), csz, MET, seedf, Color(0.9, 0.9, 0.88))
+		d.box(cp + Vector3(0, 4.82, 0), Vector3(csz.x + 0.04, 0.2, csz.z + 0.04), MET, seedf, Color(0.82, 0.15, 0.1))
+		d.box(cp + Vector3(0, 5.3, 0), Vector3(csz.x + 0.04, 0.1, csz.z + 0.04), MET, seedf, Color(0.16, 0.2, 0.28))
+		d.box(cp + Vector3(0, 4.58, 0), Vector3(csz.x - 0.3, 0.04, csz.z - 0.3), PAN, seedf, Color(0.86, 0.86, 0.84), 8)
+		for lx in 3:
+			for lz in 2:
+				var lo := Vector3((lx - 1) * csz.x * 0.3, 0, (lz - 0.5) * csz.z * 0.4) if along_x else Vector3((lz - 0.5) * csz.x * 0.4, 0, (lx - 1) * csz.z * 0.3)
+				d.box(cp + lo + Vector3(0, 4.53, 0), Vector3(1.3, 0.06, 0.4) if along_x else Vector3(0.4, 0.06, 1.3), MET, seedf, Color(0.95, 0.95, 0.9))
+		# piso de concreto em placas de 3 m (modo 7, sem guia: UV.y começa em 0,5)
+		var fx := csz.x + 5.0
+		var fz := csz.z + 5.0
+		var f0 := Vector3(cp.x - fx * 0.5, base + 0.02, cp.z - fz * 0.5)
+		var fc := Assets.uv2_code(Assets.L_CONCRETE, 7)
+		d.quad(f0, f0 + Vector3(fx, 0, 0), f0 + Vector3(fx, 0, fz), f0 + Vector3(0, 0, fz), Vector3.UP,
+			Vector2(0, 0.5), Vector2(fx, 0.5), Vector2(fx, fz + 0.5), Vector2(0, fz + 0.5), fc, 0.95 / 8.0, Color(0.85, 0.84, 0.8))
 		for sx: float in [-1.0, 1.0]:
 			var off := Vector3(sx * 3.5, 0, 0) if along_x else Vector3(0, 0, sx * 3.5)
 			d.box(cp + off + Vector3(0, 2.4, 0), Vector3(0.35, 4.8, 0.35), MET, seedf, Color(0.8, 0.8, 0.8))
-			d.append(PropLib.buf("gas_pump"), Transform3D(Basis(Vector3.UP, 0.0 if along_x else PI * 0.5), cp + off * 0.6))
+			# ilha da bomba com protetores amarelos nas pontas
+			var isz := Vector3(1.3, 0.16, 4.2) if along_x else Vector3(4.2, 0.16, 1.3)
+			d.box(cp + off * 0.6 + Vector3(0, base - cp.y + 0.1, 0), isz, CON, seedf, Color(0.68, 0.67, 0.64))
+			for e: float in [-1.0, 1.0]:
+				var eo := Vector3(0, 0, e * 1.85) if along_x else Vector3(e * 1.85, 0, 0)
+				d.cylinder(Transform3D(Basis.IDENTITY, Vector3(cp.x, base + 0.18, cp.z) + off * 0.6 + eo), 0.08, 0.85, 8, MET, seedf, Color(0.92, 0.72, 0.1), true)
+			d.append(PropLib.buf("gas_pump"), Transform3D(Basis(Vector3.UP, 0.0 if along_x else PI * 0.5), cp + off * 0.6 + Vector3(0, 0.18, 0)))
 			d.add_box_collider(cp + off + Vector3(0, 2.4, 0), Vector3(0.35, 4.8, 0.35))
 			d.add_box_collider(cp + off * 0.6 + Vector3(0, 0.95, 0), Vector3(0.9, 1.9, 0.9))
 	# hospital: marquise da entrada de ambulâncias
@@ -551,6 +563,7 @@ static func _relief(b: Dictionary, d: MeshBuf, col_out: MeshBuf, top: float, see
 						d.box(c0 + n * 1.07 + Vector3(0, 0.45, 0), _along(n, 2.46, 0.8, 0.02), MET, seedf, Color(0.35, 0.37, 0.4, 1.0))
 					for sx: float in [-1.0, 1.0]:
 						d.box(c0 + n * 0.55 + Vector3(dir.x, 0, dir.y) * (1.21 * sx) + Vector3(0, 0.45, 0), _along(n, 0.08, 0.9, 1.1), plain if solid else MET, seedf, light if solid else Color(0.25, 0.26, 0.27))
+					_balcony_life(d, rng, c0 + Vector3(0, 0.01, 0), n, Vector3(dir.x, 0, dir.y), seedf)
 	# --- peitoris sob as janelas dos residenciais (sombra marcada em cada janela)
 	if wm == Assets.WM_RES:
 		var sills := 0
@@ -779,6 +792,287 @@ static func _facade_kit(b: Dictionary, d: MeshBuf, col_out: MeshBuf, top: float,
 		d.tube(c0 - n * 0.3, c0, 0.02, 0.02, 4, MET, seedf, Color(0.5, 0.5, 0.5), false)
 		var dish := Transform3D(Basis.looking_at(-(n + Vector3(0, 0.45, 0)).normalized(), Vector3.UP) * Basis(Vector3.RIGHT, PI * 0.5), c0)
 		d.cylinder(dish, 0.04, 0.12, 12, MET, seedf, Color(0.85, 0.85, 0.84), true, 0.32)
+
+
+## O que os moradores deixaram na sacada (piso em `fl`, n para fora, side ao
+## longo da parede): vasos, varal com roupa, cadeira de plástico ou a
+## condensadora do ar-condicionado. Muitas ficam vazias.
+static func _balcony_life(d: MeshBuf, rng: RandomNumberGenerator, fl: Vector3, n: Vector3, side: Vector3, seedf: float) -> void:
+	var wb := _wall_basis(n)
+	var lk := rng.randf()
+	if lk < 0.28:
+		for i in rng.randi_range(1, 3):
+			d.append(PropLib.buf("plant_pot"), Transform3D(wb.scaled(Vector3.ONE * rng.randf_range(0.7, 1.1)), fl + n * 0.82 + side * rng.randf_range(-0.95, 0.95)))
+	elif lk < 0.5:
+		# varal: arame de lado a lado e peças de roupa penduradas
+		var ly := 1.78
+		var MET := Assets.uv2_code(Assets.L_METAL)
+		var FAB := Assets.uv2_code(Assets.L_FABRIC)
+		var p0 := fl + n * 0.62 + Vector3(0, ly, 0)
+		d.tube(p0 - side * 1.17, p0 + side * 1.17, 0.006, 0.006, 3, MET, seedf, Color(0.6, 0.6, 0.6), false)
+		var u := -1.05
+		while u < 0.85:
+			var cw := rng.randf_range(0.28, 0.55)
+			var chh := rng.randf_range(0.35, 0.75)
+			var col := Color.from_hsv(rng.randf(), rng.randf_range(0.15, 0.7), rng.randf_range(0.3, 0.85))
+			d.box_xf(Transform3D(wb * Basis(Vector3.UP, rng.randf_range(-0.12, 0.12)), p0 + side * (u + cw * 0.5) - Vector3(0, chh * 0.5, 0)), Vector3(cw, chh, 0.012), FAB, seedf, col)
+			u += cw + rng.randf_range(0.05, 0.3)
+	elif lk < 0.62:
+		d.append(PropLib.buf("chair"), Transform3D(wb * Basis(Vector3.UP, rng.randf_range(-0.7, 0.7)), fl + n * 0.6 + side * rng.randf_range(-0.8, 0.8)))
+	elif lk < 0.74:
+		d.append(PropLib.buf("ac_unit"), Transform3D(wb, fl + n * 0.3 + side * (0.75 if rng.randf() < 0.5 else -0.75)))
+
+
+## Igreja matriz colonial: duas torres com sineira aberta (sino dentro) e
+## coruchéu, frontão barroco com óculo e cruz cobrindo a empena do telhado,
+## cunhais, cimalha e embasamento na cor da cantaria, portada com arco e
+## tímpano de madeira, janelas do coro com sacada, janelões em arco nas laterais
+## e adro de pedra. relief: 2 completo, 1 sem os miúdos, 0 só a silhueta
+## (torres, frontão, coruchéus) para o LOD distante.
+static func _church(b: Dictionary, d: MeshBuf, top: float, seedf: float, relief: int) -> void:
+	var r: Rect2 = b["rect"]
+	var base: float = b["base"]
+	var tint: Color = b["tint"]
+	var rng := Util.rng(int(b["seed"]) * 17 + 11)
+	var di := door_info(b)
+	var dc: Vector3 = di[0]
+	var n: Vector3 = di[1]
+	var door_w: float = di[2]
+	var dh := door_height(b)
+	# referencial da fachada: x ao longo (direita de quem olha de fora), y para
+	# cima a partir da base, z para fora da parede
+	var sd := Vector3.UP.cross(n)
+	var front_x := absf(n.x) > 0.5
+	var W := r.size.y if front_x else r.size.x
+	var L := r.size.x if front_x else r.size.y
+	var H := top - base
+	var F := Transform3D(Basis(sd, Vector3.UP, n), Vector3(dc.x, base, dc.z))
+	var PL := Assets.uv2_code(int(b["layer"]))
+	var CON := Assets.uv2_code(Assets.L_CONCRETE)
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var ROOF := Assets.uv2_code(Assets.L_ROOF)
+	var trim: Color = [Color(0.68, 0.56, 0.38), Color(0.42, 0.52, 0.64), Color(0.58, 0.56, 0.52)][rng.randi() % 3]
+	var shut: Color = [Color(0.17, 0.32, 0.22), Color(0.16, 0.26, 0.42), Color(0.34, 0.2, 0.1)][rng.randi() % 3]
+	var tw := clampf(W * 0.2, 3.2, 4.2)
+	var T1 := 6.0
+	var Hb := 3.4
+	var ue := W * 0.5 - tw
+	var fine := relief >= 2
+	var lbox := func(c: Vector3, s: Vector3, code: float, col: Color) -> void:
+		d.box_xf(Transform3D(F.basis, F * c), s, code, seedf, col)
+	# --- torres: fuste acima da cimalha (dentro do retângulo: o térreo delas é a
+	# própria parede da nave), sineira aberta, cimalha, coruchéu e cruz
+	var v0 := H + T1
+	for sgn: float in [-1.0, 1.0]:
+		var tu := sgn * (W * 0.5 - tw * 0.5)
+		lbox.call(Vector3(tu, H + T1 * 0.5, -tw * 0.5), Vector3(tw, T1, tw), PL, tint)
+		var tcw: Vector3 = F * Vector3(tu, 0.0, -tw * 0.5)
+		# piso da sineira e cimalha do fuste
+		lbox.call(Vector3(tu, v0 + 0.12, -tw * 0.5), Vector3(tw + 0.36, 0.24, tw + 0.36), PL, trim)
+		var pw := 0.72
+		for cx: float in [-1.0, 1.0]:
+			for cz: float in [-1.0, 1.0]:
+				lbox.call(Vector3(tu + cx * (tw - pw) * 0.5, v0 + Hb * 0.5, -tw * 0.5 + cz * (tw - pw) * 0.5), Vector3(pw, Hb, pw), PL, tint)
+		# arcos da sineira nas quatro faces (verga com o arco recortado)
+		var a := tw - 2.0 * pw
+		var hl := a * 0.5 + 0.45
+		var lint := PackedVector2Array([Vector2(-tw * 0.5, 0.0)])
+		for i in 13:
+			var ang := PI - PI * float(i) / 12.0
+			lint.append(Vector2(cos(ang) * a * 0.5, sin(ang) * a * 0.5))
+		lint.append_array(PackedVector2Array([Vector2(tw * 0.5, 0.0), Vector2(tw * 0.5, hl), Vector2(-tw * 0.5, hl)]))
+		for fn: Vector3 in [n, -n, sd, -sd]:
+			var fo := tcw + fn * (tw * 0.5) + Vector3(0.0, v0 + Hb - hl, 0.0)
+			d.extrude(lint, -pw, 0.0, Transform3D(Basis(Vector3.UP.cross(fn), Vector3.UP, fn), fo), PL, seedf, tint)
+		# sino de bronze pendurado na viga
+		var bell_top := v0 + Hb - hl - 0.1
+		lbox.call(Vector3(tu, bell_top, -tw * 0.5), Vector3(tw - 0.2, 0.16, 0.16), WOOD, Color(0.3, 0.22, 0.15))
+		d.cylinder(Transform3D(Basis.IDENTITY, tcw + Vector3(0.0, bell_top - 0.85, 0.0)), 0.48, 0.78, 14, MET, seedf, Color(0.5, 0.36, 0.16), true, 0.24)
+		# cimalha da sineira, coruchéu de telha, pináculos nos cantos e cruz
+		lbox.call(Vector3(tu, v0 + Hb + 0.18, -tw * 0.5), Vector3(tw + 0.5, 0.36, tw + 0.5), PL, trim)
+		var roof_h := 3.2
+		d.cylinder(Transform3D(Basis(Vector3.UP, PI * 0.25), tcw + Vector3(0.0, v0 + Hb + 0.36, 0.0)), (tw * 0.5 + 0.1) * sqrt(2.0), roof_h, 4, ROOF, seedf, Color(0.95, 0.92, 0.9), false, 0.04)
+		var tip := tcw + Vector3(0.0, v0 + Hb + 0.36 + roof_h, 0.0)
+		d.cylinder(Transform3D(Basis.IDENTITY, tip - Vector3(0, 0.1, 0)), 0.16, 0.35, 8, MET, seedf, Color(0.55, 0.45, 0.25), true, 0.05)
+		d.box(tip + Vector3(0, 0.85, 0), Vector3(0.07, 1.3, 0.07), MET, seedf, Color(0.25, 0.24, 0.22))
+		d.box_xf(Transform3D(F.basis, tip + Vector3(0, 1.1, 0)), Vector3(0.6, 0.07, 0.07), MET, seedf, Color(0.25, 0.24, 0.22))
+		if relief >= 1:
+			for cx: float in [-1.0, 1.0]:
+				for cz: float in [-1.0, 1.0]:
+					var pc: Vector3 = F * Vector3(tu + cx * (tw * 0.5 + 0.05), v0 + Hb + 0.36, -tw * 0.5 + cz * (tw * 0.5 + 0.05))
+					d.box(pc + Vector3(0, 0.15, 0), Vector3(0.36, 0.3, 0.36), PL, seedf, trim)
+					d.cylinder(Transform3D(Basis(Vector3.UP, PI * 0.25), pc + Vector3(0, 0.3, 0)), 0.2, 0.9, 4, PL, seedf, trim, false, 0.02)
+			# cunhais do fuste (os quatro cantos)
+			for cx: float in [-1.0, 1.0]:
+				for cz: float in [-1.0, 1.0]:
+					lbox.call(Vector3(tu + cx * (tw * 0.5 - 0.17), H + T1 * 0.5, -tw * 0.5 + cz * (tw * 0.5 - 0.17)), Vector3(0.5, T1, 0.5), PL, trim)
+			# janelinha em arco na frente de cada torre, no térreo
+			_arch_window(d, F * Transform3D(Basis.IDENTITY, Vector3(tu, H * 0.68, 0.0)), 0.8, 0.9, shut, trim, seedf, fine)
+			# óculo no fuste
+			var oc: Vector3 = F * Vector3(tu, H + T1 * 0.55, 0.0)
+			d.tube(oc, oc + n * 0.16, 0.55, 0.55, 14, PL, seedf, trim, true)
+			d.tube(oc, oc + n * 0.2, 0.38, 0.38, 14, MET, seedf, Color(0.06, 0.06, 0.07), true)
+	# --- frontão barroco entre as torres, cobrindo a empena do telhado
+	var gable_front := (r.size.x >= r.size.y) == front_x
+	var rise := W * (0.18 if int(b["roof_layer"]) == Assets.L_METAL else 0.32)
+	var hb := 1.0
+	var ha := 4.6
+	if gable_front:
+		ha = maxf(ha, rise + 0.7)
+	var prof := PackedVector2Array([Vector2(-ue, H), Vector2(ue, H)])
+	var band := PackedVector2Array()
+	var tops: Array[Vector2] = []
+	var N := 28
+	for i in N + 1:
+		var u := ue - 2.0 * ue * float(i) / float(N)
+		var t := 1.0 - absf(u) / ue
+		var s := pow(smoothstep(0.0, 1.0, t), 0.8)
+		var f := hb + (ha - hb) * s + 0.4 * exp(-pow((t - 0.1) / 0.06, 2.0))
+		if t > 0.94:
+			f = hb + (ha - hb) * pow(smoothstep(0.0, 1.0, 0.94), 0.8)
+		if gable_front:
+			f = maxf(f, rise * (1.0 - absf(u) / (W * 0.5 + CHURCH_EAVE)) + 0.35)
+		tops.append(Vector2(u, H + f))
+		prof.append(Vector2(u, H + f))
+	d.extrude(prof, -0.3, 0.3, F, PL, seedf, tint)
+	# moldura do contorno (faixa na cor da cantaria, saliente)
+	for p in tops:
+		band.append(p + Vector2(0.0, 0.3))
+	for i in range(tops.size() - 1, -1, -1):
+		band.append(tops[i] - Vector2(0.0, 0.02))
+	d.extrude(band, -0.35, 0.42, F, PL, seedf, trim)
+	var apex: float = tops[int(N * 0.5)].y + 0.3
+	# cruz de pedra no alto do frontão
+	lbox.call(Vector3(0.0, apex + 0.2, 0.1), Vector3(0.6, 0.4, 0.6), PL, trim)
+	lbox.call(Vector3(0.0, apex + 1.2, 0.1), Vector3(0.16, 1.6, 0.16), PL, trim)
+	lbox.call(Vector3(0.0, apex + 1.45, 0.1), Vector3(0.9, 0.16, 0.16), PL, trim)
+	# óculo do coro no frontão
+	var ov := H + minf(ha * 0.45, apex - H - 1.4)
+	d.tube(F * Vector3(0.0, ov, 0.25), F * Vector3(0.0, ov, 0.48), 0.95, 0.95, 18, PL, seedf, trim, true)
+	d.tube(F * Vector3(0.0, ov, 0.25), F * Vector3(0.0, ov, 0.52), 0.68, 0.68, 18, MET, seedf, Color(0.05, 0.05, 0.06), true)
+	# --- cimalha e embasamento em volta da nave
+	var cx0 := r.position.x
+	var cx1 := r.end.x
+	var cz0 := r.position.y
+	var cz1 := r.end.y
+	var sides := [
+		[Vector2(cx1, cz0), Vector2(cx0, cz0), Vector3.FORWARD],
+		[Vector2(cx1, cz1), Vector2(cx1, cz0), Vector3.RIGHT],
+		[Vector2(cx0, cz1), Vector2(cx1, cz1), Vector3.BACK],
+		[Vector2(cx0, cz0), Vector2(cx0, cz1), Vector3.LEFT],
+	]
+	for sdd in sides:
+		var a2: Vector2 = sdd[0]
+		var e2: Vector2 = sdd[1]
+		var ns: Vector3 = sdd[2]
+		var m := (a2 + e2) * 0.5
+		var len := a2.distance_to(e2)
+		d.box(Vector3(m.x, base + H - 0.17, m.y) + ns * 0.17, _along(ns, len + 0.6, 0.34, 0.34), PL, seedf, trim)
+		if relief >= 1:
+			d.box(Vector3(m.x, base + H - 0.48, m.y) + ns * 0.08, _along(ns, len + 0.3, 0.12, 0.16), PL, seedf, trim)
+			if ns.dot(n) < 0.5:
+				d.box(Vector3(m.x, base + 0.2, m.y) + ns * 0.07, _along(ns, len + 0.2, 0.8, 0.14), PL, seedf, trim.darkened(0.25))
+	if relief < 1:
+		return
+	# cunhais da nave (cantos) e pilastras nas bordas das torres
+	for c2: Vector2 in [Vector2(cx0, cz0), Vector2(cx1, cz0), Vector2(cx0, cz1), Vector2(cx1, cz1)]:
+		var ox := -1.0 if c2.x < r.get_center().x else 1.0
+		var oz := -1.0 if c2.y < r.get_center().y else 1.0
+		d.box(Vector3(c2.x + ox * 0.14, base + H * 0.5, c2.y + oz * 0.14), Vector3(0.6, H, 0.6), PL, seedf, trim)
+	for sgn: float in [-1.0, 1.0]:
+		lbox.call(Vector3(sgn * ue, H * 0.5, 0.07), Vector3(0.5, H, 0.14), PL, trim)
+	# embasamento da fachada (com o vão da porta)
+	var gap := door_w * 0.5 + 0.45
+	for sgn: float in [-1.0, 1.0]:
+		var wpart := W * 0.5 - gap
+		lbox.call(Vector3(sgn * (gap + wpart * 0.5), 0.2, 0.07), Vector3(wpart, 0.8, 0.14), PL, trim.darkened(0.25))
+	# --- portada: ombreiras de pedra, arco com fecho, tímpano de madeira e cornija
+	var stone := trim.lightened(0.12)
+	for sgn: float in [-1.0, 1.0]:
+		lbox.call(Vector3(sgn * (door_w * 0.5 + 0.2), dh * 0.5, 0.1), Vector3(0.4, dh, 0.2), CON, stone)
+	var tymp := PackedVector2Array()
+	for i in 17:
+		var ang := PI * float(i) / 16.0
+		tymp.append(Vector2(cos(ang) * door_w * 0.5, dh + sin(ang) * door_w * 0.5))
+	d.extrude(tymp, -0.05, 0.04, F, WOOD, seedf, shut.darkened(0.35))
+	_arch_ring(d, F, Vector2(0.0, dh), door_w * 0.5 + 0.2, 0.4, 0.0, 0.22, CON, stone, seedf, 12)
+	lbox.call(Vector3(0.0, dh + door_w * 0.5 + 0.32, 0.13), Vector3(0.36, 0.5, 0.26), CON, stone)
+	lbox.call(Vector3(0.0, dh + door_w * 0.5 + 0.72, 0.15), Vector3(door_w + 1.8, 0.24, 0.3), CON, stone)
+	# --- janelas do coro com sacada de ferro
+	var nwin := 3 if ue > 4.6 else 2
+	var sill := H * 0.55
+	for k in nwin:
+		var wu := (float(k) - (nwin - 1) * 0.5) * (2.3 if nwin == 3 else 2.6)
+		_arch_window(d, F * Transform3D(Basis.IDENTITY, Vector3(wu, sill, 0.0)), 1.1, 1.6, shut, trim, seedf, fine)
+		if fine:
+			lbox.call(Vector3(wu, sill - 0.08, 0.32), Vector3(1.7, 0.12, 0.64), CON, stone)
+			var iron := Color(0.1, 0.1, 0.1)
+			lbox.call(Vector3(wu, sill + 0.9, 0.6), Vector3(1.66, 0.05, 0.05), MET, iron)
+			lbox.call(Vector3(wu, sill + 0.12, 0.6), Vector3(1.66, 0.04, 0.04), MET, iron)
+			for bi in 13:
+				lbox.call(Vector3(wu - 0.78 + bi * 0.13, sill + 0.5, 0.6), Vector3(0.025, 0.78, 0.025), MET, iron)
+	# --- janelões em arco nas laterais da nave
+	for sgn: float in [-1.0, 1.0]:
+		var ns := sd * sgn
+		var G := Transform3D(Basis(Vector3.UP.cross(ns), Vector3.UP, ns), Vector3(dc.x, base, dc.z) + ns * (W * 0.5))
+		var count := int((L - tw - 6.0) / 5.0) + 1
+		for k in count:
+			var s := tw + 3.0 + float(k) * 5.0
+			# s = distância da fachada para trás (o eixo x do lado aponta para frente ou para trás)
+			var lx := (Vector3.UP.cross(ns)).dot(-n) * s
+			_arch_window(d, G * Transform3D(Basis.IDENTITY, Vector3(lx, 3.6, 0.0)), 1.3, 2.8, shut, trim, seedf, fine)
+	# --- adro de pedra diante da fachada
+	if fine:
+		lbox.call(Vector3(0.0, -0.1, 1.6), Vector3(W + 1.0, 0.26, 3.2), CON, Color(0.62, 0.6, 0.56))
+		lbox.call(Vector3(0.0, -0.08, 3.25), Vector3(W + 1.2, 0.22, 0.12), CON, Color(0.5, 0.49, 0.46))
+
+
+## Contorno de vão com arco pleno (anti-horário, base em y = 0): retângulo de
+## largura w até hs e semicírculo em cima.
+static func _arch_poly(w: float, hs: float, seg: int = 12) -> PackedVector2Array:
+	var p := PackedVector2Array([Vector2(-w * 0.5, 0.0), Vector2(w * 0.5, 0.0)])
+	for i in seg + 1:
+		var a := PI * float(i) / float(seg)
+		p.append(Vector2(cos(a) * w * 0.5, hs + sin(a) * w * 0.5))
+	return p
+
+
+## Moldura em arco (meia-volta) feita de aduelas: centro c (x, y) no plano do
+## referencial xf, raio médio rm, largura t, profundidade de z0 a z1.
+static func _arch_ring(d: MeshBuf, xf: Transform3D, c: Vector2, rm: float, t: float, z0: float, z1: float, code: float, col: Color, seedf: float, seg: int) -> void:
+	for i in seg:
+		var a0 := PI * float(i) / float(seg)
+		var a1 := PI * float(i + 1) / float(seg)
+		var am := (a0 + a1) * 0.5
+		var lc := Vector3(c.x + cos(am) * rm, c.y + sin(am) * rm, (z0 + z1) * 0.5)
+		var seg_len := 2.0 * rm * sin((a1 - a0) * 0.5) + 0.04
+		var bx := xf.basis * Basis(Vector3.BACK, am + PI * 0.5)
+		d.box_xf(Transform3D(bx, xf * lc), Vector3(seg_len, t, z1 - z0), code, seedf, col)
+
+
+## Janela colonial em arco: folhas de madeira pintada com almofadas, ombreiras,
+## peitoril e arco de cantaria com fecho. xf: origem no centro do peitoril, z
+## para fora da parede.
+static func _arch_window(d: MeshBuf, xf: Transform3D, w: float, hs: float, shut: Color, trim: Color, seedf: float, fine: bool) -> void:
+	var WOOD := Assets.uv2_code(Assets.L_WOOD)
+	var PL := Assets.uv2_code(Assets.L_PLASTER)
+	var ft := 0.22
+	d.extrude(_arch_poly(w, hs), 0.0, 0.05, xf, WOOD, seedf, shut)
+	for sgn: float in [-1.0, 1.0]:
+		d.box_xf(Transform3D(xf.basis, xf * Vector3(sgn * (w * 0.5 + ft * 0.5), hs * 0.5, 0.07)), Vector3(ft, hs, 0.14), PL, seedf, trim)
+	d.box_xf(Transform3D(xf.basis, xf * Vector3(0.0, -0.07, 0.1)), Vector3(w + ft * 2.0 + 0.12, 0.14, 0.2), PL, seedf, trim)
+	_arch_ring(d, xf, Vector2(0.0, hs), w * 0.5 + ft * 0.5, ft, 0.0, 0.14, PL, trim, seedf, 8)
+	if not fine:
+		return
+	d.box_xf(Transform3D(xf.basis, xf * Vector3(0.0, hs + w * 0.5 + ft * 0.6, 0.09)), Vector3(0.2, 0.3, 0.18), PL, seedf, trim)
+	# junta das duas folhas e almofadas
+	var dark := shut.darkened(0.4)
+	d.box_xf(Transform3D(xf.basis, xf * Vector3(0.0, (hs + w * 0.4) * 0.5, 0.06)), Vector3(0.04, hs + w * 0.4, 0.03), WOOD, seedf, dark)
+	for sgn: float in [-1.0, 1.0]:
+		for k in 2:
+			var ph := hs * 0.38
+			d.box_xf(Transform3D(xf.basis, xf * Vector3(sgn * w * 0.25, hs * (0.27 + 0.48 * k), 0.06)), Vector3(w * 0.32, ph, 0.025), WOOD, seedf, shut.lightened(0.08))
 
 
 static func _back_face(n: Vector3) -> int:

@@ -244,6 +244,21 @@ NOVIDADES DESTA VERSÃO
     árvores sem folhas lavadas de branco; margem do lago sem cascalho
     branco demais; bandeira do hospital fora do letreiro.
   - Infectados andam curvados, de cabeça baixa (antes olhavam para o céu).
+  - Janelas com cômodos de verdade atrás do vidro: vão recuado na parede,
+    móveis, quadros, cortinas, persianas, lâmpadas acesas à noite, vidro que
+    reflete o céu e vidro quebrado com cacos.
+  - Imagem com tratamento de câmera (nitidez, cor de cinema, vinheta e
+    granulação leves), menos véu cinza nos dias limpos, fachadas com
+    escorridos de chuva e pichação, cidade distante mais detalhada, carros
+    com para-choques arredondados e faróis de lente, grama mais densa no
+    máximo.
+  - Calçadas com piso de verdade (pedra portuguesa em ondas, bloquete,
+    ladrilho hidráulico, placas de concreto), guias caiadas, piso tátil e
+    canteiros nas árvores; asfalto com sarjeta, folhas, trilha das rodas,
+    trincas seladas, marcas de freada e poças paradas.
+  - Postes de concreto com fiação, igreja matriz colonial (torres com sino,
+    frontão, janelas em arco), sacadas com vasos, varal e cadeiras, e placas
+    das lojas de bairro (padaria, farmácia, bazar...).
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

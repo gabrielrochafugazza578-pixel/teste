@@ -263,7 +263,7 @@ static func _collision_size_proc(name: String) -> Vector3:
 		"container": return Vector3(6.0, 2.6, 2.44)
 		"forklift": return Vector3(1.2, 2.2, 2.4)
 		"hay_bale": return Vector3(1.2, 0.9, 0.9)
-		"gas_pump": return Vector3(0.9, 1.9, 0.6)
+		"gas_pump": return Vector3(1.0, 2.1, 0.6)
 		"crate": return Vector3(0.82, 0.82, 0.82)
 		"barrel": return Vector3(0.62, 0.92, 0.62)
 		"generator": return Vector3(1.2, 0.9, 0.7)
@@ -542,7 +542,18 @@ static func _build(name: String, b: MeshBuf) -> void:
 			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0.3, 0.0, 0.05)), 0.05, 0.25, 8, TIL, 0.0, Color(0.6, 0.8, 0.9))
 			b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0.42, 0.0, -0.08)), 0.04, 0.18, 8, TIL, 0.0, Color(0.8, 0.5, 0.4))
 		"lamp_post":
-			b.cylinder(Transform3D.IDENTITY, 0.1, 7.2, 8, MET, 0.0, Color(0.3, 0.32, 0.33), true, 0.07)
+			# poste de concreto da rede elétrica (como nas ruas brasileiras): cônico,
+			# cruzeta de média tensão com isoladores no topo, armação de baixa tensão,
+			# braço da luminária e o feixe de cabos de telefonia/internet mais embaixo
+			b.cylinder(Transform3D.IDENTITY, 0.15, 9.4, 10, CON, 0.0, Color(0.72, 0.71, 0.68), true, 0.09)
+			b.box(Vector3(0, 9.0, 0.0), Vector3(0.11, 0.11, 2.1), WOOD, 0.0, Color(0.32, 0.27, 0.22))
+			for iz: float in [-0.85, -0.15, 0.6]:
+				b.cylinder(Transform3D(Basis.IDENTITY, Vector3(0, 9.06, iz)), 0.045, 0.16, 6, CON, 0.0, Color(0.78, 0.76, 0.72), true, 0.03)
+			b.box(Vector3(0, 7.85, -0.12), Vector3(0.06, 0.5, 0.06), MET, 0.0, Color(0.35, 0.35, 0.35))
+			for iy: float in [7.7, 7.95]:
+				b.cylinder(Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, iy, -0.2)), 0.05, 0.12, 6, CON, 0.0, Color(0.85, 0.84, 0.8), true, 0.04)
+			# braçadeira dos cabos de telecom
+			b.box(Vector3(0, 6.45, -0.16), Vector3(0.22, 0.18, 0.06), MET, 0.0, Color(0.25, 0.25, 0.26))
 			b.box(Vector3(0, 7.15, -0.75), Vector3(0.08, 0.08, 1.5), MET, 0.0, Color(0.3, 0.32, 0.33))
 			b.box(Vector3(0, 7.05, -1.45), Vector3(0.3, 0.12, 0.55), MET, 0.0, Color(0.25, 0.26, 0.27))
 		"traffic_light":
@@ -630,10 +641,20 @@ static func _build(name: String, b: MeshBuf) -> void:
 		"hay_bale":
 			b.box(Vector3(0, 0.45, 0), Vector3(1.2, 0.9, 0.9), _c(Assets.L_GRASS), 0.5, Color(1.6, 1.4, 0.7))
 		"gas_pump":
-			b.box(Vector3(0, 0.1, 0), Vector3(1.0, 0.2, 0.7), CON, 0.0, Color(0.6, 0.6, 0.58))
-			b.box(Vector3(0, 1.0, 0), Vector3(0.8, 1.6, 0.45), MET, 0.0, Color(0.85, 0.2, 0.15))
-			b.box(Vector3(0, 1.4, -0.23), Vector3(0.5, 0.35, 0.01), TIL, 0.0, Color(0.1, 0.1, 0.1))
-			b.box(Vector3(0.42, 0.95, 0), Vector3(0.05, 0.3, 0.12), MET, 0.0, black)
+			# bomba de combustível: gabinete de inox, cabeça com os mostradores nas
+			# duas faces, faixa colorida, bicos nos coldres e mangueiras
+			b.box(Vector3(0, 0.08, 0), Vector3(1.0, 0.16, 0.6), CON, 0.0, Color(0.6, 0.6, 0.58))
+			b.box(Vector3(0, 0.71, 0), Vector3(0.86, 1.1, 0.48), MET, 0.0, Color(0.72, 0.73, 0.74))
+			b.box(Vector3(0, 1.58, 0), Vector3(0.94, 0.64, 0.54), MET, 0.0, Color(0.9, 0.9, 0.88))
+			b.box(Vector3(0, 1.98, 0), Vector3(0.94, 0.16, 0.54), MET, 0.0, Color(0.82, 0.15, 0.1))
+			for sz: float in [-1.0, 1.0]:
+				b.box(Vector3(0, 1.62, sz * 0.275), Vector3(0.6, 0.3, 0.012), TIL, 0.0, Color(0.04, 0.05, 0.05))
+				b.box(Vector3(0, 1.34, sz * 0.275), Vector3(0.22, 0.13, 0.012), TIL, 0.0, Color(0.16, 0.16, 0.16))
+				b.box(Vector3(0, 0.74, sz * 0.245), Vector3(0.66, 0.72, 0.012), MET, 0.0, Color(0.16, 0.2, 0.28))
+			for sx: float in [-1.0, 1.0]:
+				b.box(Vector3(sx * 0.49, 1.12, 0), Vector3(0.08, 0.3, 0.16), MET, 0.0, black)
+				b.tube(Vector3(sx * 0.5, 1.26, 0.0), Vector3(sx * 0.6, 0.55, 0.06), 0.022, 0.022, 5, MET, 0.0, black, false)
+				b.tube(Vector3(sx * 0.6, 0.55, 0.06), Vector3(sx * 0.5, 0.3, 0.1), 0.022, 0.022, 5, MET, 0.0, black, false)
 		"water_tank":
 			b.cylinder(Transform3D.IDENTITY, 0.75, 1.0, 14, MET, 0.0, Color(0.3, 0.45, 0.75), true, 0.7)
 		"ac_unit":

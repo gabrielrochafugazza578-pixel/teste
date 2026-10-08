@@ -42,7 +42,7 @@ static func build(layout: WorldLayout, c: Vector2i, lod: int, opts: Dictionary) 
 	var prop_colliders: Array = []
 	var flags: Array = []
 	if lod == 0:
-		_street_props(layout, c, props, trees, lamps, labels, prop_colliders, opts)
+		_street_props(layout, c, props, trees, lamps, labels, prop_colliders, opts, details)
 		_flags(layout, c, flags, prop_colliders)
 	_nature(layout, c, trees, lod, opts)
 	if lod == 0:
@@ -146,7 +146,10 @@ static func _roads(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) -> 
 			var n := (q1 - q0).cross(q3 - q0).normalized()
 			if n.y < 0.0:
 				n = -n
-			out.quad(q0, q1, q2, q3, n, Vector2(-hw, v0), Vector2(-hw, v1), Vector2(hw, v1), Vector2(hw, v0), code, 0.0, Color(1, 1, 1))
+			# semente = meia largura / 32 (+0,5 com guia e sarjeta): o shader acha as
+			# faixas, a sarjeta e a trilha das rodas
+			out.quad(q0, q1, q2, q3, n, Vector2(-hw, v0), Vector2(-hw, v1), Vector2(hw, v1), Vector2(hw, v0), code,
+				hw / 32.0 + (0.5 if kind in ["street", "avenue"] else 0.0), Color(1, 1, 1))
 			if kind == "bridge" or kind == "tunnel":
 				_bridge_or_tunnel_piece(out, kind, p0, p1, y0, y1, hw, side, lod)
 			elif kind == "highway" and lod <= 1:
@@ -288,7 +291,6 @@ static func _tunnel(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) -> void:
 	var rect := Rect2(c.x * WorldLayout.CHUNK, c.y * WorldLayout.CHUNK, WorldLayout.CHUNK, WorldLayout.CHUNK)
 	var y := WorldLayout.CURB
-	var SW := Assets.uv2_code(Assets.L_CONCRETE)
 	for bid in layout.chunk_blocks.get(c, []):
 		var blk: Dictionary = layout.blocks[bid]
 		var br: Rect2 = blk["rect"]
@@ -297,11 +299,9 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 		var kind: String = blk["kind"]
 		var dist: String = blk["district"]
 		var inner := br.grow(-WorldLayout.SIDEWALK)
-		# anel da calçada (4 faixas)
-		var ring := [Rect2(br.position.x, br.position.y, br.size.x, WorldLayout.SIDEWALK), Rect2(br.position.x, inner.end.y, br.size.x, WorldLayout.SIDEWALK),
-			Rect2(br.position.x, inner.position.y, WorldLayout.SIDEWALK, inner.size.y), Rect2(inner.end.x, inner.position.y, WorldLayout.SIDEWALK, inner.size.y)]
-		for rr in ring:
-			_top(out, rr, y, SW, Color(0.85, 0.84, 0.8))
+		# anel da calçada: o shader desenha o piso de cada quarteirão (modo 7)
+		var sws := _sidewalk_seed(blk)
+		_sidewalk_ring(out, br, y, Assets.uv2_code(Assets.L_CONCRETE, 7 if lod <= 1 else 0), sws, Color(0.85, 0.84, 0.8))
 		# miolo
 		var gl := Assets.L_CONCRETE
 		var gc := Color(0.8, 0.8, 0.78)
@@ -319,12 +319,13 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 			gl = Assets.L_TILES
 			gc = Color(0.75, 0.72, 0.7)
 		_top(out, inner, y, Assets.uv2_code(gl), gc)
-		# meio-fio (faces laterais)
+		# meio-fio (faces laterais); caiado de branco em parte dos quarteirões
 		var cc := Assets.uv2_code(Assets.L_CONCRETE)
-		out.wall(Vector2(br.end.x, br.position.y), Vector2(br.position.x, br.position.y), -0.3, y + 0.3, Vector3.FORWARD, cc, 0.0, Color(0.7, 0.7, 0.68))
-		out.wall(Vector2(br.position.x, br.end.y), Vector2(br.end.x, br.end.y), -0.3, y + 0.3, Vector3.BACK, cc, 0.0, Color(0.7, 0.7, 0.68))
-		out.wall(Vector2(br.position.x, br.position.y), Vector2(br.position.x, br.end.y), -0.3, y + 0.3, Vector3.LEFT, cc, 0.0, Color(0.7, 0.7, 0.68))
-		out.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, y + 0.3, Vector3.RIGHT, cc, 0.0, Color(0.7, 0.7, 0.68))
+		var gcol := Color(0.98, 0.97, 0.93) if int(sws * 8.0) >= 4 else Color(0.7, 0.7, 0.68)
+		out.wall(Vector2(br.end.x, br.position.y), Vector2(br.position.x, br.position.y), -0.3, y + 0.3, Vector3.FORWARD, cc, 0.0, gcol)
+		out.wall(Vector2(br.position.x, br.end.y), Vector2(br.end.x, br.end.y), -0.3, y + 0.3, Vector3.BACK, cc, 0.0, gcol)
+		out.wall(Vector2(br.position.x, br.position.y), Vector2(br.position.x, br.end.y), -0.3, y + 0.3, Vector3.LEFT, cc, 0.0, gcol)
+		out.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, y + 0.3, Vector3.RIGHT, cc, 0.0, gcol)
 		if lod <= 1:
 			out.add_box_collider(Vector3(br.get_center().x, (y - 0.4) * 0.5, br.get_center().y), Vector3(br.size.x, y + 0.4, br.size.y))
 		# estacionamento (e pátios de asfalto de mercado, hospital, delegacia, terminal): faixas das vagas
@@ -337,9 +338,18 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 					_top(out, Rect2(bp.x + 1.24, bp.z - 2.5, 0.12, 5.0), y + 0.012, paint, Color(0.93, 0.92, 0.86))
 		# caminhos de pedestre em parques/praças
 		if lod == 0 and kind in ["park", "plaza"]:
+			# em pedra portuguesa (modo 7 com a "guia" fora da faixa: UV.y de 0,4 a 3,4)
 			var pc := br.get_center()
-			_top(out, Rect2(pc.x - 1.5, inner.position.y, 3.0, inner.size.y), y + 0.01, SW, Color(0.75, 0.72, 0.66))
-			_top(out, Rect2(inner.position.x, pc.y - 1.5, inner.size.x, 3.0), y + 0.012, SW, Color(0.75, 0.72, 0.66))
+			var pcode := Assets.uv2_code(Assets.L_CONCRETE, 7)
+			var ps := (2.0 + (0.3 if int(blk["id"]) % 2 == 0 else 0.7)) / 8.0
+			var x0 := pc.x - 1.5
+			var z0 := pc.y - 1.5
+			var y1 := y + 0.01
+			var y2 := y + 0.012
+			out.quad(Vector3(x0, y1, inner.position.y), Vector3(x0 + 3.0, y1, inner.position.y), Vector3(x0 + 3.0, y1, inner.end.y), Vector3(x0, y1, inner.end.y), Vector3.UP,
+				Vector2(inner.position.y, 0.4), Vector2(inner.position.y, 3.4), Vector2(inner.end.y, 3.4), Vector2(inner.end.y, 0.4), pcode, ps, Color(0.85, 0.84, 0.8))
+			out.quad(Vector3(inner.position.x, y2, z0), Vector3(inner.end.x, y2, z0), Vector3(inner.end.x, y2, z0 + 3.0), Vector3(inner.position.x, y2, z0 + 3.0), Vector3.UP,
+				Vector2(inner.position.x, 0.4), Vector2(inner.end.x, 0.4), Vector2(inner.end.x, 3.4), Vector2(inner.position.x, 3.4), pcode, ps, Color(0.85, 0.84, 0.8))
 
 
 const LOT_KINDS := ["parking", "market", "hospital", "police", "terminal"]
@@ -393,6 +403,43 @@ static func parking_bays(inner: Rect2) -> Array:
 	return out
 
 
+## Anel da calçada em 4 trapézios com canto a 45°: UV = (posição ao longo do
+## meio-fio, distância do meio-fio), contínua nos cantos, para o shader saber
+## onde fica a guia e para onde correm as ondas da pedra portuguesa.
+static func _sidewalk_ring(out: MeshBuf, br: Rect2, y: float, code: float, seed_v: float, col: Color) -> void:
+	var s := WorldLayout.SIDEWALK
+	var p := [br.position, Vector2(br.end.x, br.position.y), br.end, Vector2(br.position.x, br.end.y)]
+	var q := [br.position + Vector2(s, s), Vector2(br.end.x - s, br.position.y + s), br.end - Vector2(s, s), Vector2(br.position.x + s, br.end.y - s)]
+	for i in 4:
+		var a: Vector2 = p[i]
+		var b: Vector2 = p[(i + 1) % 4]
+		var ai: Vector2 = q[i]
+		var bi: Vector2 = q[(i + 1) % 4]
+		var dir := (b - a).normalized()
+		out.quad(Vector3(a.x, y, a.y), Vector3(b.x, y, b.y), Vector3(bi.x, y, bi.y), Vector3(ai.x, y, ai.y), Vector3.UP,
+			Vector2(a.dot(dir), 0.0), Vector2(b.dot(dir), 0.0), Vector2(bi.dot(dir), s), Vector2(ai.dot(dir), s), code, seed_v, col)
+
+
+## Piso da calçada do quarteirão, codificado na semente (lida pelo shader):
+## floor(s*8) % 4 = 0 placas de concreto, 1 bloquete (retangular ou sextavado),
+## 2 pedra portuguesa em ondas, 3 ladrilho hidráulico; +4 = guia caiada.
+static func _sidewalk_seed(blk: Dictionary) -> float:
+	var r := Util.rng(int(blk["id"]) * 31 + 7)
+	var dist: String = blk["district"]
+	var kind: String = blk["kind"]
+	var roll := r.randf()
+	var pat := 0
+	if dist == "centro" or kind in ["plaza", "park"]:
+		pat = 2 if roll < 0.55 else (3 if roll < 0.75 else (1 if roll < 0.9 else 0))
+	elif dist in ["centro_sul", "bairro_alto"]:
+		pat = 1 if roll < 0.4 else (3 if roll < 0.7 else (2 if roll < 0.8 else 0))
+	else:
+		pat = 0 if roll < 0.55 else (3 if roll < 0.8 else 1)
+	if r.randf() < 0.35:
+		pat += 4
+	return (pat + r.randf_range(0.05, 0.88)) / 8.0
+
+
 static func _top(out: MeshBuf, r: Rect2, y: float, code: float, col: Color) -> void:
 	out.quad(Vector3(r.position.x, y, r.position.y), Vector3(r.end.x, y, r.position.y), Vector3(r.end.x, y, r.end.y), Vector3(r.position.x, y, r.end.y),
 		Vector3.UP, Vector2(r.position.x, r.position.y), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.end.y), Vector2(r.position.x, r.end.y), code, 0.0, col)
@@ -414,13 +461,87 @@ static func _add_prop(props: Dictionary, name: String, xf: Transform3D, col: Col
 			colliders.append([Transform3D(xf.basis, xf.origin + xf.basis * Vector3(0, cs.y * 0.5, 0)), cs])
 
 
+## Canteiro da árvore de calçada: terra (decalque logo acima do piso) com
+## folhas, cercado por uma mureta baixa de concreto.
+static func _tree_pit(mb: MeshBuf, p: Vector3) -> void:
+	# gerador próprio (pela posição): não mexe na sequência dos outros objetos da rua
+	var r := Util.rng(Util.hash2(int(p.x * 10.0), int(p.z * 10.0), 4411))
+	var s := 1.1 if r.randf() < 0.5 else 0.9
+	var h := s * 0.5
+	var dirt := Assets.uv2_code(Assets.L_DIRT)
+	mb.quad(p + Vector3(-h, 0.004, -h), p + Vector3(h, 0.004, -h), p + Vector3(h, 0.004, h), p + Vector3(-h, 0.004, h), Vector3.UP,
+		Vector2(p.x - h, p.z - h), Vector2(p.x + h, p.z - h), Vector2(p.x + h, p.z + h), Vector2(p.x - h, p.z + h), dirt, 2.0 + r.randf() * 0.9, Color(0.8, 0.74, 0.66))
+	var con := Assets.uv2_code(Assets.L_CONCRETE)
+	var col := Color(0.66, 0.65, 0.62)
+	for k in 4:
+		var horiz := k < 2
+		var sg := -1.0 if k % 2 == 0 else 1.0
+		var c := p + (Vector3(0, 0.04, sg * (h + 0.05)) if horiz else Vector3(sg * (h + 0.05), 0.04, 0))
+		mb.box(c, Vector3(s + 0.2, 0.08, 0.1) if horiz else Vector3(0.1, 0.08, s), con, 0.4, col)
+
+
+## Fiação entre postes vizinhos: 3 fios de média tensão na cruzeta, 2 de baixa
+## tensão e o feixe de cabos de telecom (mais caído, alguns com folga e rolos de
+## reserva). Depois do colapso alguns cabos arrebentam e ficam pendurados.
+static func _wires(mb: MeshBuf, poles: Array, r: RandomNumberGenerator, decay: float) -> void:
+	if poles.size() < 2:
+		return
+	var CODE := Assets.uv2_code(Assets.L_METAL)
+	var black := Color(0.035, 0.035, 0.038)
+	var specs: Array = [[9.12, -0.85, 0.32, 0.009], [9.12, -0.15, 0.32, 0.009], [9.12, 0.6, 0.32, 0.009],
+		[7.7, -0.26, 0.5, 0.013], [7.95, -0.26, 0.5, 0.013]]
+	var ntel := r.randi_range(3, 6)
+	for k in ntel:
+		specs.append([6.4 + r.randf_range(-0.08, 0.12), -0.2 - r.randf_range(0.0, 0.1), r.randf_range(0.6, 1.25), r.randf_range(0.01, 0.022)])
+	for i in poles.size() - 1:
+		var A: Transform3D = poles[i]
+		var B: Transform3D = poles[i + 1]
+		for sp: Array in specs:
+			var pa := A * Vector3(0.0, float(sp[0]), float(sp[1]))
+			var pb := B * Vector3(0.0, float(sp[0]), float(sp[1]))
+			var sag := float(sp[2]) * pa.distance_to(pb) / 30.0
+			var rad := float(sp[3])
+			var cut := float(sp[0]) < 7.0 and r.randf() < decay * 0.18
+			_catenary(mb, pa, pb, sag, rad, CODE, black, cut, r)
+		# rolo de reserva técnica de cabo em alguns postes
+		if r.randf() < 0.3:
+			var cc := A * Vector3(0.0, 6.0, -0.25)
+			var ax := A.basis.x
+			var prev := Vector3.ZERO
+			for k in 13:
+				var ang := TAU * float(k) / 12.0
+				var q := cc + Vector3.UP * cos(ang) * 0.32 + ax * sin(ang) * 0.32
+				if k > 0:
+					mb.tube(prev, q, 0.03, 0.03, 4, CODE, 0.0, black, false)
+				prev = q
+
+
+static func _catenary(mb: MeshBuf, a: Vector3, b: Vector3, sag: float, rad: float, code: float, col: Color, cut: bool, r: RandomNumberGenerator) -> void:
+	var n := 12
+	var end := n
+	if cut:
+		end = r.randi_range(3, 7)
+	var prev := a
+	for k in range(1, end + 1):
+		var f := float(k) / float(n)
+		var q := a.lerp(b, f) - Vector3.UP * sag * 4.0 * f * (1.0 - f)
+		mb.tube(prev, q, rad, rad, 4, code, 0.0, col, false)
+		prev = q
+	if cut:
+		# ponta arrebentada caindo até perto do chão, balançando
+		var drop := prev + Vector3(r.randf_range(-0.4, 0.4), -(prev.y - 0.8 - r.randf() * 1.5), r.randf_range(-0.4, 0.4))
+		var mid := prev.lerp(drop, 0.5) + Vector3(r.randf_range(-0.3, 0.3), 0, r.randf_range(-0.3, 0.3))
+		mb.tube(prev, mid, rad, rad, 4, code, 0.0, col, false)
+		mb.tube(mid, drop, rad, rad, 4, code, 0.0, col, false)
+
+
 static func _add_tree(trees: Dictionary, kind: String, xf: Transform3D) -> void:
 	if not trees.has(kind):
 		trees[kind] = []
 	trees[kind].append(xf)
 
 
-static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, trees: Dictionary, lamps: Array, labels: Array, colliders: Array, opts: Dictionary) -> void:
+static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, trees: Dictionary, lamps: Array, labels: Array, colliders: Array, opts: Dictionary, wires: MeshBuf = null) -> void:
 	var rect := Rect2(c.x * WorldLayout.CHUNK, c.y * WorldLayout.CHUNK, WorldLayout.CHUNK, WorldLayout.CHUNK)
 	var y := WorldLayout.CURB
 	for bid in layout.chunk_blocks.get(c, []):
@@ -445,13 +566,18 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 			var yaw_to_road := Util.dir_to_yaw(Vector3(rn.x, 0, rn.y))
 			var t := 8.0 + r.randf() * 6.0
 			var lamp_step := 30.0 if urban_core else 36.0
+			var poles: Array = []
 			while t < slen - 6.0:
 				var p := o + dir * t + rn * -0.7
 				var p3 := Vector3(p.x, y, p.y)
-				_add_prop(props, "lamp_post", Transform3D(Basis(Vector3.UP, yaw_to_road + PI), p3), Color(1, 1, 1, 0), colliders, false)
+				var pxf := Transform3D(Basis(Vector3.UP, yaw_to_road + PI), p3)
+				_add_prop(props, "lamp_post", pxf, Color(1, 1, 1, 0), colliders, false)
 				colliders.append([Transform3D(Basis.IDENTITY, p3 + Vector3(0, 1.5, 0)), Vector3(0.25, 3.0, 0.25)])
 				lamps.append(p3 + Vector3(0, 7.0, 0) + Vector3(-rn.x, 0, -rn.y) * -1.45)
+				poles.append(pxf)
 				t += lamp_step
+			if wires != null:
+				_wires(wires, poles, r, float(opts.get("decay", 0.0)))
 			# árvores de calçada
 			t = 5.0 + r.randf() * 5.0
 			while t < slen - 4.0:
@@ -462,6 +588,8 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 					var sc := r.randf_range(0.8, 1.15)
 					_add_tree(trees, tk, Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(p.x, y, p.y)))
 					colliders.append([Transform3D(Basis.IDENTITY, Vector3(p.x, y + 1.5, p.y)), Vector3(0.4, 3.0, 0.4)])
+					if wires != null:
+						_tree_pit(wires, Vector3(p.x, y, p.y))
 				elif roll < 0.62:
 					_add_prop(props, "trash_bin", Transform3D(Basis(Vector3.UP, r.randf() * TAU), Vector3(p.x, y, p.y)))
 				elif roll < 0.66 and urban_core:
@@ -490,9 +618,27 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 			"houses", "small_houses", "family_block":
 				_house_lots(layout, c, br, props, trees, colliders, r)
 			"park", "plaza":
+				# coreto (só na praça) e chafariz seco, nos quadrantes do sul
+				var spots: Array[Vector2] = []
+				var bc := br.get_center()
+				var q := minf(inner.size.x, inner.size.y) * 0.25
+				for sp: Vector2 in ([bc + Vector2(q, q), bc + Vector2(-q, q)] if kind == "plaza" else [bc + Vector2(q, q)]):
+					if inner.grow(-6.0).has_point(sp) and layout.building_at(Vector3(sp.x, 0, sp.y), 7.0) < 0:
+						spots.append(sp)
+				if wires != null:
+					for si in spots.size():
+						if kind == "plaza" and si == 0:
+							_coreto(wires, Vector3(spots[si].x, y, spots[si].y), colliders)
+						else:
+							_chafariz(wires, Vector3(spots[si].x, y, spots[si].y), colliders)
 				for i in int(inner.get_area() / 110.0 * float(opts.get("veg_density", 1.0))):
 					var p := Vector2(r.randf_range(inner.position.x + 2, inner.end.x - 2), r.randf_range(inner.position.y + 2, inner.end.y - 2))
 					if absf(p.x - br.get_center().x) < 3.0 or absf(p.y - br.get_center().y) < 3.0:
+						continue
+					var near_spot := false
+					for sp in spots:
+						near_spot = near_spot or p.distance_to(sp) < 7.5
+					if near_spot:
 						continue
 					if kind == "plaza" and layout.building_at(Vector3(p.x, 0, p.y), 3.0) >= 0:
 						continue
@@ -525,7 +671,7 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 		var dn: Vector3 = di[1]
 		var hy := 4.1 if b["type"] != "house" else 3.1
 		if b["type"] in ["hospital", "market", "terminal", "office", "lab", "school", "stadium", "church", "police"]:
-			hy = BuildingGen.total_height(b) * (0.55 if b["type"] != "church" else 0.4) + float(b["base"])
+			hy = BuildingGen.total_height(b) * (0.55 if b["type"] != "church" else 0.47) + float(b["base"])
 			# térreo alto (mercado, terminal): acima do toldo e da faixa da vitrine (~3,5 m)
 			if b["type"] in ["market", "terminal"]:
 				hy = maxf(hy, float(b["base"]) + 4.6)
@@ -533,8 +679,155 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 				hy = 12.0
 		else:
 			hy += float(b["base"])
-		labels.append({"pos": Vector3(dp.x, hy, dp.z) + dn * (0.4 if b["type"] in ["hospital", "market", "terminal", "office", "lab", "school", "stadium", "church", "police"] else 0.12),
+		labels.append({"pos": Vector3(dp.x, hy, dp.z) + dn * (0.62 if b["type"] in ["hospital", "market", "terminal", "office", "lab", "school", "stadium", "church", "police"] else 0.12),
 			"yaw": Util.dir_to_yaw(-dn), "text": nm, "size": 0.9 if b["type"] in ["hospital", "market", "terminal", "office", "stadium"] else 0.45})
+	# placas do comércio de bairro na faixa de letreiro das lojas sem nome
+	if wires != null:
+		for bi in layout.buildings_owned_by(c):
+			var b: Dictionary = layout.buildings[bi]
+			if str(b["name"]) == "" and int(b["wmode"]) == Assets.WM_SHOP:
+				_shop_signs(b, wires, labels, float(opts.get("decay", 0.0)))
+			elif b["type"] == "gas_station":
+				_fuel_totem(b, wires, labels, colliders)
+
+
+## Totem de preços do posto, de frente para a rua (os preços pararam no dia
+## do colapso).
+static func _fuel_totem(b: Dictionary, mb: MeshBuf, labels: Array, colliders: Array) -> void:
+	var n: Vector3 = BuildingGen.door_info(b)[1]
+	var side := Vector3.UP.cross(n)
+	var p := BuildingGen._front_point(b, 15.0) + side * 7.0
+	p.y = float(b["base"])
+	var wb := Basis(side, Vector3.UP, n)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var yaw := Util.dir_to_yaw(-n)
+	mb.box_xf(Transform3D(wb, p + Vector3(0, 0.3, 0)), Vector3(1.7, 0.6, 0.8), Assets.uv2_code(Assets.L_CONCRETE), 0.3, Color(0.6, 0.6, 0.58))
+	mb.box_xf(Transform3D(wb, p + Vector3(0, 3.5, 0)), Vector3(1.5, 5.8, 0.45), MET, 0.3, Color(0.88, 0.87, 0.84))
+	mb.box_xf(Transform3D(wb, p + Vector3(0, 6.75, 0)), Vector3(1.6, 0.9, 0.5), MET, 0.3, Color(0.82, 0.15, 0.1))
+	labels.append({"pos": p + Vector3(0, 6.75, 0) + n * 0.26, "yaw": yaw, "text": "POSTO", "size": 0.42, "color": Color(0.96, 0.95, 0.9), "outline": 0})
+	var rows := [["GASOLINA", "5,79"], ["ETANOL", "3,89"], ["DIESEL S10", "5,99"]]
+	for i in rows.size():
+		var y := 5.55 - i * 0.78
+		mb.box_xf(Transform3D(wb, p + Vector3(0, y, 0) + n * 0.235), Vector3(1.3, 0.66, 0.02), MET, 0.3, Color(0.04, 0.04, 0.045))
+		labels.append({"pos": p + Vector3(0, y + 0.17, 0) + n * 0.25, "yaw": yaw, "text": rows[i][0], "size": 0.15, "color": Color(0.9, 0.9, 0.88), "outline": 0})
+		labels.append({"pos": p + Vector3(0, y - 0.08, 0) + n * 0.25, "yaw": yaw, "text": rows[i][1], "size": 0.32, "color": Color(1.0, 0.3, 0.12), "outline": 0})
+	colliders.append([Transform3D(wb, p + Vector3(0, 3.4, 0)), Vector3(1.7, 6.8, 0.8)])
+
+
+const SHOP_KINDS := ["PADARIA", "FARMÁCIA", "AÇOUGUE", "LANCHONETE", "BAZAR", "ÓTICA", "PAPELARIA", "SAPATARIA",
+	"MERCADINHO", "BAR", "CABELEIREIRO", "ELETRÔNICA", "MAT. DE CONSTRUÇÃO", "PET SHOP", "CHAVEIRO", "PASTELARIA",
+	"SORVETERIA", "MODAS", "CALÇADOS", "CELULARES", "XEROX", "HORTIFRÚTI", "PIZZARIA", "LAVANDERIA", "AUTOPEÇAS",
+	"ACADEMIA", "FLORICULTURA", "RELOJOARIA", "LOTÉRICA", "DROGARIA", "CASA DE CARNES", "ARMARINHO", "VIDRAÇARIA", "LOJA DE 1,99"]
+const SHOP_SUFFIX := [" DO ZÉ", " SÃO JORGE", " CENTRAL", " AURORA", " BOA VISTA", " DA ANA", " PRIMOR", " ESPERANÇA",
+	" NOVA ERA", " DO POVO", " BELA VISTA", " IDEAL", " UNIÃO", " FAMÍLIA", " SANTA RITA"]
+
+
+## Placas das lojas de bairro: um painel colorido por loja na faixa de letreiro
+## do térreo (~3 m) com o nome pintado; com o abandono algumas ficam tortas.
+static func _shop_signs(b: Dictionary, mb: MeshBuf, labels: Array, decay: float) -> void:
+	var r := Util.rng(int(b["seed"]) * 41 + 9)
+	var di := BuildingGen.door_info(b)
+	var dp: Vector3 = di[0]
+	var dn: Vector3 = di[1]
+	var rect: Rect2 = b["rect"]
+	var w := rect.size.x if absf(dn.z) > 0.5 else rect.size.y
+	var along := Vector3.UP.cross(dn)
+	var mid := Vector3(rect.get_center().x, 0.0, rect.get_center().y)
+	mid += dn * (dn.dot(Vector3(dp.x, 0.0, dp.z) - mid))
+	var nseg := clampi(int(w / 8.0), 1, 4)
+	var segw := w / nseg
+	var y := float(b["base"]) + 3.05
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var wb := Basis(along, Vector3.UP, dn)
+	for k in nseg:
+		if r.randf() < 0.15:
+			continue
+		var u := -w * 0.5 + (k + 0.5) * segw
+		var nm: String = SHOP_KINDS[r.randi() % SHOP_KINDS.size()]
+		if r.randf() < 0.55:
+			nm += SHOP_SUFFIX[r.randi() % SHOP_SUFFIX.size()]
+		var pw := minf(segw - 0.7, 0.3 * nm.length() + 0.8)
+		var roll := r.randf_range(-0.09, 0.09) if r.randf() < 0.1 + decay * 0.15 else 0.0
+		var panel := Color.from_hsv(r.randf(), r.randf_range(0.35, 0.85), r.randf_range(0.3, 0.75))
+		var light_panel := r.randf() < 0.25
+		if light_panel:
+			panel = Color(0.88, 0.86, 0.8)
+		var pos := Vector3(mid.x, y, mid.z) + along * u + dn * 0.3
+		mb.box_xf(Transform3D(wb * Basis(Vector3.BACK, roll), pos), Vector3(pw, 0.5, 0.06), MET, 0.3, panel)
+		var txt: Color = Color(0.12, 0.12, 0.12) if light_panel else ([Color(0.95, 0.94, 0.9), Color(0.98, 0.85, 0.2)][r.randi() % 2])
+		labels.append({"pos": pos + dn * 0.035, "yaw": Util.dir_to_yaw(-dn), "roll": roll, "text": nm,
+			"size": clampf((pw - 0.3) / maxf(nm.length() * 0.62, 1.0), 0.16, 0.3), "color": txt, "outline": 0})
+
+
+## Coreto de praça: base octogonal com escada, colunas de ferro, guarda-corpo,
+## friso e telhado de zinco pintado com forro e pináculo.
+static func _coreto(mb: MeshBuf, p: Vector3, colliders: Array) -> void:
+	var CON := Assets.uv2_code(Assets.L_PLASTER)
+	var MET := Assets.uv2_code(Assets.L_METAL)
+	var cream := Color(0.9, 0.86, 0.74)
+	var iron := Color(0.16, 0.2, 0.18)
+	var R := 3.6
+	var bh := 0.7
+	var rot := Basis(Vector3.UP, PI / 8.0)
+	mb.cylinder(Transform3D(rot, p), R, bh, 8, CON, 0.3, cream, true)
+	mb.cylinder(Transform3D(rot, p + Vector3(0, bh, 0)), R + 0.12, 0.12, 8, CON, 0.3, cream.darkened(0.1), true)
+	colliders.append([Transform3D(Basis.IDENTITY, p + Vector3(0, bh * 0.5, 0)), Vector3(R * 1.7, bh, R * 1.7)])
+	# escada para o sul (+z)
+	for k in 3:
+		mb.box(p + Vector3(0, bh * (2.5 - k) / 3.0 * 0.5, R * 0.92 + 0.3 + k * 0.32), Vector3(1.8, bh * (3 - k) / 3.0, 0.34), CON, 0.3, cream.darkened(0.05))
+	var top := bh + 0.12
+	var cr := R - 0.25
+	var pts: Array[Vector3] = []
+	for k in 8:
+		var a := TAU * (float(k) + 0.5) / 8.0
+		pts.append(p + Vector3(cos(a) * cr, top, sin(a) * cr))
+	for k in 8:
+		var c0 := pts[k]
+		var c1 := pts[(k + 1) % 8]
+		mb.tube(c0, c0 + Vector3(0, 2.7, 0), 0.07, 0.07, 6, MET, 0.3, iron, false)
+		mb.tube(c0 + Vector3(0, 2.7, 0), c1 + Vector3(0, 2.7, 0), 0.06, 0.06, 4, MET, 0.3, iron, false)
+		mb.tube(c0 + Vector3(0, 2.45, 0), c1 + Vector3(0, 2.45, 0), 0.025, 0.025, 4, MET, 0.3, iron, false)
+		# guarda-corpo (menos na entrada, virada para +z)
+		var mid := (c0 + c1) * 0.5 - p
+		if mid.z > cr * 0.8 and absf(mid.x) < 1.0:
+			continue
+		mb.tube(c0 + Vector3(0, 0.9, 0), c1 + Vector3(0, 0.9, 0), 0.03, 0.03, 4, MET, 0.3, iron, false)
+		mb.tube(c0 + Vector3(0, 0.12, 0), c1 + Vector3(0, 0.12, 0), 0.02, 0.02, 4, MET, 0.3, iron, false)
+		for bi in range(1, 10):
+			var q := c0.lerp(c1, float(bi) / 10.0)
+			mb.tube(q + Vector3(0, 0.12, 0), q + Vector3(0, 0.9, 0), 0.012, 0.012, 3, MET, 0.3, iron, false)
+	# telhado de zinco octogonal, forro por baixo e pináculo
+	var ry := top + 2.75
+	mb.cylinder(Transform3D(rot, p + Vector3(0, ry, 0)), R + 0.5, 1.9, 8, MET, 0.3, Color(0.32, 0.45, 0.4), false, 0.08)
+	for k in 8:
+		var a0 := TAU * (float(k) + 0.5) / 8.0
+		var a1 := TAU * (float(k) + 1.5) / 8.0
+		var e0 := p + Vector3(cos(a0) * (R + 0.5), ry, sin(a0) * (R + 0.5))
+		var e1 := p + Vector3(cos(a1) * (R + 0.5), ry, sin(a1) * (R + 0.5))
+		mb.tri(p + Vector3(0, ry, 0), e1, e0, Vector3.DOWN, Vector2.ZERO, Vector2(e1.x - p.x, e1.z - p.z), Vector2(e0.x - p.x, e0.z - p.z), CON, 0.3, cream.darkened(0.2))
+	mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0, ry + 1.85, 0)), 0.1, 0.6, 6, MET, 0.3, Color(0.55, 0.47, 0.25), true, 0.02)
+
+
+## Chafariz seco: tanque octogonal com folhas e terra no fundo, coluna e duas
+## taças de concreto.
+static func _chafariz(mb: MeshBuf, p: Vector3, colliders: Array) -> void:
+	var CON := Assets.uv2_code(Assets.L_CONCRETE)
+	var col := Color(0.78, 0.76, 0.7)
+	var R := 2.8
+	for k in 8:
+		var a := TAU * float(k) / 8.0
+		var c := p + Vector3(cos(a) * R, 0.28, sin(a) * R)
+		var len := 2.0 * R * tan(PI / 8.0) + 0.3
+		var xf := Transform3D(Basis(Vector3.UP, -a + PI * 0.5), c)
+		mb.box_xf(xf, Vector3(len, 0.56, 0.32), CON, 0.4, col)
+		mb.box_xf(Transform3D(xf.basis, c + Vector3(0, 0.31, 0)), Vector3(len + 0.06, 0.08, 0.42), CON, 0.4, col.lightened(0.08))
+		colliders.append([xf, Vector3(len, 0.6, 0.32)])
+	mb.cylinder(Transform3D(Basis(Vector3.UP, PI / 8.0), p + Vector3(0, 0.0, 0)), R - 0.1, 0.06, 8, Assets.uv2_code(Assets.L_DIRT), 0.5, Color(0.6, 0.52, 0.42), true)
+	mb.cylinder(Transform3D(Basis.IDENTITY, p), 0.38, 1.3, 10, CON, 0.4, col, false, 0.3)
+	mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0, 1.25, 0)), 0.4, 0.32, 14, CON, 0.4, col, true, 1.15)
+	mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0, 1.57, 0)), 0.16, 0.6, 8, CON, 0.4, col, false, 0.12)
+	mb.cylinder(Transform3D(Basis.IDENTITY, p + Vector3(0, 2.15, 0)), 0.15, 0.2, 12, CON, 0.4, col, true, 0.5)
+	colliders.append([Transform3D(Basis.IDENTITY, p + Vector3(0, 0.8, 0)), Vector3(0.8, 1.6, 0.8)])
 
 
 static func _perimeter_fence(r: Rect2, y: float, props: Dictionary, colliders: Array, gate: Vector2) -> void:

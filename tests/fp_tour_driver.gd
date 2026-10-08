@@ -62,9 +62,64 @@ func _extra() -> void:
 		await _shot(str(pt[0]) + "_b")
 
 
+## Terceira leva (--pontos=novos): igreja matriz, coreto e chafariz da praça,
+## posto com o totem, sacadas do Edifício Ipê e a rua comercial com as placas.
+func _novos() -> void:
+	var L := g.layout
+	var W := WeatherManager.State
+	for b: Dictionary in L.buildings:
+		if str(b["poi"]) == "igreja_matriz" and _quer("igreja"):
+			var di := BuildingGen.door_info(b)
+			var door: Vector3 = di[0]
+			var n: Vector3 = di[1]
+			await _go(door + n * 26.0 + Vector3.UP.cross(n) * 5.0, door + Vector3(0, 9, 0), 16.4, W.CLEAR, 0.28)
+			await _wait(1.5)
+			await _shot("igreja_matriz_fachada")
+	for blk: Dictionary in L.blocks:
+		if str(blk["kind"]) != "plaza":
+			continue
+		var br: Rect2 = blk["rect"]
+		var inner := br.grow(-WorldLayout.SIDEWALK)
+		var q := minf(inner.size.x, inner.size.y) * 0.25
+		var bc := br.get_center()
+		var co := Vector3(bc.x + q, WorldLayout.CURB, bc.y + q)
+		if _quer("coreto"):
+			await _go(co + Vector3(-10, 0, 11), co + Vector3(0, 3, 0), 9.5, W.CLEAR, 0.02)
+			await _wait(1.5)
+			await _shot("coreto")
+		if _quer("chafariz"):
+			var cf := Vector3(bc.x - q, WorldLayout.CURB, bc.y + q)
+			await _go(cf + Vector3(6, 0, 8), cf + Vector3(0, 1, 0), 15.0, W.CLEAR, -0.08)
+			await _wait(1.5)
+			await _shot("chafariz")
+	if _quer("posto"):
+		for b: Dictionary in L.buildings:
+			if str(b["poi"]) == "posto_vila":
+				var di := BuildingGen.door_info(b)
+				var n: Vector3 = di[1]
+				var side := Vector3.UP.cross(n)
+				var cp := BuildingGen._front_point(b, 7.0)
+				await _go(cp + n * 19.0 - side * 6.0, cp + side * 2.0 + Vector3(0, 2.5, 0), 17.0, W.CLEAR, 0.0)
+				await _wait(1.5)
+				await _shot("posto_vila")
+	if _quer("sacadas"):
+		var fo := _front_of("apartamento_helena", 15.0)
+		await _go(fo[0], fo[1] + Vector3(0, 6, 0), 10.0, W.CLEAR, 0.12)
+		await _wait(1.5)
+		await _shot("sacadas")
+	if _quer("comercio"):
+		var av := L.poi_pos("avenida_central")
+		await _go(av + Vector3(6, 0, 40), av + Vector3(9, 2, 10), 10.5, W.CLEAR, -0.02)
+		await _wait(1.5)
+		await _shot("rua_comercial")
+
+
 func _pontos() -> void:
 	if "--pontos=extra" in OS.get_cmdline_user_args():
 		await _extra()
+		return
+	if "--pontos=novos" in OS.get_cmdline_user_args():
+		await _novos()
 		return
 	for pt: Array in PONTOS:
 		var id := str(pt[0])

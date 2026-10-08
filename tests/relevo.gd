@@ -54,6 +54,8 @@ func _ready() -> void:
 	mb.box(Vector3(-7.0, 6.0, -14.3), Vector3(12, 12, 0.6), Assets.uv2_code(Assets.L_PLASTER, Assets.WM_RES), 0.5, Color(0.86, 0.8, 0.7))
 	mb.box(Vector3(7.0, 9.0, -14.3), Vector3(14, 18, 0.6), Assets.uv2_code(Assets.L_CONCRETE, Assets.WM_OFFICE), 0.7)
 	mb.box(Vector3(0.0, -0.05, -9.0), Vector3(32, 0.1, 10), Assets.uv2_code(Assets.L_CONCRETE), 0.25)
+	_calcadas(mb)
+	_igreja(mb)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mb.to_mesh(mat)
 	add_child(mi)
@@ -78,7 +80,18 @@ func _ready() -> void:
 		["abandono_muro", Vector3(-21.0, 1.7, 4.0), Vector3(-25.0, 1.4, -4.0)],
 		["janelas", Vector3(0.0, 3.0, -2.5), Vector3(1.0, 7.0, -14.0)],
 		["janelas_perto", Vector3(-5.0, 4.5, -8.5), Vector3(-7.5, 4.6, -14.0)],
-		["fachada_rua", Vector3(-3.0, 1.6, -7.5), Vector3(-1.0, 2.6, -14.0)]]
+		["fachada_rua", Vector3(-3.0, 1.6, -7.5), Vector3(-1.0, 2.6, -14.0)],
+		["calcadas", Vector3(38.0, 1.7, 60.5), Vector3(70.0, 0.0, 55.0)],
+		["calcadas_sul", Vector3(38.0, 1.7, 59.5), Vector3(70.0, 0.0, 65.0)],
+		["bloquete", Vector3(57.0, 1.6, 59.0), Vector3(58.0, 0.0, 54.0)],
+		["pedra_portuguesa", Vector3(73.0, 1.6, 59.0), Vector3(74.0, 0.0, 54.5)],
+		["ladrilho", Vector3(89.0, 1.6, 59.0), Vector3(90.0, 0.0, 54.3)],
+		["sextavado", Vector3(41.0, 1.6, 61.0), Vector3(42.0, 0.0, 65.8)],
+		["losangos", Vector3(60.0, 2.4, 61.0), Vector3(60.0, 0.0, 66.5)],
+		["sarjeta", Vector3(46.0, 1.4, 58.5), Vector3(50.0, 0.0, 55.4)],
+		["igreja", Vector3(119.0, 1.7, 97.0), Vector3(119.0, 10.0, 70.0)],
+		["igreja_lado", Vector3(98.0, 2.5, 90.0), Vector3(119.0, 10.0, 62.0)],
+		["igreja_torre", Vector3(130.0, 8.0, 80.0), Vector3(124.0, 18.0, 68.0)]]
 	for v in views:
 		if not so.is_empty() and not str(v[0]) in so:
 			continue
@@ -90,6 +103,48 @@ func _ready() -> void:
 		img.save_png("%s/%s.png" % [out, v[0]])
 		print("foto ", v[0])
 	get_tree().quit()
+
+
+## Rua com sarjeta (x 36..100, z = 60) e oito quarteirões, um de cada piso de
+## calçada (placas, bloquete retangular/sextavado, pedra portuguesa em ondas e
+## losangos, ladrilho hidráulico), metade com a guia caiada.
+func _calcadas(mb: MeshBuf) -> void:
+	var hw := 4.5
+	var z0 := 60.0
+	var code := Assets.uv2_code(Assets.L_ASPHALT, 4)
+	var y := 0.02
+	mb.quad(Vector3(36, y, z0 + hw), Vector3(100, y, z0 + hw), Vector3(100, y, z0 - hw), Vector3(36, y, z0 - hw), Vector3.UP,
+		Vector2(-hw, 0.0), Vector2(-hw, 64.0), Vector2(hw, 64.0), Vector2(hw, 0.0), code, hw / 32.0 + 0.5, Color(1, 1, 1))
+	# [piso, guia caiada, variação]
+	var kinds := [[0, false, 0.3], [1, true, 0.3], [2, false, 0.3], [3, true, 0.3],
+		[1, false, 0.7], [2, true, 0.7], [3, false, 0.75], [0, true, 0.7]]
+	for i in kinds.size():
+		var k: Array = kinds[i]
+		var north := i < 4
+		var x := 36.0 + (i % 4) * 16.0
+		var br := Rect2(x, z0 - hw - 14.0, 15.0, 14.0) if north else Rect2(x, z0 + hw, 15.0, 14.0)
+		var s := (float(k[0]) + (4.0 if k[1] else 0.0) + float(k[2])) / 8.0
+		var cy := WorldLayout.CURB
+		ChunkBuilder._sidewalk_ring(mb, br, cy, Assets.uv2_code(Assets.L_CONCRETE, 7), s, Color(0.85, 0.84, 0.8))
+		var inner := br.grow(-WorldLayout.SIDEWALK)
+		mb.quad(Vector3(inner.position.x, cy, inner.position.y), Vector3(inner.end.x, cy, inner.position.y), Vector3(inner.end.x, cy, inner.end.y), Vector3(inner.position.x, cy, inner.end.y),
+			Vector3.UP, inner.position, Vector2(inner.end.x, inner.position.y), inner.end, Vector2(inner.position.x, inner.end.y), Assets.uv2_code(Assets.L_GRASS), 0.0, Color(1, 1, 1))
+		var gcol := Color(0.98, 0.97, 0.93) if k[1] else Color(0.7, 0.7, 0.68)
+		var cc := Assets.uv2_code(Assets.L_CONCRETE)
+		mb.wall(Vector2(br.end.x, br.position.y), Vector2(br.position.x, br.position.y), -0.3, cy + 0.3, Vector3.FORWARD, cc, 0.0, gcol)
+		mb.wall(Vector2(br.position.x, br.end.y), Vector2(br.end.x, br.end.y), -0.3, cy + 0.3, Vector3.BACK, cc, 0.0, gcol)
+		mb.wall(Vector2(br.position.x, br.position.y), Vector2(br.position.x, br.end.y), -0.3, cy + 0.3, Vector3.LEFT, cc, 0.0, gcol)
+		mb.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, cy + 0.3, Vector3.RIGHT, cc, 0.0, gcol)
+
+
+## Igreja matriz (x 110..128, z 40..70, fachada para +z) sobre um chão de praça.
+func _igreja(mb: MeshBuf) -> void:
+	var b := {"type": "church", "rect": Rect2(110, 40, 18, 30), "floors": 1, "fh": 11.0, "gfh": 11.0, "roof": "gable", "facing": 2,
+		"enterable": false, "layer": Assets.L_PLASTER, "roof_layer": Assets.L_ROOF, "tint": Color(0.94, 0.92, 0.86), "wmode": Assets.WM_NONE,
+		"seed": 77, "name": "IGREJA MATRIZ", "poi": "", "district": "centro", "base": 0.0, "interior": "church"}
+	BuildingGen.build(b, mb, mb, 0, false, 2)
+	mb.quad(Vector3(96, -0.01, 30), Vector3(142, -0.01, 30), Vector3(142, -0.01, 104), Vector3(96, -0.01, 104), Vector3.UP,
+		Vector2(96, 30), Vector2(142, 30), Vector2(142, 104), Vector2(96, 104), Assets.uv2_code(Assets.L_GRASS), 0.0, Color(1, 1, 1))
 
 
 ## Faixa de terreno 24×10 m: grama à esquerda, terra no meio, rocha à direita,

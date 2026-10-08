@@ -106,6 +106,34 @@ float gline(float x, float period, float w) {
 	return 1.0 - smoothstep(w * 0.5, w, d);
 }
 
+// Junta entre peças do piso: d = distância até a borda da peça (m), jw = meia
+// largura da junta (m), pix = metros por pixel. Longe, vira a cobertura média.
+float joint_cov(float d, float jw, float pix) {
+	return clamp((jw - d) / pix + 0.5, 0.0, 1.0) * min(1.0, 2.0 * jw / pix + 0.25);
+}
+
+// Grade sextavada (lado a lado, 1 unidade entre faces): xy = posição dentro do
+// sextavado (centro = 0), zw = id da peça
+vec4 hex_cell(vec2 p) {
+	const vec2 s = vec2(1.0, 1.7320508);
+	vec4 hc = floor(vec4(p, p - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+	vec4 hh = vec4(p - hc.xy * s, p - (hc.zw + 0.5) * s);
+	return dot(hh.xy, hh.xy) < dot(hh.zw, hh.zw) ? vec4(hh.xy, hc.xy) : vec4(hh.zw, hc.zw + 0.5);
+}
+
+// Desenho da pedra portuguesa (1 = basalto preto): ondas de Copacabana paralelas
+// à guia, ou campo branco com faixa preta junto da guia e losangos espaçados
+float ppt_black(vec2 p, float vs) {
+	if (vs < 0.5) {
+		float s = p.y - 0.4 * sin(p.x * 1.9635 + vs * 40.0);
+		return step(0.5, fract(s / 1.75 + 0.15));
+	}
+	float band = step(0.25, p.y) * step(p.y, 0.5);
+	vec2 q = vec2(fract(p.x / 2.6) - 0.5, (p.y - 1.95) / 2.6);
+	float dmd = abs(q.x) + abs(q.y) * 1.6;
+	return max(band, step(dmd, 0.2) * step(0.12, dmd) + step(dmd, 0.06));
+}
+
 // Cor de parede de apartamento/escritório (paleta de tintas comuns, desbotadas)
 vec3 wall_paint(float t) {
 	vec3 c = vec3(0.62, 0.58, 0.5);                       // bege
@@ -298,9 +326,200 @@ void fragment() {
 		}
 	}
 
+	// --- Calçadas (modo 7): UV.x = ao longo da guia, UV.y = distância da guia ----
+	// Cada quarteirão tem o seu piso (semente): placas de concreto, bloquete
+	// (retangular ou sextavado), pedra portuguesa ou ladrilho hidráulico; guia de
+	// 15 cm (caiada em parte deles) e faixa de piso tátil. A foto de concreto fica
+	// como micro detalhe dentro de cada peça.
+	if (v_wmode > 6.5 && an.y > 0.7) {
+		float pick = floor(v_seed * 8.0);
+		float pat = mod(pick, 4.0);
+		float vs = fract(v_seed * 8.0);
+		vec2 sp = UV;
+		float pix = max(max(dUV.x, dUV.y), 1e-4);
+		float cavg = dot(textureLod(tex_a, vec3(0.5, 0.5, v_layer), 11.0).rgb, vec3(0.3, 0.59, 0.11));
+		// (fraco: a foto tem juntas próprias que viravam uma grade por cima do piso)
+		float det = mix(1.0, clamp(dot(base_rgb, vec3(0.3, 0.59, 0.11)) / max(cavg, 0.01), 0.7, 1.3), 0.4) * (0.94 + nz.g * 0.12);
+		vec3 pc = alb;
+		float jn = 0.0;
+		vec2 tilt = vec2(0.0);
+		float prough = rough;
+		vec3 gap_c = vec3(0.2, 0.18, 0.15);
+		if (pat < 0.5) {
+			// placas de concreto moldado com junta serrada; tom de cada concretagem,
+			// algumas trocadas (mais claras) e outras rachadas
+			// (vs > 0,9: placas de 3 m de piso de posto/pátio, por onde passam carros)
+			vec2 csz = vs < 0.5 ? vec2(1.0) : (vs < 0.9 ? vec2(1.2, 0.6) : vec2(3.0));
+			vec2 g = sp / csz;
+			vec2 cell = floor(g);
+			vec2 f = fract(g);
+			vec2 de = min(f, 1.0 - f) * csz;
+			float far_j = smoothstep(0.08, 0.3, pix / csz.y);
+			jn = joint_cov(min(de.x, de.y), 0.005, pix) * (1.0 - far_j);
+			float r1 = h21(cell + v_seed * 37.0);
+			pc = vec3(0.46, 0.45, 0.43) * mix(0.86, 1.08, r1) * (r1 > 0.92 ? vec3(1.1, 1.08, 1.04) : vec3(1.0));
+			if (r1 < 0.12 + world_decay * 0.12) {
+				vec2 fc = f - 0.5;
+				float cr = abs(fc.x * 0.8 + fc.y * (r1 * 8.0 - 0.5) + (texture(noise_tex, sp * 0.9).r - 0.5) * 0.3) * csz.x;
+				jn = max(jn, joint_cov(cr, 0.003, pix) * (1.0 - far_j));
+			}
+			gap_c = vec3(0.16, 0.15, 0.14);
+		} else if (pat < 1.5) {
+			vec2 cell;
+			float d;
+			vec2 dir;
+			float far_j;
+			if (vs < 0.5) {
+				// bloquete retangular 20 x 10 em fiada corrida
+				vec2 csz = vec2(0.2, 0.1);
+				vec2 g = sp / csz;
+				g.x += step(1.0, mod(floor(g.y), 2.0)) * 0.5;
+				cell = floor(g);
+				vec2 f = fract(g);
+				vec2 de = min(f, 1.0 - f) * csz;
+				d = min(de.x, de.y);
+				dir = de.x < de.y ? vec2(sign(f.x - 0.5), 0.0) : vec2(0.0, sign(f.y - 0.5));
+				far_j = smoothstep(0.012, 0.03, pix);
+			} else {
+				// bloquete sextavado de 25 cm
+				vec4 hx = hex_cell(sp / 0.25);
+				cell = hx.zw;
+				vec2 ap = abs(hx.xy);
+				float hd = max(dot(ap, vec2(0.5, 0.8660254)), ap.x);
+				d = (0.5 - hd) * 0.25;
+				dir = dot(ap, vec2(0.5, 0.8660254)) > ap.x ? sign(hx.xy) * vec2(0.5, 0.8660254) : vec2(sign(hx.x), 0.0);
+				far_j = smoothstep(0.015, 0.035, pix);
+			}
+			jn = joint_cov(d, 0.002, pix) * (1.0 - far_j) + 0.12 * far_j;
+			float r1 = h21(cell + v_seed * 53.0);
+			vec3 c0 = fract(vs * 7.0) < 0.5 ? vec3(0.4, 0.39, 0.37) : vec3(0.42, 0.25, 0.2);
+			vec3 c1 = fract(vs * 7.0) < 0.5 ? vec3(0.42, 0.25, 0.2) : vec3(0.4, 0.39, 0.37);
+			pc = mix(c0 * mix(0.82, 1.12, r1), c1, step(0.96, r1));
+			// chanfro: a peça desce até a junta (sombra fina em volta de cada uma)
+			float bv = (1.0 - smoothstep(0.002, 0.009, d)) * (1.0 - far_j);
+			tilt = vec2(dir.x, -dir.y) * bv * 0.7;
+			pc *= 1.0 - bv * 0.25;
+			gap_c = vec3(0.3, 0.27, 0.22);
+		} else if (pat < 2.5) {
+			// pedra portuguesa (petit-pavé): pedrinhas de ~7 cm assentadas na areia;
+			// a cor de cada uma vem do desenho no centro dela
+			vec3 white_c = vec3(0.62, 0.6, 0.55);
+			vec3 black_c = vec3(0.06, 0.06, 0.065);
+			float stones = 0.0;
+	#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
+			stones = 1.0 - smoothstep(0.014, 0.03, pix);
+	#endif
+			if (stones > 0.0) {
+				float ss = 0.07;
+				vec2 g = sp / ss;
+				vec2 ic = floor(g);
+				vec2 fc = fract(g);
+				float md = 8.0;
+				float md2 = 8.0;
+				vec2 mo = vec2(0.0);
+				vec2 mid = vec2(0.0);
+				for (int yy = -1; yy <= 1; yy++) {
+					for (int xx = -1; xx <= 1; xx++) {
+						vec2 o = vec2(float(xx), float(yy));
+						vec2 id = ic + o;
+						vec2 jit = vec2(h21(id + 0.37), h21(id.yx + 5.1)) * 0.6 + 0.2;
+						vec2 rr = o + jit - fc;
+						float dm = mix(length(rr), max(abs(rr.x), abs(rr.y)), 0.55);
+						if (dm < md) {
+							md2 = md;
+							md = dm;
+							mo = rr;
+							mid = id;
+						} else if (dm < md2) {
+							md2 = dm;
+						}
+					}
+				}
+				float edge = (md2 - md) * 0.5 * ss;
+				float r1 = h21(mid + 0.73);
+				float blk = ppt_black(sp + mo * ss, vs);
+				vec3 sc_ = mix(white_c * mix(0.85, 1.08, r1) * mix(vec3(1.0), vec3(1.04, 0.98, 0.9), step(0.8, fract(r1 * 7.0))), black_c * mix(0.7, 1.4, r1), blk);
+				float gapj = joint_cov(edge, 0.004, pix);
+				// pedras soltas (buraco de areia) com o abandono
+				float lost = step(r1, world_decay * 0.05);
+				gapj = max(gapj, lost);
+				pc = mix(mix(white_c, black_c, ppt_black(sp, vs)), sc_, stones);
+				jn = gapj * stones;
+				// topo abaulado de cada pedra
+				float dome = smoothstep(0.12, 0.45, length(mo)) * stones * (1.0 - lost);
+				tilt = vec2(-mo.x, mo.y) * dome * 1.1;
+				pc *= 1.0 - dome * 0.12;
+			} else {
+				pc = mix(white_c, black_c, ppt_black(sp, vs));
+				jn = 0.16;
+			}
+			gap_c = vec3(0.26, 0.23, 0.18);
+			prough = 0.75;
+		} else {
+			// ladrilho hidráulico 20 x 20 com 4 quadrados em relevo (vermelho, cinza
+			// ou amarelo); alguns quebrados mostram o contrapiso
+			float ts = 0.2;
+			vec2 g = sp / ts;
+			vec2 cell = floor(g);
+			vec2 f = fract(g);
+			vec2 de = min(f, 1.0 - f) * ts;
+			vec2 sf = fract(f * 2.0);
+			vec2 sde = min(sf, 1.0 - sf) * ts * 0.5;
+			float far_j = smoothstep(0.01, 0.025, pix);
+			float tj = joint_cov(min(de.x, de.y), 0.002, pix);
+			float gr = joint_cov(min(sde.x, sde.y), 0.004, pix);
+			jn = max(tj, gr * 0.7) * (1.0 - far_j) + 0.14 * far_j;
+			float r1 = h21(cell + v_seed * 29.0);
+			float cpick = fract(vs * 5.0);
+			vec3 tc = cpick < 0.55 ? vec3(0.36, 0.17, 0.13) : (cpick < 0.85 ? vec3(0.37, 0.37, 0.35) : vec3(0.5, 0.41, 0.17));
+			pc = tc * mix(0.82, 1.1, r1);
+			vec2 sdir = sde.x < sde.y ? vec2(sign(sf.x - 0.5), 0.0) : vec2(0.0, sign(sf.y - 0.5));
+			float bv = (1.0 - smoothstep(0.004, 0.012, min(sde.x, sde.y))) * (1.0 - far_j);
+			tilt = vec2(sdir.x, -sdir.y) * bv * 0.6;
+			if (r1 < world_decay * 0.07) {
+				pc = vec3(0.34, 0.33, 0.31);
+				jn = max(jn, 0.6);
+				tilt = vec2(0.0);
+			}
+			gap_c = vec3(0.24, 0.22, 0.2);
+			prough = 0.8;
+		}
+		// piso tátil direcional (amarelo ou vermelho) no meio da calçada
+		if (fract(vs * 3.7) < 0.3 && abs(pat - 2.0) > 0.5) {
+			float ty = sp.y - 1.25;
+			float in_t = aa_step(0.0, ty) * aa_step(ty, 0.25);
+			float rib = fract(ty / 0.0625);
+			float far_r = smoothstep(0.006, 0.015, pix);
+			float ribh = sin(rib * 6.2832);
+			pc = mix(pc, (fract(vs * 9.0) < 0.6 ? vec3(0.58, 0.44, 0.09) : vec3(0.42, 0.18, 0.13)) * (0.9 + 0.1 * ribh * (1.0 - far_r)), in_t);
+			tilt = mix(tilt, vec2(0.0, cos(rib * 6.2832) * 0.5 * (1.0 - far_r)), in_t);
+			jn = mix(jn, joint_cov((0.5 - abs(fract(sp.x / 0.25) - 0.5)) * 0.25, 0.002, pix) * (1.0 - far_r), in_t);
+			prough = mix(prough, 0.7, in_t);
+		}
+		// guia (15 cm): concreto liso, caiada de branco em parte dos quarteirões
+		float curb = 1.0 - aa_step(0.15, sp.y);
+		vec3 kc = pick >= 4.0 ? vec3(0.74, 0.73, 0.69) * mix(1.0, 0.75, smoothstep(0.4, 0.8, nz.g) * (0.4 + world_decay * 0.6)) : vec3(0.5, 0.49, 0.47);
+		pc = mix(pc, kc, curb);
+		// juntas das peças da guia a cada metro
+		jn = mix(jn, joint_cov(0.5 - abs(fract(sp.x) - 0.5), 0.003, pix) * (1.0 - smoothstep(0.02, 0.06, pix)), curb);
+		jn = max(jn, joint_cov(abs(sp.y - 0.15), 0.004, pix));
+		tilt *= 1.0 - curb;
+		// mato e terra nas juntas (abandono)
+		float weed = smoothstep(0.55, 0.8, nz.g + world_decay * 0.25) * world_decay;
+		gap_c = mix(gap_c, vec3(0.11, 0.14, 0.05), weed);
+		alb = mix(pc * det, gap_c * det, jn);
+		rough = mix(prough, 0.95, jn);
+		ao *= 1.0 - jn * 0.3;
+		nmap = normalize(vec3(nmap.xy * 0.35 + tilt, nmap.z));
+		crev = max(crev * 0.4, jn);
+	}
+
 	// --- Abandono: reboco caído (aparece o tijolo) e buracos no asfalto ----------
 	float wdec = world_decay * grime;
 	float pothole = 0.0;
+	// água parada mesmo sem chuva (cano rompido, chuva de dias atrás): fundo de
+	// parte dos buracos e trechos da sarjeta, no abandono
+	float standing = 0.0;
 	if (hgt && wdec > 0.01) {
 		// (dentro das casas também: parede úmida perde o reboco)
 		if (li == 3 && an.y < 0.5) {
@@ -379,8 +598,101 @@ void fragment() {
 
 	// --- Sinalização horizontal (ruas: modo 4 rua, 5 avenida, 6 rodovia) --------
 	// UV.x = distância do eixo da via (m), UV.y = distância ao longo da via.
-	if (v_wmode > 3.5) {
+	if (v_wmode > 3.5 && v_wmode < 6.5) {
 		float ax = abs(UV.x);
+		// semente = meia largura / 32 (+0,5 nas ruas com guia)
+		bool has_curb = v_seed > 0.5;
+		float hw = fract(v_seed * 2.0) * 16.0;
+		float pix = max(max(dUV.x, dUV.y), 1e-4);
+		// --- faixa em que o ponto está (para o desgaste do tráfego)
+		float edge_x = has_curb ? hw - 0.45 : (v_wmode > 5.5 ? 4.55 : hw - 0.25);
+		float l0 = 0.0;
+		float l1 = edge_x;
+		if (v_wmode > 4.5 && v_wmode < 5.5) {
+			l0 = ax < 3.4 ? 0.0 : 3.4;
+			l1 = ax < 3.4 ? 3.4 : edge_x;
+		}
+		float lx = ax - (l0 + l1) * 0.5;
+		// no meio da faixa pinga óleo (risco escuro); onde passam as rodas o
+		// asfalto fica polido (mais liso e um pouco mais claro)
+		float along_n = texture(noise_tex, vec2(UV.x * 0.05, UV.y * 0.011) + v_seed).r;
+		float oil = exp(-lx * lx / 0.16) * smoothstep(0.3, 0.7, along_n);
+		float wheel = exp(-pow(abs(lx) - 0.85, 2.0) / 0.09) * step(ax, edge_x);
+		alb *= 1.0 - oil * 0.28;
+		alb = mix(alb, alb * 1.12 + vec3(0.006), wheel * 0.55);
+		rough = mix(rough, rough * 0.78, wheel * 0.6);
+		// selante de trincas: "cobrinhas" pretas, tortas e brilhantes, em trechos
+		float tn = texture(noise_tex, w_pos.xz * 0.05 + vec2(0.13, 0.57)).g;
+		float tn2 = texture(noise_tex, w_pos.xz * 0.11 + vec2(0.71, 0.29)).b;
+		float tmask = smoothstep(0.5, 0.62, texture(noise_tex, w_pos.xz * 0.008 + 0.4).r);
+		float t1 = clamp(0.016 / pix - abs(tn - 0.5) / max(fwidth(tn), 1e-5) + 0.5, 0.0, 1.0);
+		float t2 = clamp(0.012 / pix - abs(tn2 - 0.5) / max(fwidth(tn2), 1e-5) + 0.5, 0.0, 1.0) * step(0.5, tn);
+		float tar = max(t1, t2) * min(1.0, 0.035 / pix) * tmask * step(ax, edge_x) * (1.0 - pothole);
+		alb = mix(alb, vec3(0.022, 0.021, 0.02), tar * 0.9);
+		rough = mix(rough, 0.28, tar);
+		nmap = normalize(mix(nmap, vec3(0.0, 0.0, 1.0), tar));
+		// marcas de freada (o pânico da evacuação): pares de riscos ao longo da faixa
+		float sk_cell = floor(UV.y / 28.0);
+		float sgn = UV.x < 0.0 ? 0.0 : 1.0;
+		float skh = h21(vec2(sk_cell, sgn) + 17.3);
+		if (skh < 0.18 + world_decay * 0.2 && pix < 0.2) {
+			float s0 = sk_cell * 28.0 + h21(vec2(sk_cell, sgn + 3.1)) * 8.0;
+			float sl = mix(6.0, 17.0, h21(vec2(sk_cell, sgn + 5.7)));
+			float st = (UV.y - s0) / sl;
+			// sentido do carro: a marca começa fraca e engrossa até a parada
+			st = h21(vec2(sk_cell, sgn + 8.8)) < 0.5 ? st : 1.0 - st;
+			float bend = (h21(vec2(sk_cell, sgn + 9.1)) - 0.5) * 1.4 * st * st;
+			float xc = (l0 + l1) * 0.5 + (h21(vec2(sk_cell, sgn + 2.2)) - 0.5) * 0.6 + bend;
+			float d1 = abs(abs(ax - xc) - 0.78);
+			float trk = clamp((0.1 - d1) / max(dUV.x, 1e-4) + 0.5, 0.0, 1.0);
+			float inten = step(0.0, st) * step(st, 1.0) * smoothstep(0.0, 0.25, st) * (0.55 + 0.45 * texture(noise_tex, vec2(UV.y * 0.6, ax * 3.0)).r);
+			alb = mix(alb, vec3(0.018), trk * inten * 0.6);
+			rough = mix(rough, rough * 0.85, trk * inten);
+		}
+		// --- sarjeta de concreto junto da guia: juntas, terra, areia e folhas secas;
+		// é por onde a água da chuva corre
+		if (has_curb) {
+			float gut = aa_step(edge_x, ax);
+			float s1 = layer_scales[1];
+			vec2 guv = vec2(UV.y, ax) * s1 + vec2(v_seed * 7.0, 0.0);
+			vec4 ga = textureGrad(tex_a, vec3(guv, 1.0), vec2(dFdx(UV.y), dFdx(ax)) * s1, vec2(dFdy(UV.y), dFdy(ax)) * s1);
+			vec4 gb = textureGrad(tex_b, vec3(guv, 1.0), vec2(dFdx(UV.y), dFdx(ax)) * s1, vec2(dFdy(UV.y), dFdy(ax)) * s1);
+			vec3 gcol = ga.rgb * vec3(0.68, 0.67, 0.64) * (0.9 + nz.r * 0.2);
+			gcol *= 1.0 - joint_cov(0.75 - abs(fract(UV.y / 1.5) - 0.5) * 1.5, 0.005, pix) * 0.55;
+			float sdist = hw - ax;
+			float gg = smoothstep(0.38, 0.0, sdist) * (0.45 + 0.55 * texture(noise_tex, vec2(UV.y * 0.13, 0.31)).g);
+			vec3 dirt_c = mix(vec3(0.22, 0.19, 0.15), vec3(0.3, 0.24, 0.15), nz.b);
+			gcol = mix(gcol, dirt_c, clamp(gg * (0.5 + world_decay * 0.5), 0.0, 1.0));
+			// folhas secas acumuladas junto da guia, em montinhos (ruído) e mais
+			// perto da guia; marrons e ocres apagados, cada uma num tamanho e ângulo
+			if (pix < 0.02) {
+				vec2 lg = vec2(UV.y, sdist) / 0.13;
+				vec2 lid = floor(lg);
+				vec2 lf = fract(lg) - 0.5;
+				float lh = h21(lid + 3.3 + v_seed);
+				float la = lh * 6.2832;
+				float lsz = mix(0.75, 1.25, h21(lid + 5.5));
+				vec2 lr = mat2(vec2(cos(la), sin(la)), vec2(-sin(la), cos(la))) * (lf - (vec2(h21(lid + 1.1), h21(lid + 2.2)) - 0.5) * 0.35);
+				float clump = smoothstep(0.35, 0.75, texture(noise_tex, vec2(UV.y * 0.09, 0.71) + v_seed * 3.0).g);
+				float dens = (0.12 + world_decay * 0.5) * clump * smoothstep(0.45, 0.05, sdist);
+				float leaf = smoothstep(1.0, 0.75, length(lr / (vec2(0.34, 0.16) * lsz))) * step(lh, dens);
+				float lc = h21(lid + 7.7);
+				vec3 lcol = lc < 0.45 ? vec3(0.2, 0.13, 0.07) : (lc < 0.8 ? vec3(0.3, 0.22, 0.1) : vec3(0.28, 0.26, 0.2));
+				gcol = mix(gcol, lcol * (0.85 + 0.3 * h21(lid + 9.9)), leaf * gut);
+			}
+			alb = mix(alb, gcol, gut);
+			rough = mix(rough, mix(ga.a, 0.92, gg), gut);
+			vec2 gxy = gb.rg * 2.0 - 1.0;
+			nmap = normalize(mix(nmap, vec3(gxy * 0.7, sqrt(max(0.0, 1.0 - dot(gxy, gxy)))), gut));
+			ao = mix(ao, gb.b, gut);
+			// água corre e para na sarjeta primeiro
+			crev = max(crev, gut * smoothstep(0.3, 0.05, sdist));
+			float gpn = texture(noise_tex, vec2(UV.y * 0.021, 0.37) + v_seed).r * 0.8 + nz.b * 0.2;
+			float gth = 0.66 - world_decay * 0.05;
+			standing = max(standing, gut * smoothstep(gth, gth + 0.015, gpn + smoothstep(0.45, 0.0, sdist) * 0.06 - 0.03) * smoothstep(0.05, 0.3, world_decay));
+			// emenda sarjeta/asfalto
+			alb *= 1.0 - joint_cov(abs(ax - edge_x), 0.012, pix) * 0.35;
+		}
 		// tracejado: distância até o centro do traço (contínua, sem o salto do fract)
 		float d6 = (fract(UV.y / 6.0 + 0.25) - 0.5) * 6.0;
 		float wy = dUV.y;
@@ -625,13 +937,16 @@ void fragment() {
 			float has_cur = step(0.45, rnd3) * (office ? 0.0 : 1.0) * (shop ? 0.0 : 1.0);
 			float cur = has_cur * max(step(wx, open_l), step(1.0 - open_r, wx));
 			float fold = 0.72 + 0.28 * sin(wc.x * 26.0 + sin(wc.y * 3.0 + rnd * 9.0) * 1.5);
+			// dobras somem quando ficam menores que o pixel (senão viram listras)
+			fold = mix(0.86, fold, clamp(1.0 - fwidth(wc.x * 4.14) * 2.0, 0.0, 1.0));
 			float back_l = day_l * 0.7 + lamp_l * lit * 1.4;
-			rad = mix(rad, cur_c * fold * (0.04 + back_l * 0.6), cur);
+			rad = mix(rad, cur_c * fold * back_l * 0.6, cur);
 			float blind_h = rnd4 * 0.9;
 			float has_blind = step(rnd3, 0.3) * (office ? 1.6 : 1.0) * (shop ? 0.0 : 1.0);
 			float slat = smoothstep(0.35, 0.5, abs(fract(wc.y / 0.055) - 0.5) * 2.0);
+			slat = mix(0.5, slat, clamp(1.0 - fwidth(wc.y / 0.055) * 1.5, 0.0, 1.0));
 			float blind = clamp(has_blind, 0.0, 1.0) * step(1.0 - blind_h, wy) * (1.0 - far_fade);
-			rad = mix(rad, mix(rad * 0.35, vec3(0.62, 0.6, 0.55) * (0.05 + back_l * 0.55), slat), blind);
+			rad = mix(rad, mix(rad * 0.35, vec3(0.62, 0.6, 0.55) * back_l * 0.55, slat), blind);
 			// de longe: média do cômodo (sem moiré)
 			vec3 far_rad = vec3(0.3, 0.28, 0.25) * (sky_in * 0.18 + lamp_c * occupancy * powered * 0.45 * mix(1.0, 0.55, daylight));
 			rad = mix(rad, far_rad, far_fade);
@@ -742,6 +1057,17 @@ void fragment() {
 		}
 	}
 
+	if (exterior && pothole > 0.0) {
+		standing = max(standing, pothole * step(0.45, h21(floor(w_pos.xz / 2.5) + 0.7)) * smoothstep(0.1, 0.4, world_decay) * smoothstep(0.55, 0.85, crev));
+	}
+	if (standing > 0.001) {
+		// lâmina d'água lisa (o reflexo do céu vem do SSR) com a borda úmida escura
+		alb = mix(alb, alb * 0.55, smoothstep(0.0, 0.3, standing));
+		alb = mix(alb, alb * 0.3 + vec3(0.01, 0.01, 0.009), standing);
+		rough = mix(rough, 0.03, standing);
+		nmap = normalize(mix(nmap, vec3(0.0, 0.0, 1.0), standing));
+		ao = mix(ao, 1.0, standing * 0.5);
+	}
 	// sombra própria do relevo só tira a parte do sol (a luz do céu continua)
 	alb *= 1.0 - pshadow * 0.7 * sun_strength * (1.0 - is_window);
 	if (interior_fill > 0.0) {

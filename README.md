@@ -100,12 +100,32 @@ não atravessar a gola. No carro a câmera volta para trás do veículo.
     profundidade, proporcional ao quadrado da distância);
   - janelas procedurais, faixas da rua e caixilhos com antisserrilhado analítico (`fwidth`) e, de longe, a
     média da grade no lugar do padrão (sem moiré); rugosidade aumenta onde a normal varia dentro do pixel;
+  - cada janela é um cômodo de verdade ("interior mapping"): vão recuado na parede (batente, peitoril e
+    verga em paralaxe), caixa com piso de tábuas/carpete/lajota, paredes pintadas com rodapé, quadros e
+    portas, móveis em caixas (sofá/cama com almofadas, cômoda com gavetas, guarda-roupa, mesas e arquivos
+    no escritório, gôndolas nas lojas), oclusão nos cantos, claridade do dia e lâmpada do teto como emissão,
+    cortinas com dobras e persianas translúcidas; o vidro é escuro, sujo e reflete o céu (SSR no
+    Forward+); quebrado, deixa cacos nas bordas;
+  - fachadas com escorridos de chuva e pichação no térreo (`assets/textures/decals/pixo.png`, gerada por
+    `tools/make_graffiti.py`), só na parede, mais forte depois do colapso;
+  - calçadas (modo 7: UV = ao longo da guia × distância da guia) com o piso de cada quarteirão: placas de
+    concreto com junta serrada e trincas, bloquete retangular ou sextavado com chanfro, pedra portuguesa
+    (pedrinha por pedrinha, ondas de Copacabana ou losangos, com topo abaulado), ladrilho hidráulico de
+    4 quadrados; guia de 15 cm (caiada em parte dos quarteirões), piso tátil e mato nas juntas;
+  - asfalto das ruas (a semente traz a meia largura): óleo no meio das faixas, trilha polida das rodas,
+    selante de trincas preto e brilhante, marcas de freada, sarjeta de concreto com terra e folhas secas
+    junto da guia e água parada na sarjeta e nos buracos (reflete o céu mesmo sem chuva);
   - folhas e grama com alfa que preserva a cobertura nos mipmaps e borda de 1 pixel (não somem de longe);
   - sol girando em passos de 0,15° (as bordas das sombras não "rastejam" a cada quadro);
   - plano próximo da câmera 0,12 m (0,05 m em 1ª pessoa) e filtro anisotrópico 8×.
 * **Camada distante** (`FarLayer`): terreno do mapa inteiro a 32 m/célula + silhueta de todos os prédios num
-  único MultiMesh (janelas procedurais que acompanham energia/apagão). Some onde o chunk real está carregado
-  (máscara 48×48 de chunks lida no shader) — dá para ver a cidade da serra por ~2 draw calls.
+  único MultiMesh (janelas procedurais que acompanham energia/apagão, estilo por prédio — janelas soltas,
+  faixas de vidro, vitrines —, lajes, platibanda e vidro que reflete o céu). Some onde o chunk real está
+  carregado (máscara 48×48 de chunks lida no shader) — dá para ver a cidade da serra por ~2 draw calls.
+* **Tratamento de câmera** (`shaders/post_cinematic.gdshader`, camada de tela abaixo da interface, criada
+  pelo `Settings`): nitidez (devolve o que o TAA/escala borram), gradação com sombras frias e luzes quentes,
+  curva suave, vinheta, granulação fina e aberração nas bordas; a intensidade segue o pós-processamento
+  (desligado no "Desligado"; `--sem-pos` para comparar).
 * **LOD de simulação** (`SimScheduler`): perto = física + percepção 8 Hz + animação por quadro; médio =
   movimento cinemático 3 Hz; longe = interpolado 1 Hz; fora = população abstrata (dados). Orçamento de CPU
   por quadro, fatiamento de tempo, *pooling* de infectados, pathfinding limitado ao grafo viário (A*).
@@ -352,6 +372,17 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
   pilares de canto, cornija, marquise e faixa de letreiro no térreo comercial, montantes entre vitrines,
   sacadas e peitoris alinhados às janelas dos residenciais, brises nos escritórios e alpendre nas casas.
   Custa ~860 triângulos e ~3 ms de geração (em thread) por chunk do centro; desligado no preset MUITO BAIXO.
+  As sacadas têm o que os moradores deixaram (`_balcony_life`: vasos, varal com roupa, cadeira,
+  condensadora); as lojas de bairro sem nome ganham placas pintadas na faixa de letreiro
+  (`ChunkBuilder._shop_signs`, Label3D sobre um painel colorido, algumas tortas com o abandono).
+* **Igreja matriz colonial** (`BuildingGen._church`, inclusive no LOD distante como silhueta): duas
+  torres com sineira aberta e sino de bronze, coruchéu de telha com pináculos e cruz, frontão barroco
+  (perfil calculado para cobrir a empena do telhado) com moldura, óculo e cruz, cimalha, cunhais e
+  embasamento na cor da cantaria, portada com arco e tímpano de madeira, janelas do coro com sacada de
+  ferro, janelões em arco nas laterais e adro de pedra.
+* **Rua**: postes de concreto com cruzeta, isoladores e fiação em catenária (média e baixa tensão, feixe de
+  telecom com rolos de reserva; cabos arrebentados pendurados depois do colapso), canteiros de terra com
+  mureta nas árvores de calçada e caminhos das praças em pedra portuguesa.
 * **Salvamento**: posição, inventário, equipamento, progresso, missões, decisões, veículos, estruturas,
   contêineres, portas, itens largados, facções, clima, horário e população.
 
