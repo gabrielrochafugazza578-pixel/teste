@@ -23,6 +23,9 @@ const CURB := 0.12
 ## e tudo que é posto no chão usa a altura da pista (ver road_lift/ground_height).
 const ROAD_EPS := 0.06
 const SIDEWALK := 3.5
+## Raio das esquinas arredondadas dos quarteirões (= largura da calçada: o canto
+## da calçada vira um quarto de círculo em volta do canto interno).
+const CORNER_R := SIDEWALK
 const RIVER_HALF := 18.0
 const RIVER_LEVEL := -2.2
 const RIVER_BED := -5.6
@@ -214,7 +217,7 @@ func visual_sink(x: float, z: float, h: float) -> float:
 	var sink := 0.0
 	if _urban_out_dist(x, z) <= 0.0 and absf(h) < 0.05:
 		# só onde a rua ou o quarteirão cobrem (margens do rio etc. ficam como estão)
-		if block_at(x, z) >= 0:
+		if block_at(x, z, false) >= 0:
 			sink = 0.3
 		else:
 			var q := Vector2(x, z)
@@ -510,23 +513,38 @@ func _grid_key(x: float, z: float) -> Vector2i:
 	return Vector2i(floori((x - URBAN.position.x) / SPACING), floori((z - URBAN.position.y) / SPACING))
 
 
-## Índice do quarteirão sob (x,z) ou -1 (rua).
-func block_at(x: float, z: float) -> int:
+## Ponto dentro do retângulo de cantos arredondados (raio CORNER_R).
+static func rounded_has(r: Rect2, p: Vector2) -> bool:
+	if not r.has_point(p):
+		return false
+	var cx := clampf(p.x, r.position.x + CORNER_R, r.end.x - CORNER_R)
+	var cz := clampf(p.y, r.position.y + CORNER_R, r.end.y - CORNER_R)
+	return Vector2(p.x - cx, p.y - cz).length_squared() <= CORNER_R * CORNER_R
+
+
+static func _blk_has(r: Rect2, p: Vector2, rounded: bool) -> bool:
+	return rounded_has(r, p) if rounded else r.has_point(p)
+
+
+## Índice do quarteirão sob (x,z) ou -1 (rua). rounded = false ignora o
+## arredondamento das esquinas (o retângulo inteiro do quarteirão).
+func block_at(x: float, z: float, rounded: bool = true) -> int:
 	var key := _grid_key(x, z)
 	var bid: int = block_grid.get(key, -1)
+	var q := Vector2(x, z)
 	if bid < 0:
 		# regiões mescladas
 		for i in merged_regions.size():
 			var b: Dictionary = blocks[i]
-			if (b["rect"] as Rect2).has_point(Vector2(x, z)):
+			if _blk_has(b["rect"], q, rounded):
 				return i
 		return -1
 	var rect: Rect2 = blocks[bid]["rect"]
-	if rect.has_point(Vector2(x, z)):
+	if _blk_has(rect, q, rounded):
 		return bid
 	for i in merged_regions.size():
 		var b: Dictionary = blocks[i]
-		if (b["rect"] as Rect2).has_point(Vector2(x, z)):
+		if _blk_has(b["rect"], q, rounded):
 			return i
 	return -1
 

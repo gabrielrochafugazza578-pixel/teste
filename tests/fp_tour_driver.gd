@@ -107,6 +107,25 @@ func _novos() -> void:
 		await _go(fo[0], fo[1] + Vector3(0, 6, 0), 10.0, W.CLEAR, 0.12)
 		await _wait(1.5)
 		await _shot("sacadas")
+	if _quer("esquina"):
+		# cruzamento mais perto da avenida central: esquina arredondada, faixa e semáforo
+		var av2 := L.poi_pos("avenida_central")
+		var best := Rect2()
+		var bd := INF
+		for pr: Rect2 in L.patches:
+			var dd := pr.get_center().distance_to(Vector2(av2.x, av2.z) + Vector2(0, 30))
+			if dd < bd:
+				bd = dd
+				best = pr
+		var cn := best.end
+		await _go(Vector3(best.get_center().x - 2.0, 0.0, best.get_center().y - 3.0), Vector3(cn.x + 2.5, 0.3, cn.y + 2.5), 9.5, W.CLEAR, -0.12)
+		await _wait(1.5)
+		await _shot("esquina")
+	if _quer("rua"):
+		var av3 := L.poi_pos("avenida_central")
+		await _go(av3 + Vector3(4, 0, 30), av3 + Vector3(4, 0, -20), 9.0, W.CLEAR)
+		await _wait(1.5)
+		await _shot("rua_manha")
 	if _quer("comercio"):
 		var av := L.poi_pos("avenida_central")
 		await _go(av + Vector3(6, 0, 40), av + Vector3(9, 2, 10), 10.5, W.CLEAR, -0.02)

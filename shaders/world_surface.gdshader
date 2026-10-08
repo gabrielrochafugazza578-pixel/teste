@@ -357,7 +357,7 @@ void fragment() {
 			float far_j = smoothstep(0.08, 0.3, pix / csz.y);
 			jn = joint_cov(min(de.x, de.y), 0.005, pix) * (1.0 - far_j);
 			float r1 = h21(cell + v_seed * 37.0);
-			pc = vec3(0.46, 0.45, 0.43) * mix(0.86, 1.08, r1) * (r1 > 0.92 ? vec3(1.1, 1.08, 1.04) : vec3(1.0));
+			pc = vec3(0.4, 0.39, 0.37) * mix(0.86, 1.08, r1) * (r1 > 0.92 ? vec3(1.1, 1.08, 1.04) : vec3(1.0));
 			if (r1 < 0.12 + world_decay * 0.12) {
 				vec2 fc = f - 0.5;
 				float cr = abs(fc.x * 0.8 + fc.y * (r1 * 8.0 - 0.5) + (texture(noise_tex, sp * 0.9).r - 0.5) * 0.3) * csz.x;
@@ -484,6 +484,23 @@ void fragment() {
 			gap_c = vec3(0.24, 0.22, 0.2);
 			prough = 0.8;
 		}
+		// faixa de grama junto da guia (calçadas dos bairros residenciais): capim
+		// com trilhas de terra onde o povo pisa, cercada por duas juntas de concreto
+		if (pat < 0.5 && vs > 0.7 && vs < 0.9) {
+			float lawn = aa_step(0.45, sp.y) * (1.0 - aa_step(1.35, sp.y));
+			float s7 = layer_scales[7];
+			vec4 la = textureGrad(tex_a, vec3(w_pos.xz * s7, 7.0), dFdx(w_pos.xz) * s7, dFdy(w_pos.xz) * s7);
+			float llum = dot(la.rgb, vec3(0.299, 0.587, 0.114));
+			float lavg = dot(textureLod(tex_a, vec3(0.5, 0.5, 7.0), 11.0).rgb, vec3(0.299, 0.587, 0.114));
+			vec3 lcol = mix(la.rgb, vec3(0.1, 0.15, 0.033) * (llum / max(lavg, 0.01)), 0.75);
+			lcol = mix(lcol, vec3(0.28, 0.23, 0.15) * (0.7 + llum), smoothstep(0.58, 0.78, nz.b) * 0.7);
+			lcol = mix(lcol, vec3(0.32, 0.29, 0.16) * (0.7 + llum), world_decay * 0.35);
+			pc = mix(pc, lcol, lawn);
+			jn = mix(jn, 0.0, lawn);
+			jn = max(jn, joint_cov(abs(sp.y - 0.45), 0.012, pix) + joint_cov(abs(sp.y - 1.35), 0.012, pix));
+			tilt *= 1.0 - lawn;
+			prough = mix(prough, 0.95, lawn);
+		}
 		// piso tátil direcional (amarelo ou vermelho) no meio da calçada
 		if (fract(vs * 3.7) < 0.3 && abs(pat - 2.0) > 0.5) {
 			float ty = sp.y - 1.25;
@@ -600,9 +617,12 @@ void fragment() {
 	// UV.x = distância do eixo da via (m), UV.y = distância ao longo da via.
 	if (v_wmode > 3.5 && v_wmode < 6.5) {
 		float ax = abs(UV.x);
-		// semente = meia largura / 32 (+0,5 nas ruas com guia)
-		bool has_curb = v_seed > 0.5;
-		float hw = fract(v_seed * 2.0) * 16.0;
+		// semente (ChunkBuilder.road_seed): +0,5 com guia; meia largura em passos de
+		// 0,5 m / 64; comprimento do trecho / 65536
+		bool has_curb = v_seed >= 0.5;
+		float rsd = (v_seed - (has_curb ? 0.5 : 0.0)) * 64.0;
+		float hw = floor(rsd + 1e-4) * 0.5;
+		float seg_len = fract(rsd + 1e-4) * 1024.0;
 		float pix = max(max(dUV.x, dUV.y), 1e-4);
 		// --- faixa em que o ponto está (para o desgaste do tráfego)
 		float edge_x = has_curb ? hw - 0.45 : (v_wmode > 5.5 ? 4.55 : hw - 0.25);
@@ -652,7 +672,10 @@ void fragment() {
 		// --- sarjeta de concreto junto da guia: juntas, terra, areia e folhas secas;
 		// é por onde a água da chuva corre
 		if (has_curb) {
-			float gut = aa_step(edge_x, ax);
+			// a sarjeta acompanha a guia reta: nas pontas do trecho a guia faz a curva
+			// da esquina (raio 3,5 m) e ali fica só o asfalto
+			float ends = smoothstep(3.3, 3.6, UV.y) * smoothstep(3.3, 3.6, seg_len - UV.y);
+			float gut = aa_step(edge_x, ax) * ends;
 			float s1 = layer_scales[1];
 			vec2 guv = vec2(UV.y, ax) * s1 + vec2(v_seed * 7.0, 0.0);
 			vec4 ga = textureGrad(tex_a, vec3(guv, 1.0), vec2(dFdx(UV.y), dFdx(ax)) * s1, vec2(dFdy(UV.y), dFdy(ax)) * s1);
@@ -691,7 +714,7 @@ void fragment() {
 			float gth = 0.66 - world_decay * 0.05;
 			standing = max(standing, gut * smoothstep(gth, gth + 0.015, gpn + smoothstep(0.45, 0.0, sdist) * 0.06 - 0.03) * smoothstep(0.05, 0.3, world_decay));
 			// emenda sarjeta/asfalto
-			alb *= 1.0 - joint_cov(abs(ax - edge_x), 0.012, pix) * 0.35;
+			alb *= 1.0 - joint_cov(abs(ax - edge_x), 0.012, pix) * 0.35 * ends;
 		}
 		// tracejado: distância até o centro do traço (contínua, sem o salto do fract)
 		float d6 = (fract(UV.y / 6.0 + 0.25) - 0.5) * 6.0;
@@ -952,7 +975,9 @@ void fragment() {
 			rad = mix(rad, far_rad, far_fade);
 			// vidro: sujeira, embaçado e reflexo; quebrado deixa só cacos nas bordas
 			float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
-			float gdirt = smoothstep(0.42, 0.85, texture(noise_tex, w_pos.xy * 0.33 + w_pos.zy * 0.33 + rnd).g) * (0.25 + world_decay * 0.6);
+			// sujeira do vidro em filetes verticais (chuva que escorre), não em manchas
+			// redondas: com o reflexo do céu, manchas viravam "camuflagem"
+			float gdirt = smoothstep(0.3, 0.9, texture(noise_tex, vec2((w_pos.x + w_pos.z) * 0.8, w_pos.y * 0.07) + rnd).g) * (0.25 + world_decay * 0.6);
 			gdirt = mix(gdirt, 0.3 * (0.25 + world_decay * 0.6), far_fade);
 			vec2 edge_m = min(f - wmin, wmax - f) * cell_size;
 			float shard = step(min(edge_m.x, edge_m.y), 0.05 + 0.3 * texture(noise_tex, wc * 0.9 + rnd * 3.0).r);
@@ -960,7 +985,7 @@ void fragment() {
 			float transmit = (1.0 - fres * 0.85) * (1.0 - gdirt * 0.6) * (1.0 - broken) + broken;
 			vec3 g_alb = mix(vec3(0.012), vec3(0.2, 0.19, 0.17), gdirt * 0.6);
 #if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
-			float g_rough = mix(0.035, 0.6, gdirt);
+			float g_rough = mix(0.035, 0.28, gdirt);
 #else
 			// sem reflexo de tela: um céu falso no albedo; um pouco fosco (sem cintilar)
 			float g_rough = mix(0.22, 0.7, gdirt);

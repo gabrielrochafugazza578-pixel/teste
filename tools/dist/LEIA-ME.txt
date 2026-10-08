@@ -259,6 +259,9 @@ NOVIDADES DESTA VERSÃO
   - Postes de concreto com fiação, igreja matriz colonial (torres com sino,
     frontão, janelas em arco), sacadas com vasos, varal e cadeiras, e placas
     das lojas de bairro (padaria, farmácia, bazar...).
+  - Esquinas arredondadas, coreto e chafariz na praça, posto de gasolina
+    com cobertura, bombas e totem de preços novos, copas das árvores que
+    deixam passar a luz do sol.
 
 OPÇÕES DE LINHA DE COMANDO
   Linux:   ./jogar.sh -- --skip-menu                    novo jogo direto (com a abertura)

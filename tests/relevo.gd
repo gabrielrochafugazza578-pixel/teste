@@ -114,7 +114,7 @@ func _calcadas(mb: MeshBuf) -> void:
 	var code := Assets.uv2_code(Assets.L_ASPHALT, 4)
 	var y := 0.02
 	mb.quad(Vector3(36, y, z0 + hw), Vector3(100, y, z0 + hw), Vector3(100, y, z0 - hw), Vector3(36, y, z0 - hw), Vector3.UP,
-		Vector2(-hw, 0.0), Vector2(-hw, 64.0), Vector2(hw, 64.0), Vector2(hw, 0.0), code, hw / 32.0 + 0.5, Color(1, 1, 1))
+		Vector2(-hw, 0.0), Vector2(-hw, 64.0), Vector2(hw, 64.0), Vector2(hw, 0.0), code, ChunkBuilder.road_seed(hw, true, 64.0), Color(1, 1, 1))
 	# [piso, guia caiada, variação]
 	var kinds := [[0, false, 0.3], [1, true, 0.3], [2, false, 0.3], [3, true, 0.3],
 		[1, false, 0.7], [2, true, 0.7], [3, false, 0.75], [0, true, 0.7]]
@@ -130,11 +130,7 @@ func _calcadas(mb: MeshBuf) -> void:
 		mb.quad(Vector3(inner.position.x, cy, inner.position.y), Vector3(inner.end.x, cy, inner.position.y), Vector3(inner.end.x, cy, inner.end.y), Vector3(inner.position.x, cy, inner.end.y),
 			Vector3.UP, inner.position, Vector2(inner.end.x, inner.position.y), inner.end, Vector2(inner.position.x, inner.end.y), Assets.uv2_code(Assets.L_GRASS), 0.0, Color(1, 1, 1))
 		var gcol := Color(0.98, 0.97, 0.93) if k[1] else Color(0.7, 0.7, 0.68)
-		var cc := Assets.uv2_code(Assets.L_CONCRETE)
-		mb.wall(Vector2(br.end.x, br.position.y), Vector2(br.position.x, br.position.y), -0.3, cy + 0.3, Vector3.FORWARD, cc, 0.0, gcol)
-		mb.wall(Vector2(br.position.x, br.end.y), Vector2(br.end.x, br.end.y), -0.3, cy + 0.3, Vector3.BACK, cc, 0.0, gcol)
-		mb.wall(Vector2(br.position.x, br.position.y), Vector2(br.position.x, br.end.y), -0.3, cy + 0.3, Vector3.LEFT, cc, 0.0, gcol)
-		mb.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, cy + 0.3, Vector3.RIGHT, cc, 0.0, gcol)
+		ChunkBuilder._curb_ring(mb, br, cy, gcol)
 
 
 ## Igreja matriz (x 110..128, z 40..70, fachada para +z) sobre um chão de praça.

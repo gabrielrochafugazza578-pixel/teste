@@ -382,7 +382,11 @@ clima e áudio do gameplay — sem vídeo, sem imagens pré-renderizadas.
   ferro, janelões em arco nas laterais e adro de pedra.
 * **Rua**: postes de concreto com cruzeta, isoladores e fiação em catenária (média e baixa tensão, feixe de
   telecom com rolos de reserva; cabos arrebentados pendurados depois do colapso), canteiros de terra com
-  mureta nas árvores de calçada e caminhos das praças em pedra portuguesa.
+  mureta nas árvores de calçada e caminhos das praças em pedra portuguesa; esquinas arredondadas
+  (raio = largura da calçada: calçada em quarto de círculo, guia curva, asfalto no canto, colisão em cruz +
+  losangos e `WorldLayout.block_at` respeitando a curva), faixas de pedestre recuadas até a guia reta;
+  coreto e chafariz seco nas praças; posto com cobertura de testeira listrada, forro com luminárias, ilhas
+  com protetores, bombas novas, piso em placas de concreto e totem de preços.
 * **Salvamento**: posição, inventário, equipamento, progresso, missões, decisões, veículos, estruturas,
   contêineres, portas, itens largados, facções, clima, horário e população.
 

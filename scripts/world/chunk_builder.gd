@@ -146,10 +146,8 @@ static func _roads(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) -> 
 			var n := (q1 - q0).cross(q3 - q0).normalized()
 			if n.y < 0.0:
 				n = -n
-			# semente = meia largura / 32 (+0,5 com guia e sarjeta): o shader acha as
-			# faixas, a sarjeta e a trilha das rodas
 			out.quad(q0, q1, q2, q3, n, Vector2(-hw, v0), Vector2(-hw, v1), Vector2(hw, v1), Vector2(hw, v0), code,
-				hw / 32.0 + (0.5 if kind in ["street", "avenue"] else 0.0), Color(1, 1, 1))
+				road_seed(hw, kind in ["street", "avenue"], len), Color(1, 1, 1))
 			if kind == "bridge" or kind == "tunnel":
 				_bridge_or_tunnel_piece(out, kind, p0, p1, y0, y1, hw, side, lod)
 			elif kind == "highway" and lod <= 1:
@@ -178,11 +176,20 @@ static func _roads(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) -> 
 			for sgn: float in [-1.0, 1.0]:
 				for i in 7:
 					var x := pr.position.x + 0.6 + i * (pr.size.x - 1.2) / 6.0
-					var zz := pc.y + sgn * (pr.size.y * 0.5 + 1.2)
+					# recuada do cruzamento pelo raio da esquina (chega na guia reta)
+					var zz := pc.y + sgn * (pr.size.y * 0.5 + 1.2 + WorldLayout.CORNER_R)
 					out.box(Vector3(x, 0.03, zz), Vector3(0.45, 0.01, 2.2), zc, 0.0, wc, 4)
 					var zz2 := pr.position.y + 0.6 + i * (pr.size.y - 1.2) / 6.0
-					var xx := pc.x + sgn * (pr.size.x * 0.5 + 1.2)
+					var xx := pc.x + sgn * (pr.size.x * 0.5 + 1.2 + WorldLayout.CORNER_R)
 					out.box(Vector3(xx, 0.03, zz2), Vector3(2.2, 0.01, 0.45), zc, 0.0, wc, 4)
+
+
+## Semente das pistas com faixas (lida pelo shader): +0,5 se tem guia e sarjeta,
+## meia largura em passos de 0,5 m / 64 e o comprimento do trecho (m) / 65536
+## — com isso o shader acha as faixas, a trilha das rodas e onde a sarjeta
+## acaba (a guia faz a curva da esquina nos primeiros e últimos metros).
+static func road_seed(hw: float, curb: bool, length: float) -> float:
+	return (0.5 if curb else 0.0) + floorf(hw * 2.0 + 0.01) / 64.0 + clampf(length, 0.0, 1023.0) / 65536.0
 
 
 static func _bridge_or_tunnel_piece(out: MeshBuf, kind: String, p0: Vector2, p1: Vector2, y0: float, y1: float, hw: float, side: Vector2, lod: int) -> void:
@@ -301,7 +308,7 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 		var inner := br.grow(-WorldLayout.SIDEWALK)
 		# anel da calçada: o shader desenha o piso de cada quarteirão (modo 7)
 		var sws := _sidewalk_seed(blk)
-		_sidewalk_ring(out, br, y, Assets.uv2_code(Assets.L_CONCRETE, 7 if lod <= 1 else 0), sws, Color(0.85, 0.84, 0.8))
+		_sidewalk_ring(out, br, y, Assets.uv2_code(Assets.L_CONCRETE, 7 if lod <= 1 else 0), sws, Color(0.85, 0.84, 0.8), 8 if lod <= 1 else 3)
 		# miolo
 		var gl := Assets.L_CONCRETE
 		var gc := Color(0.8, 0.8, 0.78)
@@ -319,15 +326,17 @@ static func _blocks(layout: WorldLayout, c: Vector2i, out: MeshBuf, lod: int) ->
 			gl = Assets.L_TILES
 			gc = Color(0.75, 0.72, 0.7)
 		_top(out, inner, y, Assets.uv2_code(gl), gc)
-		# meio-fio (faces laterais); caiado de branco em parte dos quarteirões
-		var cc := Assets.uv2_code(Assets.L_CONCRETE)
+		# meio-fio (faces laterais, curvo nas esquinas); caiado de branco em parte dos quarteirões
 		var gcol := Color(0.98, 0.97, 0.93) if int(sws * 8.0) >= 4 else Color(0.7, 0.7, 0.68)
-		out.wall(Vector2(br.end.x, br.position.y), Vector2(br.position.x, br.position.y), -0.3, y + 0.3, Vector3.FORWARD, cc, 0.0, gcol)
-		out.wall(Vector2(br.position.x, br.end.y), Vector2(br.end.x, br.end.y), -0.3, y + 0.3, Vector3.BACK, cc, 0.0, gcol)
-		out.wall(Vector2(br.position.x, br.position.y), Vector2(br.position.x, br.end.y), -0.3, y + 0.3, Vector3.LEFT, cc, 0.0, gcol)
-		out.wall(Vector2(br.end.x, br.end.y), Vector2(br.end.x, br.position.y), -0.3, y + 0.3, Vector3.RIGHT, cc, 0.0, gcol)
+		_curb_ring(out, br, y, gcol, 8 if lod <= 1 else 3)
 		if lod <= 1:
-			out.add_box_collider(Vector3(br.get_center().x, (y - 0.4) * 0.5, br.get_center().y), Vector3(br.size.x, y + 0.4, br.size.y))
+			# colisão em cruz + um losango em cada esquina (acompanha a curva da guia)
+			var R := WorldLayout.CORNER_R
+			var bcy := (y - 0.4) * 0.5
+			out.add_box_collider(Vector3(br.get_center().x, bcy, br.get_center().y), Vector3(br.size.x - 2.0 * R, y + 0.4, br.size.y))
+			out.add_box_collider(Vector3(br.get_center().x, bcy, br.get_center().y), Vector3(br.size.x, y + 0.4, br.size.y - 2.0 * R))
+			for cq: Vector2 in [br.position + Vector2(R, R), Vector2(br.end.x - R, br.position.y + R), br.end - Vector2(R, R), Vector2(br.position.x + R, br.end.y - R)]:
+				out.add_collider(Transform3D(Basis(Vector3.UP, PI * 0.25), Vector3(cq.x, bcy, cq.y)), Vector3(R * 1.38, y + 0.4, R * 1.38))
 		# estacionamento (e pátios de asfalto de mercado, hospital, delegacia, terminal): faixas das vagas
 		if lod == 0 and kind in LOT_KINDS:
 			var paint := Assets.uv2_code(Assets.L_CONCRETE)
@@ -403,26 +412,71 @@ static func parking_bays(inner: Rect2) -> Array:
 	return out
 
 
-## Anel da calçada em 4 trapézios com canto a 45°: UV = (posição ao longo do
-## meio-fio, distância do meio-fio), contínua nos cantos, para o shader saber
-## onde fica a guia e para onde correm as ondas da pedra portuguesa.
-static func _sidewalk_ring(out: MeshBuf, br: Rect2, y: float, code: float, seed_v: float, col: Color) -> void:
+## Anel da calçada: 4 faixas retas e as esquinas em quarto de círculo (raio =
+## largura da calçada, centro no canto interno). UV = (posição ao longo da
+## guia, distância da guia), para o shader saber onde fica a guia e para onde
+## correm as ondas da pedra portuguesa; na esquina o "ao longo" é o arco.
+const RING_DIRS := [Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0), Vector2(0, -1)]
+
+
+static func _sidewalk_ring(out: MeshBuf, br: Rect2, y: float, code: float, seed_v: float, col: Color, segs: int = 8) -> void:
 	var s := WorldLayout.SIDEWALK
+	var R := WorldLayout.CORNER_R
 	var p := [br.position, Vector2(br.end.x, br.position.y), br.end, Vector2(br.position.x, br.end.y)]
-	var q := [br.position + Vector2(s, s), Vector2(br.end.x - s, br.position.y + s), br.end - Vector2(s, s), Vector2(br.position.x + s, br.end.y - s)]
 	for i in 4:
 		var a: Vector2 = p[i]
 		var b: Vector2 = p[(i + 1) % 4]
-		var ai: Vector2 = q[i]
-		var bi: Vector2 = q[(i + 1) % 4]
-		var dir := (b - a).normalized()
-		out.quad(Vector3(a.x, y, a.y), Vector3(b.x, y, b.y), Vector3(bi.x, y, bi.y), Vector3(ai.x, y, ai.y), Vector3.UP,
-			Vector2(a.dot(dir), 0.0), Vector2(b.dot(dir), 0.0), Vector2(bi.dot(dir), s), Vector2(ai.dot(dir), s), code, seed_v, col)
+		var dir: Vector2 = RING_DIRS[i]
+		var nd: Vector2 = RING_DIRS[(i + 1) % 4]
+		var pd: Vector2 = RING_DIRS[(i + 3) % 4]
+		var a2 := a + dir * R
+		var b2 := b - dir * R
+		var ai := a2 - pd * s
+		var bi := b2 + nd * s
+		out.quad(Vector3(a2.x, y, a2.y), Vector3(b2.x, y, b2.y), Vector3(bi.x, y, bi.y), Vector3(ai.x, y, ai.y), Vector3.UP,
+			Vector2(a2.dot(dir), 0.0), Vector2(b2.dot(dir), 0.0), Vector2(bi.dot(dir), s), Vector2(ai.dot(dir), s), code, seed_v, col)
+		# esquina em b: leque a partir do canto interno
+		var cc := b - dir * R + nd * R
+		var u0 := b2.dot(dir)
+		for k in segs:
+			var t0 := float(k) / segs * PI * 0.5
+			var t1 := float(k + 1) / segs * PI * 0.5
+			var p0 := cc + (dir * sin(t0) - nd * cos(t0)) * R
+			var p1 := cc + (dir * sin(t1) - nd * cos(t1)) * R
+			out.tri(Vector3(cc.x, y, cc.y), Vector3(p0.x, y, p0.y), Vector3(p1.x, y, p1.y), Vector3.UP,
+				Vector2(u0 + R * (t0 + t1) * 0.5, s), Vector2(u0 + R * t0, 0.0), Vector2(u0 + R * t1, 0.0), code, seed_v, col)
+
+
+## Guia (faces laterais) com as curvas das esquinas e o asfalto que preenche o
+## canto do retângulo do quarteirão fora da curva.
+static func _curb_ring(out: MeshBuf, br: Rect2, y: float, col: Color, segs: int = 8) -> void:
+	var R := WorldLayout.CORNER_R
+	var cc_code := Assets.uv2_code(Assets.L_CONCRETE)
+	var asph := Assets.uv2_code(Assets.L_ASPHALT)
+	var p := [br.position, Vector2(br.end.x, br.position.y), br.end, Vector2(br.position.x, br.end.y)]
+	for i in 4:
+		var a: Vector2 = p[i]
+		var b: Vector2 = p[(i + 1) % 4]
+		var dir: Vector2 = RING_DIRS[i]
+		var nd: Vector2 = RING_DIRS[(i + 1) % 4]
+		var outn := Vector3(dir.y, 0.0, -dir.x)
+		out.wall(a + dir * R, b - dir * R, -0.3, y + 0.3, outn, cc_code, 0.0, col)
+		var cc := b - dir * R + nd * R
+		for k in segs:
+			var t0 := float(k) / segs * PI * 0.5
+			var t1 := float(k + 1) / segs * PI * 0.5
+			var p0 := cc + (dir * sin(t0) - nd * cos(t0)) * R
+			var p1 := cc + (dir * sin(t1) - nd * cos(t1)) * R
+			var m := ((p0 + p1) * 0.5 - cc).normalized()
+			out.wall(p0, p1, -0.3, y + 0.3, Vector3(m.x, 0.0, m.y), cc_code, 0.0, col, R * t0)
+			# asfalto entre a curva e o canto do retângulo (na altura da rua)
+			out.tri(Vector3(b.x, 0.021, b.y), Vector3(p1.x, 0.021, p1.y), Vector3(p0.x, 0.021, p0.y), Vector3.UP, b, p1, p0, asph, 0.0, Color(1, 1, 1))
 
 
 ## Piso da calçada do quarteirão, codificado na semente (lida pelo shader):
 ## floor(s*8) % 4 = 0 placas de concreto, 1 bloquete (retangular ou sextavado),
 ## 2 pedra portuguesa em ondas, 3 ladrilho hidráulico; +4 = guia caiada.
+## A parte fracionária varia o desenho; nas placas, 0,72–0,88 = faixa de grama.
 static func _sidewalk_seed(blk: Dictionary) -> float:
 	var r := Util.rng(int(blk["id"]) * 31 + 7)
 	var dist: String = blk["district"]
@@ -435,9 +489,13 @@ static func _sidewalk_seed(blk: Dictionary) -> float:
 		pat = 1 if roll < 0.4 else (3 if roll < 0.7 else (2 if roll < 0.8 else 0))
 	else:
 		pat = 0 if roll < 0.55 else (3 if roll < 0.8 else 1)
+	var vs := r.randf_range(0.05, 0.68)
+	# bairros residenciais: metade das calçadas de placas com faixa de grama
+	if pat == 0 and dist in ["acacias", "vila_operaria", "bairro_alto", "parque_norte", "periferia"] and r.randf() < 0.5:
+		vs = r.randf_range(0.72, 0.88)
 	if r.randf() < 0.35:
 		pat += 4
-	return (pat + r.randf_range(0.05, 0.88)) / 8.0
+	return (pat + vs) / 8.0
 
 
 static func _top(out: MeshBuf, r: Rect2, y: float, code: float, col: Color) -> void:
@@ -577,7 +635,8 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 				poles.append(pxf)
 				t += lamp_step
 			if wires != null:
-				_wires(wires, poles, r, float(opts.get("decay", 0.0)))
+				# gerador próprio: a fiação não mexe na sequência dos outros objetos da rua
+				_wires(wires, poles, Util.rng(Util.hash2(int(o.x * 4.0), int(o.y * 4.0), 5150)), float(opts.get("decay", 0.0)))
 			# árvores de calçada
 			t = 5.0 + r.randf() * 5.0
 			while t < slen - 4.0:
@@ -610,7 +669,9 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 			for corner in [br.position, Vector2(br.end.x, br.position.y), br.end, Vector2(br.position.x, br.end.y)]:
 				var cv: Vector2 = corner
 				var inward := (br.get_center() - cv).normalized()
-				var p := cv + inward * 0.9
+				# na calçada da esquina arredondada: 0,7 m para dentro da curva da guia
+				var dg := Vector2(signf(br.get_center().x - cv.x), signf(br.get_center().y - cv.y))
+				var p := cv + dg * WorldLayout.CORNER_R - dg.normalized() * (WorldLayout.CORNER_R - 0.7)
 				_add_prop(props, "traffic_light", Transform3D(Basis(Vector3.UP, Util.dir_to_yaw(Vector3(-inward.x, 0, -inward.y))), Vector3(p.x, y, p.y)))
 		# conteúdo do miolo por tipo
 		var inner := br.grow(-WorldLayout.SIDEWALK)
@@ -631,9 +692,21 @@ static func _street_props(layout: WorldLayout, c: Vector2i, props: Dictionary, t
 							_coreto(wires, Vector3(spots[si].x, y, spots[si].y), colliders)
 						else:
 							_chafariz(wires, Vector3(spots[si].x, y, spots[si].y), colliders)
+				# largo diante da igreja: sem árvores tapando a fachada
+				var church_doors: Array[Vector2] = []
+				for b2: Dictionary in layout.buildings:
+					if b2["type"] == "church" and (b2["rect"] as Rect2).intersects(br):
+						var dd: Vector3 = BuildingGen.door_info(b2)[0]
+						var dn2: Vector3 = BuildingGen.door_info(b2)[1]
+						church_doors.append(Vector2(dd.x + dn2.x * 9.0, dd.z + dn2.z * 9.0))
 				for i in int(inner.get_area() / 110.0 * float(opts.get("veg_density", 1.0))):
 					var p := Vector2(r.randf_range(inner.position.x + 2, inner.end.x - 2), r.randf_range(inner.position.y + 2, inner.end.y - 2))
 					if absf(p.x - br.get_center().x) < 3.0 or absf(p.y - br.get_center().y) < 3.0:
+						continue
+					var in_largo := false
+					for cd in church_doors:
+						in_largo = in_largo or p.distance_to(cd) < 13.0
+					if in_largo:
 						continue
 					var near_spot := false
 					for sp in spots:
