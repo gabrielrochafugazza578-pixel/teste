@@ -23,6 +23,9 @@ void fragment() {
 	// (luminância limitada: as pontas claras da foto viravam fios brancos)
 	c = mix(c, hair_tint.rgb * clamp(l * 2.4, 0.25, 1.35), hair_tint.a);
 	c = mix(c, c * vec3(0.7, 0.66, 0.6), clamp(grime, 0.0, 1.0) * 0.4);
+	// cabelo preto de verdade nunca é 0: sobe o piso e varia o tom fio a fio para
+	// não virar um bloco chapado
+	c = max(c, vec3(0.034, 0.03, 0.028)) * (0.88 + 0.24 * fract(sin(dot(floor(UV * 380.0), vec2(12.9898, 78.233))) * 43758.5453));
 	ALBEDO = c * (1.0 - clamp(wetness, 0.0, 1.0) * 0.3);
 	ALPHA = a.a;
 	ALPHA_SCISSOR_THRESHOLD = cutoff;

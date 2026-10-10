@@ -90,6 +90,13 @@ var _rest_o := PackedVector3Array()
 var _flinch := Vector3.ZERO
 var _twitch := Vector3.ZERO
 var _twitch_timer: float = 1.0
+# vida ociosa (parado): olhares em volta, troca de apoio, ombros que sobem na respiração
+var _gl_timer: float = 1.5
+var _gl_goal := Vector2.ZERO        # (yaw, pitch) em graus
+var _gl_cur := Vector2.ZERO
+var _ws_timer: float = 4.0
+var _ws_goal: float = 0.0
+var _ws_cur: float = 0.0
 var _rng := RandomNumberGenerator.new()
 
 # estilo (interpolado ao trocar, sem "pulo" entre errante e corrida)
@@ -893,8 +900,51 @@ func _additive(dt: float) -> void:
 		_addf(HumanoidMeshBuilder.NECK, _twitch * 0.3)
 		_addf(HumanoidMeshBuilder.UARM_R, Vector3(0, 0, _twitch.z * 0.4))
 		_twitch = _twitch.lerp(Vector3.ZERO, 1.0 - exp(-6.0 * dt))
+	_idle_life(dt)
 	# inclinação em curvas
 	_addf(HumanoidMeshBuilder.SPINE, Vector3(0, 0, clampf(-turn_rate * 4.0, -8.0, 8.0) * clampf(speed / 3.0, 0.0, 1.0)))
+
+
+## Gestos de quem está parado e livre: olha em volta (cabeça acompanha o olhar com
+## o tronco um pouco atrás), troca o peso de uma perna para a outra e respira
+## com os ombros. Some ao andar, em ação ou nos estilos não humanos.
+func _idle_life(dt: float) -> void:
+	var calm := (1.0 - smoothstep(0.03, 0.35, speed)) * (1.0 if (action.is_empty() and style == "human" and grounded) else 0.0)
+	_gl_timer -= dt
+	if _gl_timer <= 0.0:
+		_gl_timer = _rng.randf_range(1.8, 6.0)
+		if _rng.randf() < 0.35:
+			_gl_goal = Vector2.ZERO
+		else:
+			_gl_goal = Vector2(_rng.randf_range(-42.0, 42.0), _rng.randf_range(-9.0, 7.0))
+	_ws_timer -= dt
+	if _ws_timer <= 0.0:
+		_ws_timer = _rng.randf_range(5.0, 11.0)
+		_ws_goal = -signf(_ws_goal) if absf(_ws_goal) > 0.1 else (1.0 if _rng.randf() < 0.5 else -1.0)
+	# olhar: rápido no começo (sacada), depois assenta
+	_gl_cur = _gl_cur.lerp(_gl_goal, 1.0 - exp(-3.2 * dt))
+	_ws_cur = lerpf(_ws_cur, _ws_goal, 1.0 - exp(-1.1 * dt))
+	if calm < 0.001:
+		return
+	var HB := HumanoidMeshBuilder
+	var g := _gl_cur * calm
+	_addf(HB.NECK, Vector3(g.y * 0.3, g.x * 0.35, 0.0))
+	_addf(HB.HEAD, Vector3(g.y * 0.7, g.x * 0.5, -g.x * 0.04))
+	_addf(HB.CHEST, Vector3(0.0, g.x * 0.12, 0.0))
+	var w := _ws_cur * calm
+	_addf(HB.HIPS, Vector3(0.0, 0.0, 2.6 * w))
+	_addf(HB.SPINE, Vector3(0.0, 0.0, -1.8 * w))
+	_addf(HB.CHEST, Vector3(0.0, 0.0, -1.2 * w))
+	_addf(HB.HEAD, Vector3(0.0, 0.0, 1.2 * w))
+	_hips_final += Vector3(0.012 * w, 0.0, 0.0) * hs_idle()
+	# respiração nos ombros
+	var br := sin(t * 1.7) * breathing * calm
+	_addf(HB.UARM_L, Vector3(0.0, 0.0, 1.1 * br))
+	_addf(HB.UARM_R, Vector3(0.0, 0.0, -1.1 * br))
+
+
+func hs_idle() -> float:
+	return height_scale
 
 
 func _addb(i: int, v: Vector3) -> void:
